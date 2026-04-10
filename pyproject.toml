@@ -1,0 +1,16 @@
+[project]
+name = "projeto-etl-basico"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10,<3.12"
+dependencies = [
+    "gdal==3.8.4",
+    "pandas>=2.2.2,<3.0.0",
+    "psycopg2-binary>=2.9.11",
+    "pysus==1.0.1",
+    "python-dotenv>=1.2.2",
+    "requests>=2.33.1",
+    "sqlalchemy>=2.0.49",
+]
+
