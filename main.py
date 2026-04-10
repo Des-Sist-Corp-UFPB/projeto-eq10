@@ -1,6 +1,10 @@
-def main():
-    print("Hello from projeto-etl-basico!")
+from pysus.online_data.SIA import SIA
+import pandas as pd
+from datetime import datetime
+from src.extract import extract_data
+
+sia = SIA().load()
 
 
-if __name__ == "__main__":
-    main()
+
+

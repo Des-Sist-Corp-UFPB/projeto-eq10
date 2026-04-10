@@ -8,6 +8,7 @@ dependencies = [
     "gdal==3.8.4",
     "pandas>=2.2.2,<3.0.0",
     "psycopg2-binary>=2.9.11",
+    "pyarrow>=23.0.1",
     "pysus==1.0.1",
     "python-dotenv>=1.2.2",
     "requests>=2.33.1",
