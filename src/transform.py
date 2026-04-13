@@ -28,6 +28,13 @@ dic_rename_columns = {
     "PA_PROC_ID" : "codigo_procedimento"
 }
 
+dicionario_colunas = {
+    "int" : ["frequencia", "quantidade_apresentada", "idade"],
+    "float" : ["valor_aprovado", "valor_apresentado"],
+    "datetime" : ["data"]
+}
+
+
 def transform_remove_columns(file_path) -> pd.DataFrame:
     df = pd.read_parquet(file_path, engine="pyarrow", columns=list_filter_columns)
     return df
@@ -38,12 +45,31 @@ def transform_rename_columns(df) -> pd.DataFrame:
 
 def transform_filter_city(df) -> pd.DataFrame:
     df = df[df["municipio_atendido"].isin(list_filter_cities)]
-    if(len(list_filter_cities) == len(df["municipio_atendido"].unique())):
-        return df
-    
+    return df
+
+
 def transform_filter_units(df) -> pd.DataFrame:
     df = df[df["cnes"].isin(list_units)]
-    if(len(df["cnes"].unique()) <= len(list_units)):
-        return df
+    return df
 
+def transform_fix_types(df):
+    df=df.copy()
+    for k, v in dicionario_colunas.items():
+        if k == "int":
+            for coluna in v:
+                df[coluna] = df[coluna].astype(int)
+        elif k == "float":
+            for coluna in v:
+                df[coluna] = df[coluna].astype(float)
+        elif k == "datetime":
+            for coluna in v:
+                df[coluna] = pd.to_datetime(df[coluna], format="%Y%m")
+    return df
 
+def transform(file_path):
+    df = transform_remove_columns(file_path)
+    df = transform_rename_columns(df)
+    df = transform_filter_city(df)
+    df = transform_filter_units(df)
+    df = transform_fix_types(df)
+    return df

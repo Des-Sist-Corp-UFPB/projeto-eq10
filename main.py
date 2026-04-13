@@ -2,7 +2,7 @@ from pysus.online_data.SIA import SIA
 import pandas as pd
 from datetime import datetime
 from src.extract import extract_data
-from src.transform import transform_remove_columns, transform_rename_columns
+from src.transform import transform
 from pathlib import Path
 
 sia = SIA().load()
@@ -13,9 +13,12 @@ file_path = BASE_DIR / "data" / "sia_datasus.parquet"
 
 
 if __name__ == "__main__":
+    print("Iniciando ETL")
     extract_data(sia)
-    df = transform_remove_columns(file_path)
-    df= transform_rename_columns(df)
+    print("Extração feita com sucesso")
+    df = transform(file_path)
+    df.to_parquet()
+    print("ETL feito com sucesso!")
     print(df.head())
 
 
