@@ -10,14 +10,14 @@ sia = SIA().load()
 
 BASE_DIR = Path(__file__).resolve().parent
 file_path = BASE_DIR / "data" / "sia_datasus.parquet"
-
+file_path_to_save = BASE_DIR / "data"/ "sia_datasus_transformed.parquet"
 
 if __name__ == "__main__":
     print("Iniciando ETL")
     extract_data(sia)
     print("Extração feita com sucesso")
     df = transform(file_path)
-    df.to_parquet(file_path, index=False)
+    df.to_parquet(file_path_to_save, index=False)
     print("ETL feito com sucesso!")
     print(df.head())
 
