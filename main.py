@@ -17,8 +17,9 @@ if __name__ == "__main__":
     extract_data(sia)
     print("Extração feita com sucesso")
     df = transform(file_path)
-    df.to_parquet()
+    df.to_parquet(file_path, index=False)
     print("ETL feito com sucesso!")
     print(df.head())
 
+    
 
