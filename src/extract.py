@@ -8,13 +8,13 @@ from pathlib import Path
 def extract_data(sia) -> Path:
     
     # Obtém a lista de arquivos disponíveis e pega o mais recente (posição 0)
-    ultimo_arquivo = sia.get_files(group="PA", uf="PB", year=2026)[0]
+    ultimo_arquivo = sia.get_files(group="PA", uf="PB", year=2026)[-1]
     
     # Obtém o mês atual do sistema
     mes_atual = datetime.now().month
     
     # Extrai o mês do nome do arquivo (últimos dois dígitos)
-    mes_atual_arquivos = int(ultimo_arquivo.name[-2:])
+    mes_atual_arquivos = int(ultimo_arquivo.name[-1:])
     
     # Cria uma lista de meses de 1 a 12
     lista_meses = [n for n in range(1, 13)]
@@ -23,7 +23,7 @@ def extract_data(sia) -> Path:
     mes_esperado = lista_meses[(mes_atual - 1) - 2]
 
     # Verifica se o mês do arquivo corresponde ao mês esperado
-    if mes_esperado == 2:
+    if mes_esperado == mes_atual_arquivos:
         
         # Mensagem de sucesso indicando que o mês está correto
         print(f"Deu certo, mes atual é {mes_atual} mes do arquivo é {mes_atual_arquivos} e é igual o mês esperado que é {mes_esperado}")
