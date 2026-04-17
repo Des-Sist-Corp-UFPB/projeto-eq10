@@ -8,7 +8,7 @@ from pathlib import Path
 def extract_data(sia) -> Path:
     
     # Obtém a lista de arquivos disponíveis e pega o mais recente (posição -1)
-    ultimo_arquivo = sia.get_files(group="PA", uf="PB", year=2025)[4]
+    ultimo_arquivo = sia.get_files(group="PA", uf="PB", year=2025)[5]
     
     # Obtém o mês atual do sistema
     mes_atual = datetime.now().month

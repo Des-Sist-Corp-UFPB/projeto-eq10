@@ -39,7 +39,10 @@ database = os.getenv('database')
 #host = 'host.docker.internal'
 
 # Define o host como localhost (conexão local)
-host = 'ep-long-queen-acv6qkdg-pooler.sa-east-1.aws.neon.tech'
+user = f"{os.getenv('user')}"
+host = f"{os.getenv('host')}"
+password = f"{os.getenv('password')}"
+database = f"{os.getenv('database')}"
 
 # Função responsável por criar e retornar o engine de conexão com o PostgreSQL
 def get_engine():
