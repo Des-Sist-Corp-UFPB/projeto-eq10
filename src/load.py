@@ -39,7 +39,7 @@ database = os.getenv('database')
 #host = 'host.docker.internal'
 
 # Define o host como localhost (conexão local)
-host = 'localhost'
+host = 'ep-long-queen-acv6qkdg-pooler.sa-east-1.aws.neon.tech'
 
 # Função responsável por criar e retornar o engine de conexão com o PostgreSQL
 def get_engine():
@@ -48,7 +48,7 @@ def get_engine():
     
     # Cria e retorna o engine usando SQLAlchemy
     return create_engine(
-        f"postgresql+psycopg2://{user}:{quote_plus(password)}@{host}:5432/{database}"
+        f"postgresql://{user}:{password}@{host}/{database}?sslmode=require&channel_binding=require"
     )
     
 # Cria o engine chamando a função
