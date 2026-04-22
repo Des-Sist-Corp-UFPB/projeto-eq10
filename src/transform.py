@@ -54,7 +54,7 @@ def transform_fix_types(df):
 
 
 # Função principal que executa toda a pipeline de transformação (ETL - parte de transformação)
-def transform(file_path):
+def transform_datasu(file_path):
     # Leitura e seleção de colunas
     df = transform_remove_columns(file_path)
     
