@@ -6,10 +6,11 @@ import sys
 import os
 
 sys.path.insert(0, '/opt/airflow/src')
+sys.path.insert(0, '/opt/airflow/constants')
 
-from src.extract import extract_data
-from src.load import load_data_sus
-from src.transform import transform_datasus
+from extract import extract_data
+from load import load_data_sus
+from transform import transform_datasus
 from dotenv import load_dotenv
 
 sia = SIA().load()
@@ -27,8 +28,8 @@ load_dotenv(env_path)
         'retry_delay': timedelta(minutes=1),
     },
     description='ETL para dados do Datasus',
-    schedule="0 12-23 25-31 * *",        
-    start_date=datetime(2026, 4, 25),     
+    schedule="0 12-23 20-31 * *",        
+    start_date=datetime(2026, 4, 22),     
     catchup=False,                        
     tags=['datasus', 'etl', 'sia']
 )
@@ -51,3 +52,5 @@ def datasus_etl():
         load_data_sus('data_sus', df)
         
     extract() >> transform() >> load()
+
+datasus_etl()

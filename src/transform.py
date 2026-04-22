@@ -1,7 +1,18 @@
 import pandas as pd
 from pathlib import Path
 import pyarrow
-from constants.constants import LIST_FILTER_CITIES, LIST_FILTER_COLUMNS, DIC_RENAME_COLUMNS, DIC_COLUMNS_TYPE, LIST_UNITS
+import sys
+import os
+
+sys.path.insert(0, '/opt/airflow/constants')
+
+from constants import (
+    LIST_FILTER_CITIES,
+    LIST_FILTER_COLUMNS,
+    DIC_RENAME_COLUMNS,
+    DIC_COLUMNS_TYPE,
+    LIST_UNITS
+)
 
 # Função responsável por ler o arquivo parquet e já selecionar apenas as colunas necessárias
 def transform_remove_columns(file_path) -> pd.DataFrame:
@@ -54,7 +65,7 @@ def transform_fix_types(df):
 
 
 # Função principal que executa toda a pipeline de transformação (ETL - parte de transformação)
-def transform_datasu(file_path):
+def transform_datasus(file_path):
     # Leitura e seleção de colunas
     df = transform_remove_columns(file_path)
     
