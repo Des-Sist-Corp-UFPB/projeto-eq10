@@ -51,7 +51,7 @@ def get_engine():
     
     # Cria e retorna o engine usando SQLAlchemy
     return create_engine(
-        f"postgresql://{user}:{password}@{host}/{database}?sslmode=require&channel_binding=require"
+        f"postgresql://neondb_owner:npg_tXPkbdhwl82v@ep-long-queen-acv6qkdg-pooler.sa-east-1.aws.neon.tech/SIA?sslmode=require&channel_binding=require"
     )
     
 # Cria o engine chamando a função

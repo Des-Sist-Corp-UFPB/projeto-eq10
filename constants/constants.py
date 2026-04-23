@@ -20,20 +20,22 @@ LIST_FILTER_COLUMNS = [
     "PA_MVM", "PA_RACACOR", "PA_IDADE", "PA_CODUNI", "PA_CBOCOD", "PA_PROC_ID"
 ]
 
+		
+
 # Rename
 DIC_RENAME_COLUMNS = {
     "PA_QTDAPR": "frequencia",
     "PA_QTDPRO": "quantidade_apresentada",
     "PA_VALAPR": "valor_aprovado",
     "PA_VALPRO": "valor_apresentado",
-    "PA_UFMUN": "municipio_atendido",
-    "PA_MUNPCN": "municipio_residencia",
+    "PA_UFMUN": "cod_municipio_atendido",
+    "PA_MUNPCN": "cod_municipio_residencia",
     "PA_MVM": "data",
-    "PA_RACACOR": "raca_cor",
+    "PA_RACACOR": "cod_raca_cor",
     "PA_IDADE": "idade",
-    "PA_CODUNI": "cnes",
-    "PA_CBOCOD": "codigo_brasileiro_ocupacao",
-    "PA_PROC_ID": "codigo_procedimento"
+    "PA_CODUNI": "cod_unidade",
+    "PA_CBOCOD": "cod_ocupacao",
+    "PA_PROC_ID": "cod_procedimento"
 }
 
 # Tipagem
