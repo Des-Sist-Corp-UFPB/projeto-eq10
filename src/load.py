@@ -79,3 +79,29 @@ def load_data_sus(table_name:str, df):
     
     # Log mostrando a quantidade total de registros após inserção
     logging.info(f"Total de registros na tabela: {len(df_check)}\n")
+
+def check_data_exists(table_name: str, ano: int, mes: int, date_column: str = 'data') -> bool:
+    #Verifica no banco de dados se já existem registros para o mês e ano alvo.
+    #Retorna True se já existir, False caso contrário.
+    
+    logging.info(f"🔍 Verificando existência de dados para {mes:02d}/{ano} em {table_name}...")
+
+    # Utiliza o SQLAlchemy para fazer uma query segura
+    query = text(f"""
+        SELECT 1 
+        FROM {table_name} 
+        WHERE EXTRACT(YEAR FROM {date_column}) = :ano 
+          AND EXTRACT(MONTH FROM {date_column}) = :mes
+        LIMIT 1
+    """)
+    
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(query, {"ano": ano, "mes": mes}).fetchone()
+        
+        # Se result não for None, significa que o dado já existe
+        return result is not None
+    except Exception as e:
+        logging.error(f"Erro ao verificar existência de dados: {e}")
+        # Em caso de erro (ex: tabela não existe ainda), deixamos passar para não travar a primeira carga
+        return False

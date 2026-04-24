@@ -1,3 +1,4 @@
+from src.utils import get_target_period 
 import pandas as pd
 from pysus.online_data.SIA import SIA
 from datetime import datetime
@@ -15,30 +16,36 @@ logger = logging.getLogger(__name__)
 def extract_data(sia) -> Path:
     try:
         logger.info("Iniciando extração de dados do DataSUS")
+        
+        # 1. Busca dinamicamente o ano e o mês esperado, já tratando virada de ano
+        ano_alvo, mes_esperado = get_target_period(months_delay=2)
 
-        # Busca arquivos disponíveis
-        arquivos = sia.get_files(group="PA", uf="PB", year=2026)
+        # 2. Busca arquivos disponíveis usando o ano alvo calculado
+        arquivos = sia.get_files(group="PA", uf="PB", year=ano_alvo)
+        logger.info(f"Total de arquivos encontrados: {len(arquivos)}")
+
+        # Trava de segurança extra caso o ano tenha virado e o SUS ainda não tenha criado a pasta
+        if not arquivos:
+            logger.warning(f"Nenhum arquivo encontrado no FTP do DataSUS para o ano {ano_alvo}.")
+            return None
+
         logger.info(f"Total de arquivos encontrados: {len(arquivos)}")
 
         # Último arquivo disponível
         ultimo_arquivo = arquivos[-1]
         logger.info(f"Último arquivo identificado: {ultimo_arquivo.name}")
 
-        # Mês atual
-        mes_atual = datetime.now().month
-
-        # Mês do arquivo (ajuste aqui se necessário)
-        mes_ultimo_arquivo = int(ultimo_arquivo.name[-1:])
-
-        # Regra de atraso de 2 meses
-        lista_meses = [n for n in range(1, 13)]
-        mes_esperado = lista_meses[(mes_atual - 1) - 2]
+        # 3. Correção do Bug de Data: Extrai os 2 últimos caracteres ANTES da extensão
+        # Ex: "PAPB2612.dbc" -> pega "12" ao invés de apenas "2"
+        str_mes = Path(ultimo_arquivo.name).stem[-2:]
+        mes_ultimo_arquivo = int(str_mes)
 
         logger.info(
-            f"Validação de mês | Atual: {mes_atual} | Arquivo: {mes_ultimo_arquivo} | Esperado: {mes_esperado}"
+            f"Validação de mês | Arquivo FTP: {mes_ultimo_arquivo:02d} | Esperado: {mes_esperado:02d} | Ano Alvo: {ano_alvo}"
         )
 
-        # 🔥 Regra de controle
+
+        # 4. Regra de controle
         if mes_esperado == mes_ultimo_arquivo:
 
             logger.info("Mês válido — iniciando download")
@@ -63,8 +70,10 @@ def extract_data(sia) -> Path:
 
         else:
             logger.warning(
-                f"Mês inválido — extração não realizada | Atual: {mes_atual} | Arquivo: {mes_ultimo_arquivo} | Esperado: {mes_esperado}"
+                f"Mês inválido — extração não realizada | Arquivo FTP: {mes_ultimo_arquivo:02d} | Esperado: {mes_esperado:02d}"
             )
+            # Retorna None para que o orquestrador (main.py) saiba que deve parar
+            return None
 
     except Exception as e:
         logger.error(f"Erro na extração: {e}", exc_info=True)

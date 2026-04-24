@@ -1,10 +1,12 @@
+import sys
 from pysus.online_data.SIA import SIA
 import pandas as pd
 from datetime import datetime
 from src.extract import extract_data
 from src.transform import transform_datasus
 from pathlib import Path
-from src.load import load_data_sus
+from src.load import check_data_exists, load_data_sus
+from src.utils import get_target_period
 
 import logging
 
@@ -21,10 +23,19 @@ BASE_DIR = Path(__file__).resolve().parent
 file_path = BASE_DIR / "data" / "sia_datasus.parquet"
 file_path_to_save = BASE_DIR / "data" / "sia_datasus_transformed.parquet"
 
-
 if __name__ == "__main__":
     try:
         logger.info("🚀 Iniciando pipeline ETL")
+        
+        # DEFINIÇÃO DO PERÍODO
+        # Toda a lógica complexa de datas agora fica escondida e segura dentro de utils.py
+        ano_alvo, mes_esperado = get_target_period(months_delay=2)
+
+        # FAIL FAST
+        if check_data_exists('data_sus', ano_alvo, mes_esperado):
+            logger.warning(f"🛑 Dados do período {mes_esperado:02d}/{ano_alvo} já constam no banco.")
+            logger.info("🎉 ETL encerrada precocemente para evitar duplicidade.")
+            sys.exit(0) 
 
         # EXTRACT
         logger.info("🔄 Etapa: EXTRACT")
