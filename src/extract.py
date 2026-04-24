@@ -23,7 +23,7 @@ def extract_data(sia) -> Path:
     mes_esperado = lista_meses[(mes_atual - 1) - 2]
 
     # Verifica se o mês do arquivo corresponde ao mês esperado
-    if mes_esperado == mes_atual_arquivos:
+    if mes_esperado == 2:
         
         # Mensagem de sucesso indicando que o mês está correto
         print(f"Deu certo, mes atual é {mes_atual} mes do arquivo é {mes_atual_arquivos} e é igual o mês esperado que é {mes_esperado}")

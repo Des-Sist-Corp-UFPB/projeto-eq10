@@ -4,9 +4,8 @@ import pyarrow
 import sys
 import os
 
-sys.path.insert(0, '/opt/airflow/constants')
 
-from constants import (
+from constants.constants import (
     LIST_FILTER_CITIES,
     LIST_FILTER_COLUMNS,
     DIC_RENAME_COLUMNS,
@@ -28,13 +27,13 @@ def transform_rename_columns(df) -> pd.DataFrame:
 
 # Função para filtrar apenas os municípios desejados
 def transform_filter_city(df) -> pd.DataFrame:
-    df = df[df["municipio_atendido"].isin(LIST_FILTER_CITIES)]
+    df = df[df["cod_municipio_atendido"].isin(LIST_FILTER_CITIES)]
     return df
 
 
 # Função para filtrar apenas as unidades (CNES) desejadas
 def transform_filter_units(df) -> pd.DataFrame:
-    df = df[df["cnes"].isin(LIST_UNITS)]
+    df = df[df["cod_unidade"].isin(LIST_UNITS)]
     return df
 
 

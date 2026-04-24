@@ -32,6 +32,9 @@ user = os.getenv('user')
 # Obtém a senha do banco a partir das variáveis de ambiente
 password = os.getenv('password')
 
+# Obtém o host do banco a partir das variáveis de ambiente
+host = os.getenv('host')
+
 # Obtém o nome do banco de dados
 database = os.getenv('database')
 
@@ -51,7 +54,7 @@ def get_engine():
     
     # Cria e retorna o engine usando SQLAlchemy
     return create_engine(
-        f"postgresql://neondb_owner:npg_tXPkbdhwl82v@ep-long-queen-acv6qkdg-pooler.sa-east-1.aws.neon.tech/SIA?sslmode=require&channel_binding=require"
+        f"postgresql://{user}:{password}@{host}/{database}?sslmode=require&channel_binding=require"
     )
     
 # Cria o engine chamando a função
