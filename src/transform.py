@@ -4,6 +4,15 @@ import pyarrow
 import sys
 import os
 
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+
+logger = logging.getLogger(__name__)
+
 
 from constants.constants import (
     LIST_FILTER_CITIES,
@@ -15,70 +24,77 @@ from constants.constants import (
 
 # Função responsável por ler o arquivo parquet e já selecionar apenas as colunas necessárias
 def transform_remove_columns(file_path) -> pd.DataFrame:
+    logger.info(f"Lendo arquivo: {file_path}")
+    
     df = pd.read_parquet(file_path, engine="pyarrow", columns=LIST_FILTER_COLUMNS)
+    
+    logger.info(f"Arquivo lido com sucesso | Linhas: {len(df)} | Colunas: {len(df.columns)}")
+    
     return df
 
 
 # Função responsável por renomear as colunas do DataFrame
 def transform_rename_columns(df) -> pd.DataFrame:
-    df = df.rename(columns=DIC_RENAME_COLUMNS)
-    return df
+    logger.info("Renomeando colunas")
+    return df.rename(columns=DIC_RENAME_COLUMNS)
 
 
 # Função para filtrar apenas os municípios desejados
 def transform_filter_city(df) -> pd.DataFrame:
+    before = len(df)
+    
     df = df[df["cod_municipio_atendido"].isin(LIST_FILTER_CITIES)]
+    
+    after = len(df)
+    logger.info(f"Filtro cidades aplicado | Antes: {before} | Depois: {after}")
+    
     return df
-
 
 # Função para filtrar apenas as unidades (CNES) desejadas
 def transform_filter_units(df) -> pd.DataFrame:
+    before = len(df)
+    
     df = df[df["cod_unidade"].isin(LIST_UNITS)]
+    
+    after = len(df)
+    logger.info(f"Filtro unidades aplicado | Antes: {before} | Depois: {after}")
+    
     return df
-
 
 # Função para corrigir os tipos das colunas conforme definido no dicionário
 def transform_fix_types(df):
-    # Cria uma cópia do DataFrame para evitar problemas de SettingWithCopyWarning
+    logger.info("Ajustando tipos de dados")
+    
     df = df.copy()
     
-    # Itera sobre o dicionário de tipos
     for k, v in DIC_COLUMNS_TYPE.items():
-        
-        # Conversão para inteiro
         if k == "int":
             for coluna in v:
                 df[coluna] = df[coluna].astype(int)
         
-        # Conversão para float
         elif k == "float":
             for coluna in v:
                 df[coluna] = df[coluna].astype(float)
         
-        # Conversão para datetime (formato YYYYMM → vira YYYY-MM-01)
         elif k == "datetime":
             for coluna in v:
                 df[coluna] = pd.to_datetime(df[coluna], format="%Y%m")
+    
+    logger.info("Tipos ajustados com sucesso")
     
     return df
 
 
 # Função principal que executa toda a pipeline de transformação (ETL - parte de transformação)
 def transform_datasus(file_path):
-    # Leitura e seleção de colunas
+    logger.info("Iniciando transformação de dados")
+
     df = transform_remove_columns(file_path)
-    
-    # Renomeação das colunas
     df = transform_rename_columns(df)
-    
-    # Filtro por municípios
     df = transform_filter_city(df)
-    
-    # Filtro por unidades (CNES)
     df = transform_filter_units(df)
-    
-    # Ajuste dos tipos de dados
     df = transform_fix_types(df)
-    
-    # Retorna o DataFrame final tratado
+
+    logger.info(f"Transformação finalizada | Linhas finais: {len(df)}")
+
     return df
