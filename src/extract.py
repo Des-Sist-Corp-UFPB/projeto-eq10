@@ -28,18 +28,18 @@ def extract_data(sia) -> Path:
         mes_atual = datetime.now().month
 
         # Mês do arquivo (ajuste aqui se necessário)
-        mes_atual_arquivos = int(ultimo_arquivo.name[-1:])
+        mes_ultimo_arquivo = int(ultimo_arquivo.name[-1:])
 
         # Regra de atraso de 2 meses
         lista_meses = [n for n in range(1, 13)]
         mes_esperado = lista_meses[(mes_atual - 1) - 2]
 
         logger.info(
-            f"Validação de mês | Atual: {mes_atual} | Arquivo: {mes_atual_arquivos} | Esperado: {mes_esperado}"
+            f"Validação de mês | Atual: {mes_atual} | Arquivo: {mes_ultimo_arquivo} | Esperado: {mes_esperado}"
         )
 
         # 🔥 Regra de controle
-        if mes_esperado == 2:
+        if mes_esperado == mes_ultimo_arquivo:
 
             logger.info("Mês válido — iniciando download")
 
@@ -63,7 +63,7 @@ def extract_data(sia) -> Path:
 
         else:
             logger.warning(
-                f"Mês inválido — extração não realizada | Atual: {mes_atual} | Arquivo: {mes_atual_arquivos} | Esperado: {mes_esperado}"
+                f"Mês inválido — extração não realizada | Atual: {mes_atual} | Arquivo: {mes_ultimo_arquivo} | Esperado: {mes_esperado}"
             )
 
     except Exception as e:

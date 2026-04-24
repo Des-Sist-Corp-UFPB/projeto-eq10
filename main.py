@@ -6,21 +6,51 @@ from src.transform import transform_datasus
 from pathlib import Path
 from src.load import load_data_sus
 
-sia = SIA().load()
+import logging
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
+
+logger = logging.getLogger(__name__)
+
+sia = SIA().load()
 
 BASE_DIR = Path(__file__).resolve().parent
 file_path = BASE_DIR / "data" / "sia_datasus.parquet"
-file_path_to_save = BASE_DIR / "data"/ "sia_datasus_transformed.parquet"
+file_path_to_save = BASE_DIR / "data" / "sia_datasus_transformed.parquet"
+
 
 if __name__ == "__main__":
-    print("Iniciando ETL")
-    extract_data(sia)
-    print("Extração feita com sucesso")
-    df = transform_datasus(file_path)
-    df.to_parquet(file_path_to_save, index=False)
-    df = pd.read_parquet(file_path_to_save, engine = "pyarrow")
-    load_data_sus('data_sus', df)
-    print("ETL feito com sucesso!")
+    try:
+        logger.info("🚀 Iniciando pipeline ETL")
 
+        # EXTRACT
+        logger.info("🔄 Etapa: EXTRACT")
+        extract_data(sia)
+        logger.info("✅ Extração concluída")
 
+        # TRANSFORM
+        logger.info("🔄 Etapa: TRANSFORM")
+        df = transform_datasus(file_path)
+        logger.info(f"✅ Transformação concluída | Linhas: {len(df)}")
+
+        # SAVE INTERMEDIÁRIO
+        df.to_parquet(file_path_to_save, index=False)
+        logger.info(f"💾 Dados transformados salvos em: {file_path_to_save}")
+
+        # (opcional) leitura novamente
+        df = pd.read_parquet(file_path_to_save, engine="pyarrow")
+        logger.info("📥 Releitura do arquivo transformado concluída")
+
+        # LOAD
+        logger.info("🔄 Etapa: LOAD")
+        load_data_sus('data_sus', df)
+        logger.info("✅ Carga finalizada com sucesso")
+
+        logger.info("🎉 Pipeline ETL finalizado com sucesso!")
+
+    except Exception as e:
+        logger.error(f"❌ Erro no pipeline: {e}", exc_info=True)
+        raise
