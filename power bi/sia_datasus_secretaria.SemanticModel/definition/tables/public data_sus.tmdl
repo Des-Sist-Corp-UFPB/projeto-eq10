@@ -1,0 +1,120 @@
+table 'public data_sus'
+	lineageTag: 801bab34-095f-4ecd-8875-9d1d010c47f3
+
+	column frequencia
+		dataType: int64
+		formatString: 0
+		lineageTag: 876e42c1-8521-48e1-ae1b-882382f55d12
+		summarizeBy: sum
+		sourceColumn: frequencia
+
+		annotation SummarizationSetBy = Automatic
+
+	column quantidade_apresentada
+		dataType: int64
+		formatString: 0
+		lineageTag: a2c1af0d-85db-45d6-b602-c08c1ebc2816
+		summarizeBy: sum
+		sourceColumn: quantidade_apresentada
+
+		annotation SummarizationSetBy = Automatic
+
+	column valor_aprovado
+		dataType: double
+		lineageTag: 0ce45ef7-2122-4d74-9720-d68ad99f05c7
+		summarizeBy: sum
+		sourceColumn: valor_aprovado
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column valor_apresentado
+		dataType: double
+		lineageTag: f1b35e1a-3647-475e-b22e-1222948fb68d
+		summarizeBy: sum
+		sourceColumn: valor_apresentado
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column data
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 4c8a324c-8f57-433b-b723-5f9394614940
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation SummarizationSetBy = Automatic
+
+	column idade
+		dataType: int64
+		formatString: 0
+		lineageTag: 99261087-bc3a-4879-9574-9d88ffea3ead
+		summarizeBy: sum
+		sourceColumn: idade
+
+		annotation SummarizationSetBy = Automatic
+
+	column cod_raca_cor
+		dataType: string
+		lineageTag: 5772c5fa-6486-4422-b27d-778bea183e95
+		summarizeBy: none
+		sourceColumn: cod_raca_cor
+
+		annotation SummarizationSetBy = Automatic
+
+	column cod_unidade
+		dataType: string
+		lineageTag: dad698e2-6553-4afa-bc2a-600bdc6bf609
+		summarizeBy: none
+		sourceColumn: cod_unidade
+
+		annotation SummarizationSetBy = Automatic
+
+	column cod_ocupacao
+		dataType: string
+		lineageTag: 8716f0d0-365a-4736-a96f-42efdfd75142
+		summarizeBy: none
+		sourceColumn: cod_ocupacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column cod_procedimento
+		dataType: string
+		lineageTag: 2c804b77-0646-4a95-af7c-42a2e0da2bcd
+		summarizeBy: none
+		sourceColumn: cod_procedimento
+
+		annotation SummarizationSetBy = Automatic
+
+	column cod_municipio_atendido
+		dataType: string
+		lineageTag: 133640d8-26e0-4687-8def-41bcc8689676
+		summarizeBy: none
+		sourceColumn: cod_municipio_atendido
+
+		annotation SummarizationSetBy = Automatic
+
+	column cod_municipio_residencia
+		dataType: string
+		lineageTag: 6c912a55-a5be-4ccf-b5d2-6c8c37681055
+		summarizeBy: none
+		sourceColumn: cod_municipio_residencia
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'public data_sus' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("ep-long-queen-acv6qkdg-pooler.sa-east-1.aws.neon.tech", "SIA"),
+				    public_data_sus = Fonte{[Schema="public",Item="data_sus"]}[Data]
+				in
+				    public_data_sus
+
+	annotation PBI_ResultType = Table
+
+	annotation PBI_NavigationStepName = Navegação
+

@@ -1,0 +1,33 @@
+relationship b8738e43-3778-2465-8501-6076a420a6e4
+	fromColumn: 'public data_sus'.cod_raca_cor
+	toColumn: 'public dim_raca_cor'.codigo
+
+relationship 4b112af8-06e8-5907-8625-c5fcaf0c635a
+	fromColumn: 'public data_sus'.cod_unidade
+	toColumn: 'public dim_unidade'.codigo
+
+relationship b769a73f-e42b-14b0-43d4-10cfc29e85e6
+	fromColumn: 'public data_sus'.cod_ocupacao
+	toColumn: 'public dim_ocupacao'.codigo
+
+relationship 0483fcdc-5406-c72b-69ed-2ad963375b48
+	fromColumn: 'public data_sus'.cod_procedimento
+	toColumn: 'public dim_procedimento'.codigo
+
+relationship 909950b1-93a0-20fe-ee93-7c2391f7136c
+	fromColumn: 'public data_sus'.cod_municipio_atendido
+	toColumn: 'public dim_municipio_atendimento'.codigo
+
+relationship 1f4eb053-2a1f-f4c0-84f0-9f54d92f2143
+	fromColumn: 'public data_sus'.cod_municipio_residencia
+	toColumn: 'public dim_municipio_residencia'.codigo
+
+relationship 805cfeb9-ea21-45de-b352-4dca803178b1
+	joinOnDateBehavior: datePartOnly
+	fromColumn: dim_calendario.Date
+	toColumn: LocalDateTable_7fd4cc14-fa39-4cb5-8bf1-c3c9e5ed2088.Date
+
+relationship 2bd10c60-194f-b609-0367-3f202ed0fd76
+	fromColumn: 'public data_sus'.data
+	toColumn: dim_calendario.Date
+

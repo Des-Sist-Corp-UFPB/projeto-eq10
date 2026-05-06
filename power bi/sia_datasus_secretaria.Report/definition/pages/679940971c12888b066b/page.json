@@ -1,0 +1,10 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
+  "name": "679940971c12888b066b",
+  "displayName": "DC_graf_linha_VP",
+  "displayOption": "ActualSize",
+  "height": 300,
+  "width": 320,
+  "visibility": "HiddenInViewMode",
+  "type": "Tooltip"
+}

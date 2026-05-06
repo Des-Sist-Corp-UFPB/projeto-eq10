@@ -1,0 +1,32 @@
+table 'public dim_municipio_residencia'
+	lineageTag: 6378c0cb-f396-4721-b9e4-095685e9b62a
+
+	column codigo
+		dataType: string
+		lineageTag: 90d55a47-b3d7-456e-a007-aa4db44ccbc8
+		summarizeBy: none
+		sourceColumn: codigo
+
+		annotation SummarizationSetBy = Automatic
+
+	column municipio
+		dataType: string
+		lineageTag: be3084f3-8aab-4417-8486-83edd6f96720
+		summarizeBy: none
+		sourceColumn: municipio
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'public dim_municipio_residencia' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("ep-long-queen-acv6qkdg-pooler.sa-east-1.aws.neon.tech", "SIA"),
+				    public_dim_municipio_residencia = Fonte{[Schema="public",Item="dim_municipio_residencia"]}[Data]
+				in
+				    public_dim_municipio_residencia
+
+	annotation PBI_NavigationStepName = Navegação
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,106 @@
+table dim_calendario
+	lineageTag: 5779412c-cb81-487f-892a-a14abf6c96d7
+
+	column Date
+		formatString: General Date
+		lineageTag: c57296d8-6931-419b-a4a8-f08df99ce811
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Date]
+
+		variation Variation
+			isDefault
+			relationship: 805cfeb9-ea21-45de-b352-4dca803178b1
+			defaultHierarchy: LocalDateTable_7fd4cc14-fa39-4cb5-8bf1-c3c9e5ed2088.'Hierarquia de datas'
+
+		annotation SummarizationSetBy = Automatic
+
+	column Ano
+		formatString: 0
+		lineageTag: 714fafde-ac03-4ca2-9fcb-72133c739a3f
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Ano]
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Mês Num'
+		formatString: 0
+		lineageTag: 88c44150-5735-43c5-af71-24feece1ac46
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Mês Num]
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Mês Nome'
+		lineageTag: bc8ea096-147b-48eb-8091-b5e60d064659
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Mês Nome]
+		sortByColumn: 'Mês Num'
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Mês Abrev'
+		lineageTag: 624ad263-e995-4ad6-85d8-70effcd0b861
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Mês Abrev]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Trimestre
+		lineageTag: e370db18-625b-4997-9578-88693751c478
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Trimestre]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Ano-Mês
+		lineageTag: 4bc9001d-edba-4856-8ec9-5eedcc40a7cb
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Ano-Mês]
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Dia da Semana'
+		formatString: 0
+		lineageTag: 5d26f14d-474a-4070-be5c-ef5c6927aab3
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Dia da Semana]
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Nome do Dia'
+		lineageTag: d12118b6-d3b6-4d85-8647-26476d034668
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Nome do Dia]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_calendario = calculated
+		mode: import
+		source =
+				
+				VAR DataMinima = MIN('public data_sus'[data])
+				VAR DataMaxima = MAX('public data_sus'[data])
+				RETURN
+				ADDCOLUMNS (
+				    CALENDAR(DataMinima, DataMaxima),
+				    "Ano", YEAR([Date]),
+				    "Mês Num", MONTH([Date]),
+				    "Mês Nome", FORMAT([Date], "MMMM"),
+				    "Mês Abrev", FORMAT([Date], "MMM"),
+				    "Trimestre", "T" & QUARTER([Date]),
+				    "Ano-Mês", FORMAT([Date], "YYYY-MM"),
+				    "Dia da Semana", WEEKDAY([Date], 2),
+				    "Nome do Dia", FORMAT([Date], "dddd")
+				)
+
+	annotation PBI_Id = 1343fa470e4f473dad5119bcbed186a3
+

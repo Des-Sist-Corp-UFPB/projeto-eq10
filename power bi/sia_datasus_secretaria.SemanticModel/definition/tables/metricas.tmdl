@@ -1,0 +1,762 @@
+table metricas
+	lineageTag: 3db7527b-43a2-4209-b855-28cceac5b509
+
+	measure total_frequencia = sum('public data_sus'[frequencia])
+		lineageTag: ad1a8859-f402-49b8-b583-4d0b7a4df534
+
+		formatStringDefinition = ```
+				var medida = SELECTEDMEASURE()
+				var formato = SWITCH(
+				    TRUE(),
+				    medida >= 1000000, "#,,. Mi",
+				    medida >=1000, "#,. Mil",
+				    "#."
+				)
+				return 
+				formato
+				```
+
+	measure total_valor_aprovado = sum('public data_sus'[valor_aprovado])
+		lineageTag: d1264167-660c-4352-9b20-d98e6c78258d
+
+		formatStringDefinition = ```
+				var medida = SELECTEDMEASURE()
+				var formato = SWITCH(
+				    TRUE(),
+				    medida >= 1000000, "R$#,,.0 Mi",
+				    medida >=1000, "R$#,.0 Mil",
+				    "R$#.0"
+				)
+				return 
+				formato
+				```
+
+	measure total_valor_apresentado = sum('public data_sus'[valor_apresentado])
+		lineageTag: 3ca042c7-5e30-4cca-b2ba-52b727e33a06
+
+		formatStringDefinition = ```
+				var medida = SELECTEDMEASURE()
+				var formato = SWITCH(
+				    TRUE(),
+				    medida >= 1000000, "R$#,,.0 Mi",
+				    medida >=1000, "R$#,.0 Mil",
+				    "R$#.0"
+				)
+				return 
+				formato
+				```
+
+	measure total_quantidade_apresentada = sum('public data_sus'[quantidade_apresentada])
+		lineageTag: f3f172b8-46fa-423d-9fbc-6a5104a4ef7c
+
+		formatStringDefinition = ```
+				var medida = SELECTEDMEASURE()
+				var formato = SWITCH(
+				    TRUE(),
+				    medida >= 1000000, "#,,. Mi",
+				    medida >=1000, "#,. Mil",
+				    "#."
+				)
+				return 
+				formato
+				```
+
+	measure titulo_VP_mes_dinamico =
+			
+			var valor = SELECTEDMEASURE()
+			var mes = SELECTEDVALUE(dim_calendario[Date].[Mês])
+			var titulo = "Total do mes " & mes & ": " & valor
+			return titulo
+		lineageTag: a9e409d8-e204-4f68-a3b0-4374d4230541
+
+	measure total_VP_YOY = ```
+			
+			-- Calcula o valor do mesmo período no ano anterior (Last Year)
+			-- Usa SAMEPERIODLASTYEAR respeitando o contexto atual de datas
+			VAR total_ly = 
+			    CALCULATE(
+			        [total_valor_aprovado],
+			        SAMEPERIODLASTYEAR(dim_calendario[Date])
+			    )
+			
+			-- Calcula o valor atual
+			VAR valor_atual = 
+			    IF(
+			        -- Se NÃO houver filtro de ano (caso do TOTAL)
+			        SELECTEDVALUE('dim_calendario'[Ano]) = BLANK(),
+			
+			        -- Força pegar apenas o último ano disponível (evita somar anos históricos)
+			        CALCULATE(
+			            [total_valor_aprovado],
+			            dim_calendario[Ano] = MAX('dim_calendario'[Ano])
+			        ),
+			
+			        -- Caso tenha filtro de ano, usa o valor normalmente
+			        [total_valor_aprovado]
+			    )
+			var YOY = DIVIDE(valor_atual - total_ly, total_ly)
+			var _format = FORMAT(YOY, "↑0.00% ; ↓0.00%")
+			 
+			-- Retorna o cálculo de crescimento YoY
+			RETURN 
+			_format
+			```
+		displayFolder: Cards
+		lineageTag: 529b0c28-fc55-4db1-8597-9b2b5803ed30
+
+	measure total_VP_MOM = ```
+			
+			
+			-- Pega o ano mais recente disponível no contexto (ou no total)
+			VAR AnoAtual = MAX('dim_calendario'[Ano])
+			
+			-- Dentro do AnoAtual, pega o último mês disponível (evita misturar meses de outros anos)
+			VAR MesAtual =
+			    CALCULATE(
+			        MAX('dim_calendario'[Mês Num]),
+			        'dim_calendario'[Ano] = AnoAtual
+			    )
+			
+			-- Define o mês anterior com tratamento de virada de ano (Jan → Dez)
+			VAR MesAnterior =
+			    IF(MesAtual = 1, 12, MesAtual - 1)
+			
+			-- Define o ano do mês anterior (se Jan, volta um ano)
+			VAR AnoAnterior =
+			    IF(MesAtual = 1, AnoAtual - 1, AnoAtual)
+			
+			-- Calcula o valor do mês anterior (LM = Last Month)
+			VAR total_lm =
+			    IF(
+			        -- Se NÃO há filtro de ano nem mês (caso de TOTAL do visual)
+			        AND(
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Ano])),
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Mês Nome]))
+			        ),
+			        -- Calcula manualmente o mês anterior com base no último período disponível
+			        CALCULATE(
+			            [total_valor_aprovado],
+			            'dim_calendario'[Ano] = AnoAnterior,
+			            'dim_calendario'[Mês Num] = MesAnterior
+			        ),
+			        -- Caso haja filtro (linha, gráfico, etc), usa o comportamento padrão de time intelligence
+			        CALCULATE(
+			            [total_valor_aprovado],
+			            DATEADD(dim_calendario[Date], -1, MONTH)
+			        )
+			    )
+			
+			-- Calcula o valor atual
+			VAR valor_atual =
+			    IF(
+			        -- Se NÃO há filtro de ano nem mês (caso de TOTAL)
+			        AND(
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Ano])),
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Mês Nome]))
+			        ),
+			        -- Força pegar apenas o último mês disponível do último ano
+			        CALCULATE(
+			            [total_valor_aprovado],
+			            'dim_calendario'[Ano] = AnoAtual,
+			            'dim_calendario'[Mês Num] = MesAtual
+			        ),
+			        -- Caso normal (com filtro), usa a medida padrão
+			        [total_valor_aprovado]
+			    )
+			
+			-- Retorna o cálculo de crescimento mês contra mês (MoM)
+			var MOM = DIVIDE(valor_atual - total_lm, total_lm)
+			var _format = FORMAT(MOM, "↑0.00% ; ↓0.00%")
+			RETURN 
+			_format
+			
+			```
+		displayFolder: Cards
+		lineageTag: 63fbb42f-59c6-4343-98ca-3ce340c2ee22
+
+	measure total_VP_Card =
+			
+			var medida = [total_valor_aprovado]
+			var formato = SWITCH(
+			    TRUE(),
+			    medida >= 1000000, FORMAT(medida, "R$#,,.0 Mi"),
+			    medida >= 1000, FORMAT(medida,"R$#,.0 Mil"),
+			    FORMAT(medida,"R$#.0")
+			)
+			return formato
+		displayFolder: Cards
+		lineageTag: de8dd9d4-9984-489c-95ff-f1c6ce36e6bf
+
+	measure total_VAP_Card =
+			
+			var medida = [total_valor_apresentado]
+			var formato = SWITCH(
+			    TRUE(),
+			    medida >= 1000000, FORMAT(medida, "R$#,,.0 Mi"),
+			    medida >= 1000, FORMAT(medida,"R$#,.0 Mil"),
+			    FORMAT(medida,"R$#.0")
+			)
+			return formato
+		displayFolder: Cards
+		lineageTag: 60685a70-9a7a-4590-aa46-572d2e533183
+
+	measure total_VAP_MOM = ```
+			
+			
+			-- Pega o ano mais recente disponível no contexto (ou no total)
+			VAR AnoAtual = MAX('dim_calendario'[Ano])
+			
+			-- Dentro do AnoAtual, pega o último mês disponível (evita misturar meses de outros anos)
+			VAR MesAtual =
+			    CALCULATE(
+			        MAX('dim_calendario'[Mês Num]),
+			        'dim_calendario'[Ano] = AnoAtual
+			    )
+			
+			-- Define o mês anterior com tratamento de virada de ano (Jan → Dez)
+			VAR MesAnterior =
+			    IF(MesAtual = 1, 12, MesAtual - 1)
+			
+			-- Define o ano do mês anterior (se Jan, volta um ano)
+			VAR AnoAnterior =
+			    IF(MesAtual = 1, AnoAtual - 1, AnoAtual)
+			
+			-- Calcula o valor do mês anterior (LM = Last Month)
+			VAR total_lm =
+			    IF(
+			        -- Se NÃO há filtro de ano nem mês (caso de TOTAL do visual)
+			        AND(
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Ano])),
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Mês Nome]))
+			        ),
+			        -- Calcula manualmente o mês anterior com base no último período disponível
+			        CALCULATE(
+			            [total_valor_apresentado],
+			            'dim_calendario'[Ano] = AnoAnterior,
+			            'dim_calendario'[Mês Num] = MesAnterior
+			        ),
+			        -- Caso haja filtro (linha, gráfico, etc), usa o comportamento padrão de time intelligence
+			        CALCULATE(
+			            [total_valor_apresentado],
+			            DATEADD(dim_calendario[Date], -1, MONTH)
+			        )
+			    )
+			
+			-- Calcula o valor atual
+			VAR valor_atual =
+			    IF(
+			        -- Se NÃO há filtro de ano nem mês (caso de TOTAL)
+			        AND(
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Ano])),
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Mês Nome]))
+			        ),
+			        -- Força pegar apenas o último mês disponível do último ano
+			        CALCULATE(
+			            [total_valor_apresentado],
+			            'dim_calendario'[Ano] = AnoAtual,
+			            'dim_calendario'[Mês Num] = MesAtual
+			        ),
+			        -- Caso normal (com filtro), usa a medida padrão
+			        [total_valor_apresentado]
+			    )
+			
+			-- Retorna o cálculo de crescimento mês contra mês (MoM)
+			var MOM = DIVIDE(valor_atual - total_lm, total_lm)
+			var _format = FORMAT(MOM, "↑0.00% ; ↓0.00%")
+			RETURN 
+			_format
+			```
+		displayFolder: Cards
+		lineageTag: 0c335af7-f2d4-401c-b3dd-c1aa7dcf9dd9
+
+	measure total_VAP_YOY = ```
+			
+			-- Calcula o valor do mesmo período no ano anterior (Last Year)
+			-- Usa SAMEPERIODLASTYEAR respeitando o contexto atual de datas
+			VAR total_ly = 
+			    CALCULATE(
+			        [total_valor_apresentado],
+			        SAMEPERIODLASTYEAR(dim_calendario[Date])
+			    )
+			
+			-- Calcula o valor atual
+			VAR valor_atual = 
+			    IF(
+			        -- Se NÃO houver filtro de ano (caso do TOTAL)
+			        SELECTEDVALUE('dim_calendario'[Ano]) = BLANK(),
+			
+			        -- Força pegar apenas o último ano disponível (evita somar anos históricos)
+			        CALCULATE(
+			            [total_valor_apresentado],
+			            dim_calendario[Ano] = MAX('dim_calendario'[Ano])
+			        ),
+			
+			        -- Caso tenha filtro de ano, usa o valor normalmente
+			        [total_valor_apresentado]
+			    )
+			var YOY = DIVIDE(valor_atual - total_ly, total_ly)
+			var _format = FORMAT(YOY, "↑0.00% ; ↓0.00%")
+			 
+			-- Retorna o cálculo de crescimento YoY
+			RETURN 
+			_format
+			```
+		displayFolder: Cards
+		lineageTag: 042a001a-f409-4924-a978-dbdef4216901
+
+	measure total_FRE_Card =
+			
+			var medida = [total_frequencia]
+			var formato = SWITCH(
+			    TRUE(),
+			    medida >= 1000000, FORMAT(medida, "R$#,,.0 Mi"),
+			    medida >= 1000, FORMAT(medida,"R$#,.0 Mil"),
+			    FORMAT(medida,"R$#.0")
+			)
+			return formato
+		displayFolder: Cards
+		lineageTag: 874ad424-ca50-4857-a1c8-b45d7646ce2b
+
+	measure total_FRE_MOM = ```
+			
+			
+			-- Pega o ano mais recente disponível no contexto (ou no total)
+			VAR AnoAtual = MAX('dim_calendario'[Ano])
+			
+			-- Dentro do AnoAtual, pega o último mês disponível (evita misturar meses de outros anos)
+			VAR MesAtual =
+			    CALCULATE(
+			        MAX('dim_calendario'[Mês Num]),
+			        'dim_calendario'[Ano] = AnoAtual
+			    )
+			
+			-- Define o mês anterior com tratamento de virada de ano (Jan → Dez)
+			VAR MesAnterior =
+			    IF(MesAtual = 1, 12, MesAtual - 1)
+			
+			-- Define o ano do mês anterior (se Jan, volta um ano)
+			VAR AnoAnterior =
+			    IF(MesAtual = 1, AnoAtual - 1, AnoAtual)
+			
+			-- Calcula o valor do mês anterior (LM = Last Month)
+			VAR total_lm =
+			    IF(
+			        -- Se NÃO há filtro de ano nem mês (caso de TOTAL do visual)
+			        AND(
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Ano])),
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Mês Nome]))
+			        ),
+			        -- Calcula manualmente o mês anterior com base no último período disponível
+			        CALCULATE(
+			            [total_frequencia],
+			            'dim_calendario'[Ano] = AnoAnterior,
+			            'dim_calendario'[Mês Num] = MesAnterior
+			        ),
+			        -- Caso haja filtro (linha, gráfico, etc), usa o comportamento padrão de time intelligence
+			        CALCULATE(
+			            [total_frequencia],
+			            DATEADD(dim_calendario[Date], -1, MONTH)
+			        )
+			    )
+			
+			-- Calcula o valor atual
+			VAR valor_atual =
+			    IF(
+			        -- Se NÃO há filtro de ano nem mês (caso de TOTAL)
+			        AND(
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Ano])),
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Mês Nome]))
+			        ),
+			        -- Força pegar apenas o último mês disponível do último ano
+			        CALCULATE(
+			            [total_frequencia],
+			            'dim_calendario'[Ano] = AnoAtual,
+			            'dim_calendario'[Mês Num] = MesAtual
+			        ),
+			        -- Caso normal (com filtro), usa a medida padrão
+			        [total_frequencia]
+			    )
+			
+			-- Retorna o cálculo de crescimento mês contra mês (MoM)
+			var MOM = DIVIDE(valor_atual - total_lm, total_lm)
+			var _format = FORMAT(MOM, "↑0.00% ; ↓0.00%")
+			RETURN 
+			_format
+			
+			```
+		displayFolder: Cards
+		lineageTag: f09cb111-7933-4ed3-a7a2-6b3262efe7bc
+
+	measure total_FRE_YOY = ```
+			
+			-- Calcula o valor do mesmo período no ano anterior (Last Year)
+			-- Usa SAMEPERIODLASTYEAR respeitando o contexto atual de datas
+			VAR total_ly = 
+			    CALCULATE(
+			        [total_frequencia],
+			        SAMEPERIODLASTYEAR(dim_calendario[Date])
+			    )
+			
+			-- Calcula o valor atual
+			VAR valor_atual = 
+			    IF(
+			        -- Se NÃO houver filtro de ano (caso do TOTAL)
+			        SELECTEDVALUE('dim_calendario'[Ano]) = BLANK(),
+			
+			        -- Força pegar apenas o último ano disponível (evita somar anos históricos)
+			        CALCULATE(
+			            [total_frequencia],
+			            dim_calendario[Ano] = MAX('dim_calendario'[Ano])
+			        ),
+			
+			        -- Caso tenha filtro de ano, usa o valor normalmente
+			        [total_frequencia]
+			    )
+			var YOY = DIVIDE(valor_atual - total_ly, total_ly)
+			var _format = FORMAT(YOY, "↑0.00% ; ↓0.00%")
+			 
+			-- Retorna o cálculo de crescimento YoY
+			RETURN 
+			_format
+			```
+		displayFolder: Cards
+		lineageTag: 279f8fd9-2588-45b5-8fcf-2f8b1649a541
+
+	measure total_QAP_card =
+			
+			var medida = [total_quantidade_apresentada]
+			var formato = SWITCH(
+			    TRUE(),
+			    medida >= 1000000, FORMAT(medida, "R$#,, Mi"),
+			    medida >= 1000, FORMAT(medida,"R$#, Mil"),
+			    FORMAT(medida,"R$#")
+			)
+			return formato
+		displayFolder: Cards
+		lineageTag: e081c2ce-5182-402e-988b-46be54503ae7
+
+	measure total_QAP_MOM = ```
+			
+			
+			-- Pega o ano mais recente disponível no contexto (ou no total)
+			VAR AnoAtual = MAX('dim_calendario'[Ano])
+			
+			-- Dentro do AnoAtual, pega o último mês disponível (evita misturar meses de outros anos)
+			VAR MesAtual =
+			    CALCULATE(
+			        MAX('dim_calendario'[Mês Num]),
+			        'dim_calendario'[Ano] = AnoAtual
+			    )
+			
+			-- Define o mês anterior com tratamento de virada de ano (Jan → Dez)
+			VAR MesAnterior =
+			    IF(MesAtual = 1, 12, MesAtual - 1)
+			
+			-- Define o ano do mês anterior (se Jan, volta um ano)
+			VAR AnoAnterior =
+			    IF(MesAtual = 1, AnoAtual - 1, AnoAtual)
+			
+			-- Calcula o valor do mês anterior (LM = Last Month)
+			VAR total_lm =
+			    IF(
+			        -- Se NÃO há filtro de ano nem mês (caso de TOTAL do visual)
+			        AND(
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Ano])),
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Mês Nome]))
+			        ),
+			        -- Calcula manualmente o mês anterior com base no último período disponível
+			        CALCULATE(
+			            [total_quantidade_apresentada],
+			            'dim_calendario'[Ano] = AnoAnterior,
+			            'dim_calendario'[Mês Num] = MesAnterior
+			        ),
+			        -- Caso haja filtro (linha, gráfico, etc), usa o comportamento padrão de time intelligence
+			        CALCULATE(
+			            [total_quantidade_apresentada],
+			            DATEADD(dim_calendario[Date], -1, MONTH)
+			        )
+			    )
+			
+			-- Calcula o valor atual
+			VAR valor_atual =
+			    IF(
+			        -- Se NÃO há filtro de ano nem mês (caso de TOTAL)
+			        AND(
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Ano])),
+			            ISBLANK(SELECTEDVALUE(dim_calendario[Mês Nome]))
+			        ),
+			        -- Força pegar apenas o último mês disponível do último ano
+			        CALCULATE(
+			            [total_quantidade_apresentada],
+			            'dim_calendario'[Ano] = AnoAtual,
+			            'dim_calendario'[Mês Num] = MesAtual
+			        ),
+			        -- Caso normal (com filtro), usa a medida padrão
+			        [total_quantidade_apresentada]
+			    )
+			
+			-- Retorna o cálculo de crescimento mês contra mês (MoM)
+			var MOM = DIVIDE(valor_atual - total_lm, total_lm)
+			var _format = FORMAT(MOM, "↑0.00% ; ↓0.00%")
+			RETURN 
+			_format
+			```
+		displayFolder: Cards
+		lineageTag: a415003a-99bd-47c4-8e03-e7a66b207189
+
+	measure total_QAP_YOY = ```
+			
+			-- Calcula o valor do mesmo período no ano anterior (Last Year)
+			-- Usa SAMEPERIODLASTYEAR respeitando o contexto atual de datas
+			VAR total_ly = 
+			    CALCULATE(
+			        [total_quantidade_apresentada],
+			        SAMEPERIODLASTYEAR(dim_calendario[Date])
+			    )
+			
+			-- Calcula o valor atual
+			VAR valor_atual = 
+			    IF(
+			        -- Se NÃO houver filtro de ano (caso do TOTAL)
+			        SELECTEDVALUE('dim_calendario'[Ano]) = BLANK(),
+			
+			        -- Força pegar apenas o último ano disponível (evita somar anos históricos)
+			        CALCULATE(
+			            [total_quantidade_apresentada],
+			            dim_calendario[Ano] = MAX('dim_calendario'[Ano])
+			        ),
+			
+			        -- Caso tenha filtro de ano, usa o valor normalmente
+			        [total_quantidade_apresentada]
+			    )
+			var YOY = DIVIDE(valor_atual - total_ly, total_ly)
+			var _format = FORMAT(YOY, "↑0.00% ; ↓0.00%")
+			 
+			-- Retorna o cálculo de crescimento YoY
+			RETURN 
+			_format
+			```
+		displayFolder: Cards
+		lineageTag: 609dce17-4406-4762-8eab-1e6fef7ad034
+
+	measure total_VP_tabela_ultimo_mes =
+			
+			VAR UltimaDataComValor =
+			    MAXX(
+			        FILTER(
+			            ALLSELECTED(dim_calendario),
+			            NOT ISBLANK([total_valor_aprovado])
+			        ),
+			        dim_calendario[Date]
+			    )
+			
+			RETURN
+			CALCULATE(
+			    [total_valor_aprovado],
+			    dim_calendario[Date] = UltimaDataComValor
+			)
+		displayFolder: Tabelas_Comp
+		lineageTag: 5a503696-5491-457b-a6b5-630e6e89dbe5
+
+		formatStringDefinition = ```
+				var medida = SELECTEDMEASURE()
+				var formato = SWITCH(
+				    TRUE(),
+				    medida >= 1000000, "R$#,,.0 Mi",
+				    medida >=1000, "R$#,.0 Mil",
+				    "R$#.0"
+				)
+				return 
+				formato
+				```
+
+	measure total_VP_tabela_penultimo_mes =
+			
+			VAR TabelaUltimos2 =
+			    TOPN(
+			        2,
+			        FILTER(
+			            ALLSELECTED(dim_calendario),
+			            NOT ISBLANK([total_valor_aprovado])
+			        ),
+			        dim_calendario[Date],
+			        DESC
+			    )
+			
+			VAR PenultimaData =
+			    MINX(TabelaUltimos2, dim_calendario[Date])
+			
+			RETURN
+			CALCULATE(
+			    [total_valor_aprovado],
+			    dim_calendario[Date] = PenultimaData
+			)
+		displayFolder: Tabelas_Comp
+		lineageTag: c0adcc50-6dac-498f-af38-f4fddd9af52d
+
+		formatStringDefinition = ```
+				var medida = SELECTEDMEASURE()
+				var formato = SWITCH(
+				    TRUE(),
+				    medida >= 1000000, "R$#,,.0 Mi",
+				    medida >=1000, "R$#,.0 Mil",
+				    "R$#.0"
+				)
+				return 
+				formato
+				```
+
+	measure total_VP_tabela_variação =
+			
+			var varicao = DIVIDE([total_VP_tabela_ultimo_mes] - [total_VP_tabela_penultimo_mes], [total_VP_tabela_penultimo_mes])
+			var _format = FORMAT(varicao, "↑0.00% ; ↓0.00%")
+			return
+			_format
+		displayFolder: Tabelas_Comp
+		lineageTag: 111f329d-eab8-4b97-8e4c-bba0a121b41d
+
+	measure total_FRE_tabela_penultimo_mes =
+			
+			VAR TabelaUltimos2 =
+			    TOPN(
+			        2,
+			        FILTER(
+			            ALLSELECTED(dim_calendario),
+			            NOT ISBLANK([total_frequencia])
+			        ),
+			        dim_calendario[Date],
+			        DESC
+			    )
+			
+			VAR PenultimaData =
+			    MINX(TabelaUltimos2, dim_calendario[Date])
+			
+			RETURN
+			CALCULATE(
+			    [total_frequencia],
+			    dim_calendario[Date] = PenultimaData
+			)
+		displayFolder: Tabelas_Comp
+		lineageTag: 83a9b5f0-5f91-4adb-a59e-4b12b8871c1b
+
+		formatStringDefinition = ```
+				var medida = SELECTEDMEASURE()
+				var formato = SWITCH(
+				    TRUE(),
+				    medida >= 1000000, "#,,. Mi",
+				    medida >=1000, "#,. Mil",
+				    "#."
+				)
+				return 
+				formato
+				```
+
+	measure total_FRE_tabela_ultimo_mes =
+			
+			VAR UltimaDataComValor =
+			    MAXX(
+			        FILTER(
+			            ALLSELECTED(dim_calendario),
+			            NOT ISBLANK([total_frequencia])
+			        ),
+			        dim_calendario[Date]
+			    )
+			
+			RETURN
+			CALCULATE(
+			    [total_frequencia],
+			    dim_calendario[Date] = UltimaDataComValor
+			)
+		displayFolder: Tabelas_Comp
+		lineageTag: 346d8862-7176-47aa-b360-1e97d02c74f2
+
+		formatStringDefinition = ```
+				var medida = SELECTEDMEASURE()
+				var formato = SWITCH(
+				    TRUE(),
+				    medida >= 1000000, "#,,. Mi",
+				    medida >=1000, "#,. Mil",
+				    "#"
+				)
+				return 
+				formato
+				```
+
+	measure total_FRE_tabela_variação =
+			
+			var varicao = DIVIDE([total_FRE_tabela_ultimo_mes] - [total_FRE_tabela_penultimo_mes], [total_FRE_tabela_penultimo_mes])
+			var _format = FORMAT(varicao, "↑0.00% ; ↓0.00%")
+			return
+			_format
+		displayFolder: Tabelas_Comp
+		lineageTag: bcaf4423-7aee-400d-84b8-4b5c2e96125e
+
+	measure atualização_dados =
+			
+			var data_atualizacao = CALCULATE(max(dim_calendario[Date]), all(dim_calendario))
+			var data_formatada = FORMAT(data_atualizacao, "dd/mm/yyyy")
+			return data_formatada
+		lineageTag: ea6b23af-9dab-4a25-81e1-59559c0794c2
+
+	measure total_VP_tabela_mes_ano_passado =
+			
+			VAR DataMaxima = MAX(dim_calendario[Date])
+			
+			
+			VAR InicioMes = DATE(YEAR(DataMaxima), MONTH(DataMaxima), 1)
+			VAR FimMes = EOMONTH(DataMaxima, 0)
+			var valor_mes_ano_passado = CALCULATE(
+			    [total_valor_aprovado],
+			    SAMEPERIODLASTYEAR(
+			        DATESBETWEEN(
+			            dim_calendario[Date],
+			            InicioMes,
+			            FimMes
+			        )
+			    )
+			)
+			
+			RETURN
+			valor_mes_ano_passado
+		displayFolder: Tabelas_Comp
+		lineageTag: 9a6491a2-1fc4-49e9-b167-972358416a77
+
+		formatStringDefinition = ```
+				var medida = SELECTEDMEASURE()
+				var formato = SWITCH(
+				    TRUE(),
+				    medida >= 1000000, "R$#,,.0 Mi",
+				    medida >=1000, "R$#,.0 Mil",
+				    "R$#.0"
+				)
+				return 
+				formato
+				```
+
+	measure total_VP_tabela_variação_ano_passado =
+			
+			var varicao = DIVIDE([total_VP_tabela_ultimo_mes] - [total_VP_tabela_mes_ano_passado], [total_VP_tabela_mes_ano_passado])
+			var _format = FORMAT(varicao, "↑0.00% ; ↓0.00%")
+			return
+			_format
+		displayFolder: Tabelas_Comp
+		lineageTag: b75a6322-25bd-4943-98c2-b4d9cc5c6f67
+
+	column Column
+		isHidden
+		formatString: 0
+		lineageTag: 249be527-61e8-4fb4-831e-ed94496ec6e5
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Column]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition metricas = calculated
+		mode: import
+		source = Row("Column", BLANK())
+
+	annotation PBI_Id = d7d60be903b14519967c961bcbc396ee
+
+	annotation 436ba87b-9c83-4389-a31b-ebd06a36be98 = {"Expression":""}
+

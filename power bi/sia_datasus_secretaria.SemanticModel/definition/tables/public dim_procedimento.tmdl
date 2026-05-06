@@ -1,0 +1,32 @@
+table 'public dim_procedimento'
+	lineageTag: ef3ecac4-14ca-4df9-b8cb-f10168ef4d51
+
+	column codigo
+		dataType: string
+		lineageTag: 9b6414fc-22a3-48b6-9fff-609db6b3e2bb
+		summarizeBy: none
+		sourceColumn: codigo
+
+		annotation SummarizationSetBy = Automatic
+
+	column procedimento
+		dataType: string
+		lineageTag: fcd42e7c-42ea-42bc-a484-6f8d1966cf63
+		summarizeBy: none
+		sourceColumn: procedimento
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'public dim_procedimento' = m
+		mode: import
+		source =
+				let
+				    Fonte = PostgreSQL.Database("ep-long-queen-acv6qkdg-pooler.sa-east-1.aws.neon.tech", "SIA"),
+				    public_dim_procedimento = Fonte{[Schema="public",Item="dim_procedimento"]}[Data]
+				in
+				    public_dim_procedimento
+
+	annotation PBI_ResultType = Table
+
+	annotation PBI_NavigationStepName = Navegação
+

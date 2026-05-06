@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "sia_datasus_secretaria"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "14818f6f-441d-4cfc-9c79-946bcb7b843c"
+  }
+}

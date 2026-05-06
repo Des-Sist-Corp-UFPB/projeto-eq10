@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "sia_datasus_secretaria"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "df7c3dbb-63ef-4bdb-a7b4-206378b7d292"
+  }
+}

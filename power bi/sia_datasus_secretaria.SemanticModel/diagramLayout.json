@@ -1,0 +1,139 @@
+{
+  "version": "1.1.0",
+  "diagrams": [
+    {
+      "ordinal": 0,
+      "scrollPosition": {
+        "x": 123.82084644463045,
+        "y": 4.0932510540851714
+      },
+      "nodes": [
+        {
+          "location": {
+            "x": 788.18284359659719,
+            "y": 0
+          },
+          "nodeIndex": "public data_sus",
+          "nodeLineageTag": "801bab34-095f-4ecd-8875-9d1d010c47f3",
+          "size": {
+            "height": 395.99999999999943,
+            "width": 234
+          },
+          "zIndex": 6
+        },
+        {
+          "location": {
+            "x": 1147.363934813761,
+            "y": 0
+          },
+          "nodeIndex": "public dim_ocupacao",
+          "nodeLineageTag": "d0c7827a-0683-4685-ab81-82152e797a2d",
+          "size": {
+            "height": 128,
+            "width": 234
+          },
+          "zIndex": 5
+        },
+        {
+          "location": {
+            "x": 1093.5749989513706,
+            "y": 266.50551189005625
+          },
+          "nodeIndex": "public dim_procedimento",
+          "nodeLineageTag": "ef3ecac4-14ca-4df9-b8cb-f10168ef4d51",
+          "size": {
+            "height": 128,
+            "width": 234
+          },
+          "zIndex": 4
+        },
+        {
+          "location": {
+            "x": 457.88003673958821,
+            "y": 0
+          },
+          "nodeIndex": "public dim_raca_cor",
+          "nodeLineageTag": "48d8b598-80ff-4ba9-90c4-8221d930f1cc",
+          "size": {
+            "height": 128,
+            "width": 234
+          },
+          "zIndex": 2
+        },
+        {
+          "location": {
+            "x": 394.77541222724528,
+            "y": 300.03001504263136
+          },
+          "nodeIndex": "public dim_unidade",
+          "nodeLineageTag": "4f1a2ad8-1515-46e2-a808-288d9f51bc17",
+          "size": {
+            "height": 128,
+            "width": 234
+          },
+          "zIndex": 3
+        },
+        {
+          "location": {
+            "x": 114.08846162034672,
+            "y": 288.57378201612352
+          },
+          "nodeIndex": "metricas",
+          "nodeLineageTag": "3db7527b-43a2-4209-b855-28cceac5b509",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 565.3174536171615,
+            "y": 532.97535300615016
+          },
+          "nodeIndex": "public dim_municipio_atendimento",
+          "nodeLineageTag": "bf2959c7-9e9f-4796-9342-abd1df443baa",
+          "size": {
+            "height": 128,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 881.629524206927,
+            "y": 526.97817472767952
+          },
+          "nodeIndex": "public dim_municipio_residencia",
+          "nodeLineageTag": "6378c0cb-f396-4721-b9e4-095685e9b62a",
+          "size": {
+            "height": 128,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1177.8491112412528,
+            "y": 437.70850802830586
+          },
+          "nodeIndex": "dim_calendario",
+          "nodeLineageTag": "5779412c-cb81-487f-892a-a14abf6c96d7",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        }
+      ],
+      "name": "Todas as tabelas",
+      "zoomValue": 78.177468359533734,
+      "pinKeyFieldsToTop": false,
+      "showExtraHeaderInfo": false,
+      "hideKeyFieldsWhenCollapsed": false,
+      "tablesLocked": false
+    }
+  ],
+  "selectedDiagram": "Todas as tabelas",
+  "defaultDiagram": "Todas as tabelas"
+}

@@ -1,0 +1,818 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/bookmark/2.1.0/schema.json",
+  "displayName": "Valor aprovado - Anual",
+  "name": "c3ec98b42630a107b004",
+  "options": {
+    "targetVisualNames": []
+  },
+  "explorationState": {
+    "version": "1.3",
+    "activeSection": "83f6025d0d171ea7b804",
+    "sections": {
+      "83f6025d0d171ea7b804": {
+        "visualContainers": {
+          "1e49133011069ced9c21": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "ef9dedc1b40b25791871",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_unidade"
+                        }
+                      },
+                      "Property": "unidades"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "ce5ffc157093999ea9eb",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_VP_tabela_ultimo_mes"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "315682431954e2157dce",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_VP_tabela_mes_ano_passado"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "37042107cd11e1571129",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_VP_tabela_variação_ano_passado"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "pivotTable",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 2,
+                  "Expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_VP_tabela_ultimo_mes"
+                    }
+                  }
+                }
+              ],
+              "activeProjections": {
+                "Rows": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_unidade"
+                        }
+                      },
+                      "Property": "unidades"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "d372e41903d193dc13b0": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "cc64aacb35d0a200a14b",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_procedimento"
+                        }
+                      },
+                      "Property": "procedimento"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "a7d57d8b08cec66dce28",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_VP_tabela_ultimo_mes"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "85b0e137c0b7a2b2aae3",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_VP_tabela_penultimo_mes"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "c5ba7ca98052c7ec0699",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_VP_tabela_variação"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "pivotTable",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 2,
+                  "Expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_VP_tabela_ultimo_mes"
+                    }
+                  }
+                }
+              ],
+              "activeProjections": {
+                "Rows": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_procedimento"
+                        }
+                      },
+                      "Property": "procedimento"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "f94a3a7f1b2ede83ddde": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "70125a11493a502a5082",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_ocupacao"
+                        }
+                      },
+                      "Property": "ocupacao"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "550a9361915c9d81d216",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_VP_tabela_ultimo_mes"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "f8dd89a55d9a2d3a28cc",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_VP_tabela_mes_ano_passado"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "331e3c8100ad0805e3c1",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_VP_tabela_variação_ano_passado"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "pivotTable",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 2,
+                  "Expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_VP_tabela_ultimo_mes"
+                    }
+                  }
+                }
+              ],
+              "activeProjections": {
+                "Rows": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_ocupacao"
+                        }
+                      },
+                      "Property": "ocupacao"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ab94595d969cea7e1dd1": {
+            "singleVisual": {
+              "visualType": "shape",
+              "objects": {}
+            }
+          },
+          "fafa12a5d497b4384180": {
+            "singleVisual": {
+              "visualType": "shape",
+              "objects": {}
+            }
+          },
+          "91e9306f971d653ad266": {
+            "singleVisual": {
+              "visualType": "shape",
+              "objects": {}
+            }
+          },
+          "ae44d2dd593d24b30884": {
+            "singleVisual": {
+              "visualType": "shape",
+              "objects": {}
+            }
+          },
+          "76d1df397a330cec67c3": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "5d0a8dc7814eac198581",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_FRE_tabela_ultimo_mes"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "4eafcfa45598e5e44000",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_FRE_tabela_penultimo_mes"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "b5c72e01203e806d1901",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_FRE_tabela_variação"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "b26b9402e5c109dc0c66",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_ocupacao"
+                        }
+                      },
+                      "Property": "ocupacao"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "pivotTable",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 2,
+                  "Expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_FRE_tabela_penultimo_mes"
+                    }
+                  }
+                }
+              ],
+              "activeProjections": {
+                "Rows": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_ocupacao"
+                        }
+                      },
+                      "Property": "ocupacao"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "7c6c9dcd61986e730e77": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "007b60327265ab081988",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_FRE_tabela_ultimo_mes"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "d77b059b88d82607a0b2",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_FRE_tabela_penultimo_mes"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "d61632cbc3466b3780ed",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_FRE_tabela_variação"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "3c3d35e41d0a226257a7",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_procedimento"
+                        }
+                      },
+                      "Property": "procedimento"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "pivotTable",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 2,
+                  "Expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_FRE_tabela_ultimo_mes"
+                    }
+                  }
+                }
+              ],
+              "activeProjections": {
+                "Rows": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_procedimento"
+                        }
+                      },
+                      "Property": "procedimento"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "57ab462f0c39a1d0d976": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "f101880431a9082b0167",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_unidade"
+                        }
+                      },
+                      "Property": "unidades"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "cd9649a10662c2c000e9",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_FRE_tabela_ultimo_mes"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "d0360d377da5a8e22e45",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_FRE_tabela_penultimo_mes"
+                    }
+                  },
+                  "howCreated": 0
+                },
+                {
+                  "name": "8d60ddc268dee73d0a37",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_FRE_tabela_variação"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "pivotTable",
+              "objects": {},
+              "orderBy": [
+                {
+                  "Direction": 2,
+                  "Expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "total_FRE_tabela_ultimo_mes"
+                    }
+                  }
+                }
+              ],
+              "activeProjections": {
+                "Rows": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_unidade"
+                        }
+                      },
+                      "Property": "unidades"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "356b0c11512ec8811394": {
+            "singleVisual": {
+              "visualType": "textbox",
+              "objects": {}
+            }
+          },
+          "19b7f28a74910a0ab6eb": {
+            "singleVisual": {
+              "visualType": "textbox",
+              "objects": {}
+            }
+          },
+          "dbc3475345aa9e3a433c": {
+            "singleVisual": {
+              "visualType": "shape",
+              "objects": {}
+            }
+          },
+          "98085e691dc4e6d20c36": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "29816ca05577365d65b2",
+                  "type": "Categorical",
+                  "expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_municipio_atendimento"
+                        }
+                      },
+                      "Property": "municipio"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "slicer",
+              "objects": {
+                "merge": {
+                  "general": [
+                    {
+                      "properties": {
+                        "filter": {
+                          "filter": {
+                            "Version": 2,
+                            "From": [
+                              {
+                                "Name": "p",
+                                "Entity": "public dim_municipio_atendimento",
+                                "Type": 0
+                              }
+                            ],
+                            "Where": [
+                              {
+                                "Condition": {
+                                  "In": {
+                                    "Expressions": [
+                                      {
+                                        "Column": {
+                                          "Expression": {
+                                            "SourceRef": {
+                                              "Source": "p"
+                                            }
+                                          },
+                                          "Property": "municipio"
+                                        }
+                                      }
+                                    ],
+                                    "Values": [
+                                      [
+                                        {
+                                          "Literal": {
+                                            "Value": "'Mamanguape'"
+                                          }
+                                        }
+                                      ]
+                                    ]
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "data": [
+                    {
+                      "properties": {
+                        "mode": {
+                          "expr": {
+                            "Literal": {
+                              "Value": "'Dropdown'"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "activeProjections": {
+                "Values": [
+                  {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "public dim_municipio_atendimento"
+                        }
+                      },
+                      "Property": "municipio"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "fb85b0f37d1ed481ce80": {
+            "singleVisual": {
+              "visualType": "textbox",
+              "objects": {}
+            }
+          },
+          "4aa6d7e47a63aaaadb8d": {
+            "filters": {
+              "byExpr": [
+                {
+                  "name": "0435c0c7291de1dba500",
+                  "type": "Advanced",
+                  "expression": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "metricas"
+                        }
+                      },
+                      "Property": "atualização_dados"
+                    }
+                  },
+                  "howCreated": 0
+                }
+              ]
+            },
+            "singleVisual": {
+              "visualType": "cardVisual",
+              "objects": {}
+            }
+          },
+          "b82c761859e196dd68b4": {
+            "singleVisual": {
+              "visualType": "shape",
+              "objects": {}
+            }
+          }
+        },
+        "visualContainerGroups": {
+          "7c09bc1392cdd7ba7c99": {
+            "isHidden": false
+          },
+          "5e90a85dd28dabd140ce": {
+            "isHidden": true
+          }
+        }
+      }
+    },
+    "objects": {
+      "merge": {
+        "outspacePane": [
+          {
+            "properties": {
+              "expanded": {
+                "expr": {
+                  "Literal": {
+                    "Value": "false"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

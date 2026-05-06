@@ -1,0 +1,6048 @@
+cultureInfo pt-BR
+
+	linguisticMetadata =
+			{
+			  "Version": "4.1.0",
+			  "Language": "en-US",
+			  "Entities": {
+			    "public_data_sus": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "public data_sus": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_data_sus.frequencia": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus",
+			          "ConceptualProperty": "frequencia"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "frequencia": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_data_sus.quantidade_apresentada": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus",
+			          "ConceptualProperty": "quantidade_apresentada"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "quantidade apresentada": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "quantidade_apresentada": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "public_data_sus.valor_aprovado": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus",
+			          "ConceptualProperty": "valor_aprovado"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "valor aprovado": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "valor_aprovado": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "public_data_sus.valor_apresentado": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus",
+			          "ConceptualProperty": "valor_apresentado"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "valor apresentado": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "valor_apresentado": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "public_data_sus.data": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus",
+			          "ConceptualProperty": "data"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "data": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "date": {
+			            "State": "Generated",
+			            "Weight": 0.7
+			          }
+			        },
+			        {
+			          "information": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.736
+			          }
+			        },
+			        {
+			          "fact": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.736
+			          }
+			        },
+			        {
+			          "info": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.736
+			          }
+			        },
+			        {
+			          "statistic": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.736
+			          }
+			        },
+			        {
+			          "document": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.714
+			          }
+			        },
+			        {
+			          "figure": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.714
+			          }
+			        },
+			        {
+			          "record": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.714
+			          }
+			        }
+			      ],
+			      "SemanticType": "Time"
+			    },
+			    "public_data_sus.idade": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus",
+			          "ConceptualProperty": "idade"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "idade": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_data_sus.cod_raca_cor": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus",
+			          "ConceptualProperty": "cod_raca_cor"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "cod raca cor": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "cod_raca_cor": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "public_data_sus.cod_unidade": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus",
+			          "ConceptualProperty": "cod_unidade"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "cod unidade": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "cod_unidade": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "public_data_sus.cod_ocupacao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus",
+			          "ConceptualProperty": "cod_ocupacao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "cod ocupacao": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "cod_ocupacao": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "public_data_sus.cod_procedimento": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus",
+			          "ConceptualProperty": "cod_procedimento"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "cod procedimento": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "cod_procedimento": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "public_data_sus.cod_municipio_atendido": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus",
+			          "ConceptualProperty": "cod_municipio_atendido"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "cod municipio atendido": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "cod_municipio_atendido": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "public_data_sus.cod_municipio_residencia": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public data_sus",
+			          "ConceptualProperty": "cod_municipio_residencia"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "cod municipio residencia": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "cod_municipio_residencia": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_ocupacao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_ocupacao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "public dim_ocupacao": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_ocupacao.codigo": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_ocupacao",
+			          "ConceptualProperty": "codigo"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "codigo": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_ocupacao.ocupacao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_ocupacao",
+			          "ConceptualProperty": "ocupacao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "ocupacao": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "Ocupação": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_procedimento": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_procedimento"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "public dim_procedimento": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_procedimento.codigo": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_procedimento",
+			          "ConceptualProperty": "codigo"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "codigo": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_procedimento.procedimento": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_procedimento",
+			          "ConceptualProperty": "procedimento"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "procedimento": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "Procedimentos": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_raca_cor": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_raca_cor"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "public dim_raca_cor": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_raca_cor.codigo": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_raca_cor",
+			          "ConceptualProperty": "codigo"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "codigo": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_raca_cor.raca_cor": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_raca_cor",
+			          "ConceptualProperty": "raca_cor"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "raca cor": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "raca_cor": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_unidade": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_unidade"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "public dim_unidade": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_unidade.codigo": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_unidade",
+			          "ConceptualProperty": "codigo"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "codigo": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_unidade.unidade": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_unidade",
+			          "ConceptualProperty": "unidades"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "unidade": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "Unidades": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "metrica": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "metrica": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.column": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "Column"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "column": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "pilaster": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.491
+			          }
+			        },
+			        {
+			          "pier": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.491
+			          }
+			        },
+			        {
+			          "pillar": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "post": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "support": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "stake": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "pole": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "buttress": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "underpinning": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "contribution": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.466
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_frequencia": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_frequencia"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total frequencia": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_frequencia": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "aggregate frequencia": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        },
+			        {
+			          "overall frequencia": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_valor_aprovado": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_valor_aprovado"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total valor aprovado": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_valor_aprovado": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "aggregate valor aprovado": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall valor aprovado": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_valor_apresentado": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_valor_apresentado"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total valor apresentado": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_valor_apresentado": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "aggregate valor apresentado": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall valor apresentado": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_quantidade_apresentada": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_quantidade_apresentada"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total quantidade apresentada": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_quantidade_apresentada": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "aggregate quantidade apresentada": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall quantidade apresentada": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.titulo_VP_mes_dinamico": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "titulo_VP_mes_dinamico"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "titulo VP mes dinamico": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "titulo_VP_mes_dinamico": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_VP_YOY": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_VP_YOY"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total VP YOY": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_VP_YOY": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "YOY": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "VP YOY": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "aggregate vp yoy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall vp yoy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_VP_MOM": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_VP_MOM"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total VP MOM": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_VP_MOM": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "MOM": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "VP MOM": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "aggregate vp mom": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall vp mom": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "total vp ma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total vp mommy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total vp mamma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total vp mama": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total vp mammy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total vp momma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "vp ma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "vp mommy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_VP_card": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_VP_Card"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total VP card": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_VP_Card": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "VP card": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "aggregate vp card": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall vp card": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "total vp postcard": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total vp valentine": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "vp postcard": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "vp valentine": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "total vp pass": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.468
+			          }
+			        },
+			        {
+			          "vp pass": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.461
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_VAP_card": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_VAP_Card"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total VAP card": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_VAP_Card": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "VAP card": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "aggregate vap card": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall vap card": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "total vap postcard": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total vap valentine": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "vap postcard": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "vap valentine": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "total vap pass": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.468
+			          }
+			        },
+			        {
+			          "vap pass": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.461
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_VAP_MOM": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_VAP_MOM"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total VAP MOM": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_VAP_MOM": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "MOM": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "VAP MOM": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "aggregate vap mom": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall vap mom": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "total vap ma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total vap mommy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total vap mamma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total vap mama": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total vap mammy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total vap momma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "vap ma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "vap mommy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_VAP_YOY": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_VAP_YOY"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total VAP YOY": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_VAP_YOY": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "YOY": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "VAP YOY": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "aggregate vap yoy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall vap yoy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_FRE_card": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_FRE_Card"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total FRE card": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_FRE_Card": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "FRE card": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "aggregate fre card": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall fre card": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "total fre postcard": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total fre valentine": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "fre postcard": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "fre valentine": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "total fre pass": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.468
+			          }
+			        },
+			        {
+			          "fre pass": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.461
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_FRE_MOM": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_FRE_MOM"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total FRE MOM": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_FRE_MOM": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "MOM": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "FRE MOM": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "aggregate fre mom": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall fre mom": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "total fre ma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total fre mommy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total fre mamma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total fre mama": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total fre mammy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total fre momma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "fre ma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "fre mommy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_FRE_YOY": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_FRE_YOY"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total FRE YOY": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_FRE_YOY": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "YOY": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "FRE YOY": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "aggregate fre yoy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall fre yoy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_QAP_card": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_QAP_card"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total QAP card": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_QAP_card": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "QAP card": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "aggregate qap card": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall qap card": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "total qap postcard": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total qap valentine": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "qap postcard": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "qap valentine": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "total qap pass": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.468
+			          }
+			        },
+			        {
+			          "qap pass": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.461
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_QAP_MOM": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_QAP_MOM"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total QAP MOM": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_QAP_MOM": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "MOM": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "QAP MOM": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "aggregate qap mom": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall qap mom": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "total qap ma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total qap mommy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total qap mamma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total qap mama": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total qap mammy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "total qap momma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.508
+			          }
+			        },
+			        {
+			          "qap ma": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "qap mommy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_QAP_YOY": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_QAP_YOY"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total QAP YOY": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_QAP_YOY": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "YOY": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "QAP YOY": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        },
+			        {
+			          "aggregate qap yoy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall qap yoy": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_VP_tabela_ultimo_mes": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_VP_tabela_ultimo_mes"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total VP tabela ultimo mes": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_VP_tabela_ultimo_mes": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "aggregate vp tabela ultimo me": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.605
+			          }
+			        },
+			        {
+			          "overall vp tabela ultimo me": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.605
+			          }
+			        },
+			        {
+			          "Mês Atual": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_VP_tabela_penultimo_mes": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_VP_tabela_penultimo_mes"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total VP tabela penultimo mes": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_VP_tabela_penultimo_mes": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "aggregate vp tabela penultimo me": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.605
+			          }
+			        },
+			        {
+			          "overall vp tabela penultimo me": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.605
+			          }
+			        },
+			        {
+			          "Mês Anterior": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_VP_tabela_variação": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_VP_tabela_variação"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total VP tabela variação": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_VP_tabela_variação": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "aggregate vp tabela variação": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.599
+			          }
+			        },
+			        {
+			          "overall vp tabela variação": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.599
+			          }
+			        },
+			        {
+			          "Variação%": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.entity__total_frequencia_FormatString": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "_total_frequencia FormatString"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "_total_frequencia FormatString": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.entity__total_valor_aprovado_FormatString": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "_total_valor_aprovado FormatString"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "_total_valor_aprovado FormatString": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.entity__total_valor_apresentado_FormatString": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "_total_valor_apresentado FormatString"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "_total_valor_apresentado FormatString": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.entity__total_quantidade_apresentada_FormatString": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "_total_quantidade_apresentada FormatString"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "_total_quantidade_apresentada FormatString": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_municipio_atendimento": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_municipio_atendimento"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "public dim_municipio_atendimento": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_municipio_atendimento.codigo": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_municipio_atendimento",
+			          "ConceptualProperty": "codigo"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "codigo": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_municipio_atendimento.municipio": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_municipio_atendimento",
+			          "ConceptualProperty": "municipio"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "municipio": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "Município": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_municipio_residencia": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_municipio_residencia"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "public dim_municipio_residencia": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_municipio_residencia.codigo": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_municipio_residencia",
+			          "ConceptualProperty": "codigo"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "codigo": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "public_dim_municipio_residencia.municipio": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "public dim_municipio_residencia",
+			          "ConceptualProperty": "municipio"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "municipio": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "dim calendario": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "dim_calendario": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.date": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "ConceptualProperty": "Date"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "date": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "moment": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.736
+			          }
+			        },
+			        {
+			          "period": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.714
+			          }
+			        }
+			      ],
+			      "SemanticType": "Time"
+			    },
+			    "dim_calendario.date.hierarquia_de_data": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "VariationSource": "Date",
+			          "VariationSet": "Variation",
+			          "Hierarchy": "Hierarquia de datas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "hierarquia de data": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "hierarquia de information": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.762
+			          }
+			        },
+			        {
+			          "hierarquia de fact": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.762
+			          }
+			        },
+			        {
+			          "hierarquia de info": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.762
+			          }
+			        },
+			        {
+			          "hierarquia de statistic": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.762
+			          }
+			        },
+			        {
+			          "hierarquia de document": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.739
+			          }
+			        },
+			        {
+			          "hierarquia de figure": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.739
+			          }
+			        },
+			        {
+			          "hierarquia de record": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.739
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.date.ano": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "VariationSource": "Date",
+			          "VariationSet": "Variation",
+			          "Hierarchy": "Hierarquia de datas",
+			          "HierarchyLevel": "Ano"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "ano": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "date ano": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "moment ano": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.6
+			          }
+			        },
+			        {
+			          "period ano": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.date.trimestre": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "VariationSource": "Date",
+			          "VariationSet": "Variation",
+			          "Hierarchy": "Hierarquia de datas",
+			          "HierarchyLevel": "Trimestre"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "trimestre": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "date trimestre": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "moment trimestre": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.6
+			          }
+			        },
+			        {
+			          "period trimestre": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.date.mê": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "VariationSource": "Date",
+			          "VariationSet": "Variation",
+			          "Hierarchy": "Hierarquia de datas",
+			          "HierarchyLevel": "Mês"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "mê": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "date mê": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "moment mê": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.6
+			          }
+			        },
+			        {
+			          "period mê": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.date.dia": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "VariationSource": "Date",
+			          "VariationSet": "Variation",
+			          "Hierarchy": "Hierarquia de datas",
+			          "HierarchyLevel": "Dia"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "dia": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "date dia": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "moment dia": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.6
+			          }
+			        },
+			        {
+			          "period dia": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.ano": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "ConceptualProperty": "Ano"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "ano": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.mês_num": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "ConceptualProperty": "Mês Num"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "mês num": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "mê num": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.78
+			          }
+			        },
+			        {
+			          "mê number": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.727
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.mês_nome": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "ConceptualProperty": "Mês Nome"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "mês nome": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "mê nome": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.78
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.mês_abrev": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "ConceptualProperty": "Mês Abrev"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "mês abrev": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "mê abrev": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.78
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.trimestre": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "ConceptualProperty": "Trimestre"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "trimestre": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.anomê": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "ConceptualProperty": "Ano-Mês"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "ano-mê": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "ano mê": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.dia_da_semana": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "ConceptualProperty": "Dia da Semana"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "dia da semana": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "dim_calendario.nome_do_dia": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_calendario",
+			          "ConceptualProperty": "Nome do Dia"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "nome do dia": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.entity__total_VP_tabela_ultimo_mes_FormatString": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "_total_VP_tabela_ultimo_mes FormatString"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "_total_VP_tabela_ultimo_mes FormatString": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.entity__total_VP_tabela_penultimo_mes_FormatString": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "_total_VP_tabela_penultimo_mes FormatString"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "_total_VP_tabela_penultimo_mes FormatString": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_FRE_tabela_penultimo_mes": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_FRE_tabela_penultimo_mes"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total FRE tabela penultimo mes": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_FRE_tabela_penultimo_mes": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "aggregate fre tabela penultimo me": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.605
+			          }
+			        },
+			        {
+			          "overall fre tabela penultimo me": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.605
+			          }
+			        },
+			        {
+			          "Mês Anterior": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_FRE_tabela_ultimo_mes": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_FRE_tabela_ultimo_mes"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total FRE tabela ultimo mes": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_FRE_tabela_ultimo_mes": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "aggregate fre tabela ultimo me": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.605
+			          }
+			        },
+			        {
+			          "overall fre tabela ultimo me": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.605
+			          }
+			        },
+			        {
+			          "Mês Atual": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_FRE_tabela_variação": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_FRE_tabela_variação"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total FRE tabela variação": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_FRE_tabela_variação": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "aggregate fre tabela variação": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.599
+			          }
+			        },
+			        {
+			          "overall fre tabela variação": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.599
+			          }
+			        },
+			        {
+			          "Variação%": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.entity__total_FRE_tabela_penultimo_mes_FormatString": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "_total_FRE_tabela_penultimo_mes FormatString"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "_total_FRE_tabela_penultimo_mes FormatString": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.entity__total_FRE_tabela_ultimo_mes_FormatString": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "_total_FRE_tabela_ultimo_mes FormatString"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "_total_FRE_tabela_ultimo_mes FormatString": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.atualização_dados": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "atualização_dados"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "atualização dados": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "atualização_dados": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "atualização frieze": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.5
+			          }
+			        },
+			        {
+			          "atualização panel": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.485
+			          }
+			        },
+			        {
+			          "atualização molding": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.485
+			          }
+			        },
+			        {
+			          "atualização feature": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.485
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_VP_tabela_mes_ano_passado": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_VP_tabela_mes_ano_passado"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total VP tabela mes ano passado": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_VP_tabela_mes_ano_passado": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "Ano Passado": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.total_VP_tabela_variação_ano_passado": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "total_VP_tabela_variação_ano_passado"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total VP tabela variação ano passado": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "total_VP_tabela_variação_ano_passado": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "Variação%": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "metrica.entity__total_VP_tabela_mes_ano_passado_FormatString": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "metricas",
+			          "ConceptualProperty": "_total_VP_tabela_mes_ano_passado FormatString"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "_total_VP_tabela_mes_ano_passado FormatString": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    }
+			  },
+			  "Relationships": {
+			    "dim_calendario_date_mê_has_dim_calendario_date_dia": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario.date.mê": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.mê"
+			          }
+			        },
+			        "dim_calendario.date.dia": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.dia"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.mê"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.date.dia"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "mê_have_dias"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.dia"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.date.mê"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dias_have_mê"
+			        },
+			        {
+			          "Preposition": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.dia"
+			            },
+			            "Prepositions": [
+			              {
+			                "in": {
+			                  "State": "Generated"
+			                }
+			              }
+			            ],
+			            "Object": {
+			              "Role": "dim_calendario.date.mê"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dias_are_in_mê"
+			        }
+			      ]
+			    },
+			    "dim_calendario_date_trimestre_has_dim_calendario_date_mê": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario.date.trimestre": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.trimestre"
+			          }
+			        },
+			        "dim_calendario.date.mê": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.mê"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.trimestre"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.date.mê"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "trimestres_have_mê"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.mê"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.date.trimestre"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "mê_have_trimestres"
+			        },
+			        {
+			          "Preposition": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.mê"
+			            },
+			            "Prepositions": [
+			              {
+			                "in": {
+			                  "State": "Generated"
+			                }
+			              }
+			            ],
+			            "Object": {
+			              "Role": "dim_calendario.date.trimestre"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "mê_are_in_trimestres"
+			        }
+			      ]
+			    },
+			    "dim_calendario_date_ano_has_dim_calendario_date_trimestre": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario.date.ano": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.ano"
+			          }
+			        },
+			        "dim_calendario.date.trimestre": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.trimestre"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.ano"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.date.trimestre"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "anos_have_trimestres"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.trimestre"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.date.ano"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "trimestres_have_anos"
+			        },
+			        {
+			          "Preposition": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.trimestre"
+			            },
+			            "Prepositions": [
+			              {
+			                "in": {
+			                  "State": "Generated"
+			                }
+			              }
+			            ],
+			            "Object": {
+			              "Role": "dim_calendario.date.ano"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "trimestres_are_in_anos"
+			        }
+			      ]
+			    },
+			    "dim_calendario_date_hierarquia_de_data_has_dim_calendario_date_dia": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario.date.hierarquia_de_data": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.hierarquia_de_data"
+			          }
+			        },
+			        "dim_calendario.date.dia": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.dia"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.hierarquia_de_data"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.date.dia"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "hierarquia_de_data_have_dias"
+			        }
+			      ]
+			    },
+			    "dim_calendario_date_hierarquia_de_data_has_dim_calendario_date_mê": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario.date.hierarquia_de_data": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.hierarquia_de_data"
+			          }
+			        },
+			        "dim_calendario.date.mê": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.mê"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.hierarquia_de_data"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.date.mê"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "hierarquia_de_data_have_mê"
+			        }
+			      ]
+			    },
+			    "dim_calendario_date_hierarquia_de_data_has_dim_calendario_date_trimestre": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario.date.hierarquia_de_data": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.hierarquia_de_data"
+			          }
+			        },
+			        "dim_calendario.date.trimestre": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.trimestre"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.hierarquia_de_data"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.date.trimestre"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "hierarquia_de_data_have_trimestres"
+			        }
+			      ]
+			    },
+			    "dim_calendario_date_hierarquia_de_data_has_dim_calendario_date_ano": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario.date.hierarquia_de_data": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.hierarquia_de_data"
+			          }
+			        },
+			        "dim_calendario.date.ano": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.ano"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario.date.hierarquia_de_data"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.date.ano"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "hierarquia_de_data_have_anos"
+			        }
+			      ]
+			    },
+			    "dim_calendario_date_has_hierarquia_de_data": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario.date": {
+			          "Target": {
+			            "Entity": "dim_calendario.date"
+			          }
+			        },
+			        "dim_calendario.date.hierarquia_de_data": {
+			          "Target": {
+			            "Entity": "dim_calendario.date.hierarquia_de_data"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario.date"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.date.hierarquia_de_data"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dates_have_hierarquia_de_data"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_dim_calendario": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          },
+			          "Nouns": [
+			            {
+			              "data": {
+			                "State": "Generated"
+			              }
+			            }
+			          ]
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_dim_calendarios"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_public_data_suses"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_public_dim_municipio_residencia": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "public_dim_municipio_residencia": {
+			          "Target": {
+			            "Entity": "public_dim_municipio_residencia"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "public_dim_municipio_residencia"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_public_dim_municipio_residencias"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_municipio_residencia"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_municipio_residencias_have_public_data_suses"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_public_dim_municipio_atendimento": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "public_dim_municipio_atendimento": {
+			          "Target": {
+			            "Entity": "public_dim_municipio_atendimento"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "public_dim_municipio_atendimento"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_public_dim_municipio_atendimentos"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_municipio_atendimento"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_municipio_atendimentos_have_public_data_suses"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_public_dim_procedimento": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "public_dim_procedimento": {
+			          "Target": {
+			            "Entity": "public_dim_procedimento"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "public_dim_procedimento"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_public_dim_procedimentos"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_procedimento"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_procedimentos_have_public_data_suses"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_public_dim_ocupacao": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "public_dim_ocupacao": {
+			          "Target": {
+			            "Entity": "public_dim_ocupacao"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "public_dim_ocupacao"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_public_dim_ocupacaos"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_ocupacao"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_ocupacaos_have_public_data_suses"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_public_dim_unidade": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "public_dim_unidade": {
+			          "Target": {
+			            "Entity": "public_dim_unidade"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "public_dim_unidade"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_public_dim_unidades"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_unidade"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_unidades_have_public_data_suses"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_public_dim_raca_cor": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "public_dim_raca_cor": {
+			          "Target": {
+			            "Entity": "public_dim_raca_cor"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "public_dim_raca_cor"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_public_dim_raca_cors"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_raca_cor"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_raca_cors_have_public_data_suses"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_VP_tabela_variação_ano_passado": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_VP_tabela_variação_ano_passado": {
+			          "Target": {
+			            "Entity": "metrica.total_VP_tabela_variação_ano_passado"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VP_tabela_variação_ano_passado"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_VP_tabela_variação_ano_passado"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_VP_tabela_mes_ano_passado": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_VP_tabela_mes_ano_passado": {
+			          "Target": {
+			            "Entity": "metrica.total_VP_tabela_mes_ano_passado"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VP_tabela_mes_ano_passado"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_VP_tabela_mes_ano_passado"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_metrica_atualização_dados": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "metrica.atualização_dados": {
+			          "Target": {
+			            "Entity": "metrica.atualização_dados"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "metrica.atualização_dados"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_atualização_dados"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_FRE_tabela_variação": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_FRE_tabela_variação": {
+			          "Target": {
+			            "Entity": "metrica.total_FRE_tabela_variação"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_FRE_tabela_variação"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_FRE_tabela_variação"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_FRE_tabela_ultimo_mes": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_FRE_tabela_ultimo_mes": {
+			          "Target": {
+			            "Entity": "metrica.total_FRE_tabela_ultimo_mes"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_FRE_tabela_ultimo_mes"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_FRE_tabela_ultimo_mes"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_FRE_tabela_penultimo_mes": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_FRE_tabela_penultimo_mes": {
+			          "Target": {
+			            "Entity": "metrica.total_FRE_tabela_penultimo_mes"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_FRE_tabela_penultimo_mes"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_FRE_tabela_penultimo_mes"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_nome_do_dia": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "dim_calendario.nome_do_dia": {
+			          "Target": {
+			            "Entity": "dim_calendario.nome_do_dia"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.nome_do_dia"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_nome_do_dias"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_dia_da_semana": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "dim_calendario.dia_da_semana": {
+			          "Target": {
+			            "Entity": "dim_calendario.dia_da_semana"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.dia_da_semana"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_dia_da_semanas"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_anomê": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "dim_calendario.anomê": {
+			          "Target": {
+			            "Entity": "dim_calendario.anomê"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.anomê"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_anomê"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_trimestre": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "dim_calendario.trimestre": {
+			          "Target": {
+			            "Entity": "dim_calendario.trimestre"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.trimestre"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_trimestres"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_mês_abrev": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "dim_calendario.mês_abrev": {
+			          "Target": {
+			            "Entity": "dim_calendario.mês_abrev"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.mês_abrev"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_mês_abrevs"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_mês_nome": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "dim_calendario.mês_nome": {
+			          "Target": {
+			            "Entity": "dim_calendario.mês_nome"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.mês_nome"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_mês_nome"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_mês_num": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "dim_calendario.mês_num": {
+			          "Target": {
+			            "Entity": "dim_calendario.mês_num"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.mês_num"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_mês_nums"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_ano": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "dim_calendario.ano": {
+			          "Target": {
+			            "Entity": "dim_calendario.ano"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.ano"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_anos"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_date": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "dim_calendario.date": {
+			          "Target": {
+			            "Entity": "dim_calendario.date"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "dim_calendario.date"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_dates"
+			        }
+			      ]
+			    },
+			    "public_dim_municipio_residencia_has_municipio": {
+			      "Binding": {
+			        "ConceptualEntity": "public dim_municipio_residencia"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_dim_municipio_residencia": {
+			          "Target": {
+			            "Entity": "public_dim_municipio_residencia"
+			          }
+			        },
+			        "public_dim_municipio_residencia.municipio": {
+			          "Target": {
+			            "Entity": "public_dim_municipio_residencia.municipio"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_municipio_residencia"
+			            },
+			            "Object": {
+			              "Role": "public_dim_municipio_residencia.municipio"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_municipio_residencias_have_municipios"
+			        }
+			      ]
+			    },
+			    "public_dim_municipio_residencia_has_codigo": {
+			      "Binding": {
+			        "ConceptualEntity": "public dim_municipio_residencia"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_dim_municipio_residencia": {
+			          "Target": {
+			            "Entity": "public_dim_municipio_residencia"
+			          }
+			        },
+			        "public_dim_municipio_residencia.codigo": {
+			          "Target": {
+			            "Entity": "public_dim_municipio_residencia.codigo"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_municipio_residencia"
+			            },
+			            "Object": {
+			              "Role": "public_dim_municipio_residencia.codigo"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_municipio_residencias_have_codigos"
+			        }
+			      ]
+			    },
+			    "public_dim_municipio_atendimento_has_municipio": {
+			      "Binding": {
+			        "ConceptualEntity": "public dim_municipio_atendimento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_dim_municipio_atendimento": {
+			          "Target": {
+			            "Entity": "public_dim_municipio_atendimento"
+			          }
+			        },
+			        "public_dim_municipio_atendimento.municipio": {
+			          "Target": {
+			            "Entity": "public_dim_municipio_atendimento.municipio"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_municipio_atendimento"
+			            },
+			            "Object": {
+			              "Role": "public_dim_municipio_atendimento.municipio"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_municipio_atendimentos_have_municipios"
+			        }
+			      ]
+			    },
+			    "public_dim_municipio_atendimento_has_codigo": {
+			      "Binding": {
+			        "ConceptualEntity": "public dim_municipio_atendimento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_dim_municipio_atendimento": {
+			          "Target": {
+			            "Entity": "public_dim_municipio_atendimento"
+			          }
+			        },
+			        "public_dim_municipio_atendimento.codigo": {
+			          "Target": {
+			            "Entity": "public_dim_municipio_atendimento.codigo"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_municipio_atendimento"
+			            },
+			            "Object": {
+			              "Role": "public_dim_municipio_atendimento.codigo"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_municipio_atendimentos_have_codigos"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_VP_tabela_variação": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_VP_tabela_variação": {
+			          "Target": {
+			            "Entity": "metrica.total_VP_tabela_variação"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VP_tabela_variação"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_VP_tabela_variação"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_VP_tabela_penultimo_mes": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_VP_tabela_penultimo_mes": {
+			          "Target": {
+			            "Entity": "metrica.total_VP_tabela_penultimo_mes"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VP_tabela_penultimo_mes"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_VP_tabela_penultimo_mes"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_VP_tabela_ultimo_mes": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_VP_tabela_ultimo_mes": {
+			          "Target": {
+			            "Entity": "metrica.total_VP_tabela_ultimo_mes"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VP_tabela_ultimo_mes"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_VP_tabela_ultimo_mes"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_QAP_YOY": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_QAP_YOY": {
+			          "Target": {
+			            "Entity": "metrica.total_QAP_YOY"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_QAP_YOY"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_QAP_YOY"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_metrica_total_QAP_YOY": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "metrica.total_QAP_YOY": {
+			          "Target": {
+			            "Entity": "metrica.total_QAP_YOY"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_QAP_YOY"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_total_QAP_YOY"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_QAP_MOM": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_QAP_MOM": {
+			          "Target": {
+			            "Entity": "metrica.total_QAP_MOM"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_QAP_MOM"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_QAP_MOM"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_metrica_total_QAP_MOM": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "metrica.total_QAP_MOM": {
+			          "Target": {
+			            "Entity": "metrica.total_QAP_MOM"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_QAP_MOM"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_total_QAP_MOM"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_QAP_card": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_QAP_card": {
+			          "Target": {
+			            "Entity": "metrica.total_QAP_card"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_QAP_card"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_QAP_card"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_FRE_YOY": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_FRE_YOY": {
+			          "Target": {
+			            "Entity": "metrica.total_FRE_YOY"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_FRE_YOY"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_FRE_YOY"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_metrica_total_FRE_YOY": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "metrica.total_FRE_YOY": {
+			          "Target": {
+			            "Entity": "metrica.total_FRE_YOY"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_FRE_YOY"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_total_FRE_YOY"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_FRE_MOM": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_FRE_MOM": {
+			          "Target": {
+			            "Entity": "metrica.total_FRE_MOM"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_FRE_MOM"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_FRE_MOM"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_metrica_total_FRE_MOM": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "metrica.total_FRE_MOM": {
+			          "Target": {
+			            "Entity": "metrica.total_FRE_MOM"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_FRE_MOM"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_total_FRE_MOM"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_FRE_card": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_FRE_card": {
+			          "Target": {
+			            "Entity": "metrica.total_FRE_card"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_FRE_card"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_FRE_card"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_VAP_YOY": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_VAP_YOY": {
+			          "Target": {
+			            "Entity": "metrica.total_VAP_YOY"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VAP_YOY"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_VAP_YOY"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_metrica_total_VAP_YOY": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "metrica.total_VAP_YOY": {
+			          "Target": {
+			            "Entity": "metrica.total_VAP_YOY"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VAP_YOY"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_total_VAP_YOY"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_VAP_MOM": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_VAP_MOM": {
+			          "Target": {
+			            "Entity": "metrica.total_VAP_MOM"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VAP_MOM"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_VAP_MOM"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_metrica_total_VAP_MOM": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "metrica.total_VAP_MOM": {
+			          "Target": {
+			            "Entity": "metrica.total_VAP_MOM"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VAP_MOM"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_total_VAP_MOM"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_VAP_card": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_VAP_card": {
+			          "Target": {
+			            "Entity": "metrica.total_VAP_card"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VAP_card"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_VAP_card"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_VP_card": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_VP_card": {
+			          "Target": {
+			            "Entity": "metrica.total_VP_card"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VP_card"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_VP_card"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_VP_MOM": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_VP_MOM": {
+			          "Target": {
+			            "Entity": "metrica.total_VP_MOM"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VP_MOM"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_VP_MOM"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_metrica_total_VP_MOM": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "metrica.total_VP_MOM": {
+			          "Target": {
+			            "Entity": "metrica.total_VP_MOM"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VP_MOM"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_total_VP_MOM"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_VP_YOY": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_VP_YOY": {
+			          "Target": {
+			            "Entity": "metrica.total_VP_YOY"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VP_YOY"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_VP_YOY"
+			        }
+			      ]
+			    },
+			    "dim_calendario_has_metrica_total_VP_YOY": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "dim_calendario": {
+			          "Target": {
+			            "Entity": "dim_calendario"
+			          }
+			        },
+			        "metrica.total_VP_YOY": {
+			          "Target": {
+			            "Entity": "metrica.total_VP_YOY"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_VP_YOY"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dim_calendarios_have_total_VP_YOY"
+			        }
+			      ]
+			    },
+			    "metrica_has_titulo_VP_mes_dinamico": {
+			      "Binding": {
+			        "ConceptualEntity": "metricas"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "metrica": {
+			          "Target": {
+			            "Entity": "metrica"
+			          }
+			        },
+			        "metrica.titulo_VP_mes_dinamico": {
+			          "Target": {
+			            "Entity": "metrica.titulo_VP_mes_dinamico"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "metrica"
+			            },
+			            "Object": {
+			              "Role": "metrica.titulo_VP_mes_dinamico"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "metricas_have_titulo_VP_mes_dinamico"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_quantidade_apresentada": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_quantidade_apresentada": {
+			          "Target": {
+			            "Entity": "metrica.total_quantidade_apresentada"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_quantidade_apresentada"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_quantidade_apresentada"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_valor_apresentado": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_valor_apresentado": {
+			          "Target": {
+			            "Entity": "metrica.total_valor_apresentado"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_valor_apresentado"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_valor_apresentado"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_valor_aprovado": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_valor_aprovado": {
+			          "Target": {
+			            "Entity": "metrica.total_valor_aprovado"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_valor_aprovado"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_valor_aprovado"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_metrica_total_frequencia": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "metrica.total_frequencia": {
+			          "Target": {
+			            "Entity": "metrica.total_frequencia"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "metrica.total_frequencia"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_total_frequencia"
+			        }
+			      ]
+			    },
+			    "public_dim_unidade_has_unidade": {
+			      "Binding": {
+			        "ConceptualEntity": "public dim_unidade"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_dim_unidade": {
+			          "Target": {
+			            "Entity": "public_dim_unidade"
+			          }
+			        },
+			        "public_dim_unidade.unidade": {
+			          "Target": {
+			            "Entity": "public_dim_unidade.unidade"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_unidade"
+			            },
+			            "Object": {
+			              "Role": "public_dim_unidade.unidade"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_unidades_have_unidades"
+			        }
+			      ]
+			    },
+			    "public_dim_unidade_has_codigo": {
+			      "Binding": {
+			        "ConceptualEntity": "public dim_unidade"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_dim_unidade": {
+			          "Target": {
+			            "Entity": "public_dim_unidade"
+			          }
+			        },
+			        "public_dim_unidade.codigo": {
+			          "Target": {
+			            "Entity": "public_dim_unidade.codigo"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_unidade"
+			            },
+			            "Object": {
+			              "Role": "public_dim_unidade.codigo"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_unidades_have_codigos"
+			        }
+			      ]
+			    },
+			    "public_dim_raca_cor_has_raca_cor": {
+			      "Binding": {
+			        "ConceptualEntity": "public dim_raca_cor"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_dim_raca_cor": {
+			          "Target": {
+			            "Entity": "public_dim_raca_cor"
+			          }
+			        },
+			        "public_dim_raca_cor.raca_cor": {
+			          "Target": {
+			            "Entity": "public_dim_raca_cor.raca_cor"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_raca_cor"
+			            },
+			            "Object": {
+			              "Role": "public_dim_raca_cor.raca_cor"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_raca_cors_have_raca_cors"
+			        }
+			      ]
+			    },
+			    "public_dim_raca_cor_has_codigo": {
+			      "Binding": {
+			        "ConceptualEntity": "public dim_raca_cor"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_dim_raca_cor": {
+			          "Target": {
+			            "Entity": "public_dim_raca_cor"
+			          }
+			        },
+			        "public_dim_raca_cor.codigo": {
+			          "Target": {
+			            "Entity": "public_dim_raca_cor.codigo"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_raca_cor"
+			            },
+			            "Object": {
+			              "Role": "public_dim_raca_cor.codigo"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_raca_cors_have_codigos"
+			        }
+			      ]
+			    },
+			    "public_dim_procedimento_has_procedimento": {
+			      "Binding": {
+			        "ConceptualEntity": "public dim_procedimento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_dim_procedimento": {
+			          "Target": {
+			            "Entity": "public_dim_procedimento"
+			          }
+			        },
+			        "public_dim_procedimento.procedimento": {
+			          "Target": {
+			            "Entity": "public_dim_procedimento.procedimento"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_procedimento"
+			            },
+			            "Object": {
+			              "Role": "public_dim_procedimento.procedimento"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_procedimentos_have_procedimentos"
+			        }
+			      ]
+			    },
+			    "public_dim_procedimento_has_codigo": {
+			      "Binding": {
+			        "ConceptualEntity": "public dim_procedimento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_dim_procedimento": {
+			          "Target": {
+			            "Entity": "public_dim_procedimento"
+			          }
+			        },
+			        "public_dim_procedimento.codigo": {
+			          "Target": {
+			            "Entity": "public_dim_procedimento.codigo"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_procedimento"
+			            },
+			            "Object": {
+			              "Role": "public_dim_procedimento.codigo"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_procedimentos_have_codigos"
+			        }
+			      ]
+			    },
+			    "public_dim_ocupacao_has_ocupacao": {
+			      "Binding": {
+			        "ConceptualEntity": "public dim_ocupacao"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_dim_ocupacao": {
+			          "Target": {
+			            "Entity": "public_dim_ocupacao"
+			          }
+			        },
+			        "public_dim_ocupacao.ocupacao": {
+			          "Target": {
+			            "Entity": "public_dim_ocupacao.ocupacao"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_ocupacao"
+			            },
+			            "Object": {
+			              "Role": "public_dim_ocupacao.ocupacao"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_ocupacaos_have_ocupacaos"
+			        }
+			      ]
+			    },
+			    "public_dim_ocupacao_has_codigo": {
+			      "Binding": {
+			        "ConceptualEntity": "public dim_ocupacao"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_dim_ocupacao": {
+			          "Target": {
+			            "Entity": "public_dim_ocupacao"
+			          }
+			        },
+			        "public_dim_ocupacao.codigo": {
+			          "Target": {
+			            "Entity": "public_dim_ocupacao.codigo"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_dim_ocupacao"
+			            },
+			            "Object": {
+			              "Role": "public_dim_ocupacao.codigo"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_dim_ocupacaos_have_codigos"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_idade": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "public_data_sus.idade": {
+			          "Target": {
+			            "Entity": "public_data_sus.idade"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus.idade"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_idades"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_data": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "public_data_sus.data": {
+			          "Target": {
+			            "Entity": "public_data_sus.data"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus.data"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_data"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_valor_apresentado": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "public_data_sus.valor_apresentado": {
+			          "Target": {
+			            "Entity": "public_data_sus.valor_apresentado"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus.valor_apresentado"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_valor_apresentados"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_valor_aprovado": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "public_data_sus.valor_aprovado": {
+			          "Target": {
+			            "Entity": "public_data_sus.valor_aprovado"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus.valor_aprovado"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_valor_aprovados"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_quantidade_apresentada": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "public_data_sus.quantidade_apresentada": {
+			          "Target": {
+			            "Entity": "public_data_sus.quantidade_apresentada"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus.quantidade_apresentada"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_quantidade_apresentadas"
+			        }
+			      ]
+			    },
+			    "public_data_sus_has_frequencia": {
+			      "Binding": {
+			        "ConceptualEntity": "public data_sus"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "public_data_sus": {
+			          "Target": {
+			            "Entity": "public_data_sus"
+			          }
+			        },
+			        "public_data_sus.frequencia": {
+			          "Target": {
+			            "Entity": "public_data_sus.frequencia"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "public_data_sus"
+			            },
+			            "Object": {
+			              "Role": "public_data_sus.frequencia"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "public_data_suses_have_frequencias"
+			        }
+			      ]
+			    }
+			  },
+			  "Agents": {
+			    "Internal": {
+			      "Version": "1.1.0"
+			    }
+			  }
+			}
+		contentType: json
+

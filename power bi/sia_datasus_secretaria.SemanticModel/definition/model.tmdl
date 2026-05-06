@@ -1,0 +1,28 @@
+model Model
+	culture: pt-BR
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: pt-BR
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 1
+
+annotation PBI_QueryOrder = ["public data_sus","public dim_ocupacao","public dim_procedimento","public dim_raca_cor","public dim_unidade","public dim_municipio_atendimento","public dim_municipio_residencia"]
+
+annotation PBI_ProTooling = ["DevMode"]
+
+ref table 'public data_sus'
+ref table DateTableTemplate_50efd423-7e66-4d01-8638-3e6f57f66dc5
+ref table 'public dim_ocupacao'
+ref table 'public dim_procedimento'
+ref table 'public dim_raca_cor'
+ref table 'public dim_unidade'
+ref table metricas
+ref table 'public dim_municipio_atendimento'
+ref table 'public dim_municipio_residencia'
+ref table dim_calendario
+ref table LocalDateTable_7fd4cc14-fa39-4cb5-8bf1-c3c9e5ed2088
+
+ref cultureInfo pt-BR
+
