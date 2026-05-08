@@ -105,6 +105,14 @@ table 'public data_sus'
 
 		annotation SummarizationSetBy = Automatic
 
+	column sexo
+		dataType: string
+		lineageTag: 6a7ea477-0240-42c5-b64f-774b6c2f299a
+		summarizeBy: none
+		sourceColumn: sexo
+
+		annotation SummarizationSetBy = Automatic
+
 	partition 'public data_sus' = m
 		mode: import
 		source =

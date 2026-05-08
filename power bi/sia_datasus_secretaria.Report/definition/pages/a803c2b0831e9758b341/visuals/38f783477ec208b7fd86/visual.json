@@ -1,0 +1,107 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.8.0/schema.json",
+  "name": "38f783477ec208b7fd86",
+  "position": {
+    "x": 372.48677248677251,
+    "y": 209.94708994708995,
+    "z": 9002,
+    "height": 253.96825396825398,
+    "width": 448.67724867724871,
+    "tabOrder": 9002
+  },
+  "visual": {
+    "visualType": "clusteredColumnChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "public dim_raca_cor"
+                    }
+                  },
+                  "Property": "raca_cor"
+                }
+              },
+              "queryRef": "public dim_raca_cor.raca_cor",
+              "nativeQueryRef": "raca_cor",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "metricas"
+                    }
+                  },
+                  "Property": "total_frequencia"
+                }
+              },
+              "queryRef": "metricas.total_frequencia",
+              "nativeQueryRef": "total_frequencia"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "metricas"
+                  }
+                },
+                "Property": "total_frequencia"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "drillFilterOtherVisuals": true
+  },
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "6e9bdfd8c49178a9f1ab",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "public dim_raca_cor"
+              }
+            },
+            "Property": "raca_cor"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "c63b35192814eb2caee5",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "metricas"
+              }
+            },
+            "Property": "total_frequencia"
+          }
+        },
+        "type": "Advanced"
+      }
+    ]
+  }
+}
