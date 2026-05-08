@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.8.0/schema.json",
-  "name": "d2178485ac63ee85ab69",
+  "name": "2a64544926af42c524a3",
   "position": {
-    "x": 745.90771398379707,
-    "y": 44.725607608312785,
-    "z": 7000,
-    "height": 56.267699894328992,
-    "width": 141.39063050369847,
-    "tabOrder": 6000
+    "x": 887.29834448749557,
+    "y": 43.282846072560758,
+    "z": 12000,
+    "height": 57.710461430081011,
+    "width": 142.8333920394505,
+    "tabOrder": 10001
   },
   "visual": {
     "visualType": "slicer",
@@ -20,16 +20,16 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "public dim_municipio_atendimento"
+                      "Entity": "public dim_municipio_residencia"
                     }
                   },
                   "Property": "municipio"
                 }
               },
-              "queryRef": "public dim_municipio_atendimento.municipio",
-              "nativeQueryRef": "Município Ate.",
+              "queryRef": "public dim_municipio_residencia.municipio",
+              "nativeQueryRef": "Município Res.",
               "active": true,
-              "displayName": "Município Ate."
+              "displayName": "Município Res."
             }
           ]
         }
@@ -58,7 +58,7 @@
                 "From": [
                   {
                     "Name": "p",
-                    "Entity": "public dim_municipio_atendimento",
+                    "Entity": "public dim_municipio_residencia",
                     "Type": 0
                   }
                 ],
@@ -82,7 +82,7 @@
                           [
                             {
                               "Literal": {
-                                "Value": "'Mamanguape'"
+                                "Value": "'Rio Tinto'"
                               }
                             }
                           ]
@@ -115,13 +115,6 @@
               "expr": {
                 "Literal": {
                   "Value": "'''Segoe UI Semibold'', wf_segoe-ui_semibold, helvetica, arial, sans-serif'"
-                }
-              }
-            },
-            "show": {
-              "expr": {
-                "Literal": {
-                  "Value": "true"
                 }
               }
             },

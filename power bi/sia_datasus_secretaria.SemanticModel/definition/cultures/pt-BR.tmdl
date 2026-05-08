@@ -2401,6 +2401,16 @@ cultureInfo pt-BR
 			          }
 			        },
 			        {
+			          "Município Ate.": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        },
+			        {
 			          "Município": {
 			            "State": "Suggested",
 			            "Source": {
@@ -2455,6 +2465,16 @@ cultureInfo pt-BR
 			        {
 			          "municipio": {
 			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "Município Res.": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
 			          }
 			        }
 			      ]
