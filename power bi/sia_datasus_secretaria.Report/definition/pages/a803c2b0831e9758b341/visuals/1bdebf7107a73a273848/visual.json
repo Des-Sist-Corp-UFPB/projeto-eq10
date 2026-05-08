@@ -1,16 +1,16 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.8.0/schema.json",
-  "name": "38f783477ec208b7fd86",
+  "name": "1bdebf7107a73a273848",
   "position": {
-    "x": 299.6825396825397,
+    "x": 858.41269841269843,
     "y": 154.07407407407408,
-    "z": 9002,
+    "z": 9004,
     "height": 253.96825396825398,
-    "width": 448.67724867724871,
-    "tabOrder": 9002
+    "width": 391.11111111111114,
+    "tabOrder": 9004
   },
   "visual": {
-    "visualType": "clusteredColumnChart",
+    "visualType": "pieChart",
     "query": {
       "queryState": {
         "Category": {
@@ -20,14 +20,14 @@
                 "Column": {
                   "Expression": {
                     "SourceRef": {
-                      "Entity": "public dim_raca_cor"
+                      "Entity": "public data_sus"
                     }
                   },
-                  "Property": "raca_cor"
+                  "Property": "sexo"
                 }
               },
-              "queryRef": "public dim_raca_cor.raca_cor",
-              "nativeQueryRef": "raca_cor",
+              "queryRef": "public data_sus.sexo",
+              "nativeQueryRef": "sexo",
               "active": true
             }
           ]
@@ -70,26 +70,78 @@
         "isDefaultSort": true
       }
     },
+    "objects": {
+      "labels": [
+        {
+          "properties": {
+            "position": {
+              "expr": {
+                "Literal": {
+                  "Value": "'outside'"
+                }
+              }
+            },
+            "labelDisplayUnits": {
+              "expr": {
+                "Literal": {
+                  "Value": "1D"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Sexo dos pacientes'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
     "drillFilterOtherVisuals": true
   },
   "filterConfig": {
     "filters": [
       {
-        "name": "6e9bdfd8c49178a9f1ab",
+        "name": "9c9ba11252cb1da69e1a",
         "field": {
           "Column": {
             "Expression": {
               "SourceRef": {
-                "Entity": "public dim_raca_cor"
+                "Entity": "public data_sus"
               }
             },
-            "Property": "raca_cor"
+            "Property": "sexo"
           }
         },
-        "type": "Categorical"
+        "type": "Categorical",
+        "objects": {
+          "general": [
+            {
+              "properties": {
+                "isInvertedSelectionMode": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "true"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
       },
       {
-        "name": "c63b35192814eb2caee5",
+        "name": "1a6129319055083274f3",
         "field": {
           "Measure": {
             "Expression": {
