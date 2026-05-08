@@ -249,6 +249,96 @@
               }
             }
           }
+        },
+        {
+          "properties": {
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Conditional": {
+                      "Cases": [
+                        {
+                          "Condition": {
+                            "Not": {
+                              "Expression": {
+                                "StartsWith": {
+                                  "Left": {
+                                    "Measure": {
+                                      "Expression": {
+                                        "SourceRef": {
+                                          "Entity": "metricas"
+                                        }
+                                      },
+                                      "Property": "total_VP_tabela_variação_ano_passado"
+                                    }
+                                  },
+                                  "Right": {
+                                    "Literal": {
+                                      "Value": "'↑'"
+                                    }
+                                  }
+                                },
+                                "Annotations": {
+                                  "PowerBI.SQExprEvaluationKind": 1,
+                                  "PowerBI.SQExprTextOperatorOption": 9
+                                }
+                              }
+                            }
+                          },
+                          "Value": {
+                            "Literal": {
+                              "Value": "'#D40D0D'"
+                            }
+                          }
+                        },
+                        {
+                          "Condition": {
+                            "StartsWith": {
+                              "Left": {
+                                "Measure": {
+                                  "Expression": {
+                                    "SourceRef": {
+                                      "Entity": "metricas"
+                                    }
+                                  },
+                                  "Property": "total_VP_tabela_variação_ano_passado"
+                                }
+                              },
+                              "Right": {
+                                "Literal": {
+                                  "Value": "'↑'"
+                                }
+                              }
+                            },
+                            "Annotations": {
+                              "PowerBI.SQExprEvaluationKind": 1,
+                              "PowerBI.SQExprTextOperatorOption": 8
+                            }
+                          },
+                          "Value": {
+                            "Literal": {
+                              "Value": "'#1AAB40'"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "selector": {
+            "data": [
+              {
+                "dataViewWildcard": {
+                  "matchingOption": 1
+                }
+              }
+            ],
+            "metadata": "metricas.total_VP_tabela_variação_ano_passado"
+          }
         }
       ],
       "columnHeaders": [

@@ -111,6 +111,13 @@
                   "Value": "'Right'"
                 }
               }
+            },
+            "styleTotal": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
             }
           },
           "selector": {
