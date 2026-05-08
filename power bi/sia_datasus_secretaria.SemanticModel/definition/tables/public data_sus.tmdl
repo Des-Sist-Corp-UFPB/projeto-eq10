@@ -113,6 +113,22 @@ table 'public data_sus'
 
 		annotation SummarizationSetBy = Automatic
 
+	column faixa_etaria_idade =
+			SWITCH(
+			    True(),
+			    'public data_sus'[idade] < 10, "Menos de 10 anos",
+			    'public data_sus'[idade] <= 14, "10 a 14 anos",
+			    'public data_sus'[idade] <=19, "15 a 19 anos",
+			    'public data_sus'[idade] <=29, "20 a 29 anos",
+			    'public data_sus'[idade] <=39, "30 a 39 anos",
+			    'public data_sus'[idade] < 999, "40 anos e mais",
+			    "Não aplicavel"
+			)
+		lineageTag: 440e0837-b855-4204-b042-e152540ce41c
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
 	partition 'public data_sus' = m
 		mode: import
 		source =
