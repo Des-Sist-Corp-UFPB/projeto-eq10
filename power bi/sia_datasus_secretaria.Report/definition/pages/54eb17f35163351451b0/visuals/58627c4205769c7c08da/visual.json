@@ -89,6 +89,13 @@
                   "Value": "'a803c2b0831e9758b341'"
                 }
               }
+            },
+            "showDefaultTooltip": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
             }
           }
         }

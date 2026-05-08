@@ -2,11 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.8.0/schema.json",
   "name": "38f783477ec208b7fd86",
   "position": {
-    "x": 287.11809346292108,
-    "y": 154.60205032618825,
+    "x": 287.10954561465303,
+    "y": 154.37548432546672,
     "z": 9002,
-    "height": 253.98908267873784,
-    "width": 487.11915856743445,
+    "height": 253.92603029235647,
+    "width": 487.65339908418457,
     "tabOrder": 9002
   },
   "visual": {
@@ -187,7 +187,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Frequencia por Raça/Cor'"
+                  "Value": "'Frequência por Raça/Cor'"
                 }
               }
             }

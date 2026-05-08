@@ -181,7 +181,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Frequencia por Faixa Etária'"
+                  "Value": "'Frequência por Faixa Etária'"
                 }
               }
             }
