@@ -309,9 +309,9 @@ table metricas
 			var medida = [total_frequencia]
 			var formato = SWITCH(
 			    TRUE(),
-			    medida >= 1000000, FORMAT(medida, "R$#,,.0 Mi"),
-			    medida >= 1000, FORMAT(medida,"R$#,.0 Mil"),
-			    FORMAT(medida,"R$#.0")
+			    medida >= 1000000, FORMAT(medida, "#,, Mi"),
+			    medida >= 1000, FORMAT(medida,"#, Mil"),
+			    FORMAT(medida,"#.0")
 			)
 			return formato
 		displayFolder: Cards
@@ -427,9 +427,9 @@ table metricas
 			var medida = [total_quantidade_apresentada]
 			var formato = SWITCH(
 			    TRUE(),
-			    medida >= 1000000, FORMAT(medida, "R$#,, Mi"),
-			    medida >= 1000, FORMAT(medida,"R$#, Mil"),
-			    FORMAT(medida,"R$#")
+			    medida >= 1000000, FORMAT(medida, "#,, Mi"),
+			    medida >= 1000, FORMAT(medida,"#, Mil"),
+			    FORMAT(medida,"#")
 			)
 			return formato
 		displayFolder: Cards
