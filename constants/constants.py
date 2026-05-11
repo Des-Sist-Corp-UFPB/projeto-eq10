@@ -17,7 +17,7 @@ LIST_UNITS = [
 # Colunas filtradas
 LIST_FILTER_COLUMNS = [
     "PA_QTDAPR", "PA_QTDPRO", "PA_VALAPR", "PA_VALPRO", "PA_UFMUN", "PA_MUNPCN", 
-    "PA_MVM", "PA_RACACOR", "PA_IDADE", "PA_CODUNI", "PA_CBOCOD", "PA_PROC_ID"
+    "PA_MVM", "PA_RACACOR", "PA_IDADE", "PA_CODUNI", "PA_CBOCOD", "PA_PROC_ID", "PA_SEXO"
 ]
 
 		
@@ -35,7 +35,8 @@ DIC_RENAME_COLUMNS = {
     "PA_IDADE": "idade",
     "PA_CODUNI": "cod_unidade",
     "PA_CBOCOD": "cod_ocupacao",
-    "PA_PROC_ID": "cod_procedimento"
+    "PA_PROC_ID": "cod_procedimento",
+    "PA_SEXO" : "sexo"
 }
 
 # Tipagem
