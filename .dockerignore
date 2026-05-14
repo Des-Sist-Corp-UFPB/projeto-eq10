@@ -1,0 +1,22 @@
+.git
+.venv
+venv
+env
+ENV
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+.env
+.env.local
+.env.*.local
+config/.env
+config/*.env
+
+data
+logs
+notebooks/.ipynb_checkpoints
+power bi/Telas
