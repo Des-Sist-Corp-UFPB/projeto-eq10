@@ -18,6 +18,12 @@ A documentacao tecnica completa esta em [docs/DOCUMENTACAO_TECNICA.md](docs/DOCU
 
 Ela detalha a arquitetura, estrutura de pastas, fluxo ETL, configuracao de ambiente, tabelas, modelo Power BI e pontos de atencao.
 
+## Camada de IA
+
+Este projeto possui uma camada experimental e isolada de analise estatistica com PandasAI. Ela e somente leitura, nao executa a ETL principal e trabalha com DataFrames controlados da tabela `data_sus`.
+
+Veja detalhes em: [docs/IA_PANDASAI.md](docs/IA_PANDASAI.md)
+
 ## Execucao rapida
 
 Requisitos principais:
