@@ -16,5 +16,6 @@ dependencies = [
     # Dependencias da camada experimental de IA.
     "pandasai>=3.0.0,<4.0.0",
     "pandasai-litellm",
+    "streamlit>=1.45.0",
 ]
 

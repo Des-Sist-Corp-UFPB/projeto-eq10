@@ -24,6 +24,8 @@ Este projeto possui uma camada experimental e isolada de analise estatistica com
 
 Veja detalhes em: [docs/IA_PANDASAI.md](docs/IA_PANDASAI.md)
 
+Interface experimental: `streamlit run app_ai_chat.py`
+
 ## Execucao rapida
 
 Requisitos principais:

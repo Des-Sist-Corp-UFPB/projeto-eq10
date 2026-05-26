@@ -182,6 +182,22 @@ Para responder de verdade, sao necessarias:
 - `AI_LLM_API_KEY` ou `OPENAI_API_KEY` configurada;
 - dependencias instaladas.
 
+## Interface de Chat Experimental
+
+A interface `app_ai_chat.py` usa Streamlit e e apenas uma camada visual para testar a funcao `perguntar_datasus()`.
+
+O visual foi ajustado com inspiracao na tela criada no Figma Make: sidebar roxa fixa, item de Chat destacado, item de Estatisticas secundario, banner superior em gradiente roxo/azul, cards claros e chips lilas de sugestoes. As imagens PNG do Power BI existentes no projeto permanecem apenas como referencia visual historica: elas nao sao modificadas, movidas, renomeadas ou alteradas pelo chat.
+
+Ela nao acessa o banco diretamente, nao executa a ETL, nao modifica o Power BI e nao altera arquivos de dados. Todo o fluxo de seguranca continua concentrado na camada `src/ai/`.
+
+Para rodar:
+
+```powershell
+python -m streamlit run app_ai_chat.py
+```
+
+Nesta fase, a interface usa a integracao experimental com PandasAI ja encapsulada em `src/ai/datasus_ai.py`.
+
 ## Status Atual
 
 A camada chama PandasAI em modo experimental. O fluxo atual mantem dados controlados e validacoes antes da chamada de IA.
