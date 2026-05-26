@@ -105,9 +105,16 @@ Configure o modelo usado pela integracao experimental:
 ```env
 AI_LLM_MODEL=gpt-4.1-mini
 AI_LLM_API_KEY=sua_chave_do_modelo
+AI_DEBUG_SAFE=false
 ```
 
-`OPENAI_API_KEY` pode ser usado como fallback para `AI_LLM_API_KEY`. Nao inclua chaves reais em arquivos versionados.
+`AI_LLM_API_KEY` e a chave usada pela camada experimental de IA. `OPENAI_API_KEY` pode ser usado como fallback quando `AI_LLM_API_KEY` nao estiver definido. Quando `AI_LLM_API_KEY` existir e `OPENAI_API_KEY` nao estiver definido no ambiente, o runner tambem define `OPENAI_API_KEY` em memoria para compatibilidade com LiteLLM/OpenAI.
+
+`AI_DEBUG_SAFE=false` e o padrao recomendado. Quando definido como `true`, erros seguros da chamada PandasAI/LiteLLM podem incluir apenas o nome da classe da excecao, sem stack trace e sem credenciais. Use esse modo somente para diagnostico local.
+
+Nao inclua chaves reais em arquivos versionados.
+
+Observacao: o LiteLLM pode emitir warnings sobre `botocore` ausente quando dependencias opcionais de AWS Bedrock/SageMaker nao estao instaladas. Esses warnings nao significam necessariamente falha quando o provedor usado for OpenAI.
 
 ## Integracao Experimental com PandasAI
 
@@ -127,6 +134,7 @@ A integracao segue estas regras:
 - PandasAI nao deve manter historico entre perguntas.
 - A chamada nao usa `follow_up`.
 - O contexto deve ser descartado apos cada prompt; a implementacao cria os objetos dentro da funcao para evitar reuso persistente.
+- Erros de PandasAI/LiteLLM retornam mensagem segura, sem chave, senha, URL de banco ou stack trace.
 
 ## Exemplo de Usuario PostgreSQL Somente Leitura
 

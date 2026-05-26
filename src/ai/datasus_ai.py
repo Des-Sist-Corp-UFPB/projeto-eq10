@@ -31,14 +31,18 @@ def perguntar_datasus(prompt_usuario: str) -> str:
 
     try:
         df, data_inicio, data_fim_exclusiva = load_controlled_datasus_dataframe()
+    except Exception:
+        log_ai_question(prompt_usuario, status="erro_inesperado")
+        return GENERIC_AI_ERROR_MESSAGE
 
-        if df.empty:
-            mensagem_sem_dados = (
-                "Ainda não há dados disponíveis no sistema para análise estatística."
-            )
-            log_ai_question(prompt_usuario, status="sem_dados", detail=mensagem_sem_dados)
-            return mensagem_sem_dados
+    if df.empty:
+        mensagem_sem_dados = (
+            "Ainda não há dados disponíveis no sistema para análise estatística."
+        )
+        log_ai_question(prompt_usuario, status="sem_dados", detail=mensagem_sem_dados)
+        return mensagem_sem_dados
 
+    try:
         resposta = executar_pergunta_com_pandasai(
             df,
             prompt_usuario,

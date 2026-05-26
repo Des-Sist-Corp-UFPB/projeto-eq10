@@ -58,7 +58,7 @@ Power BI
 
 ## Dependencias
 
-As dependencias estao declaradas em `pyproject.toml`:
+As dependencias estao declaradas em `pyproject.toml`. Para a ETL principal, as dependencias essenciais sao:
 
 - `pysus`: acesso aos arquivos publicos do DATASUS.
 - `pandas`: manipulacao tabular.
@@ -70,6 +70,48 @@ As dependencias estao declaradas em `pyproject.toml`:
 - `gdal`: dependencia geoespacial usada pelo ambiente do projeto.
 
 A versao Python esperada e `>=3.10,<3.12`.
+
+Dependencias experimentais da camada de IA e da interface de chat, como PandasAI, pandasai-litellm e Streamlit, nao sao obrigatorias para executar a ETL principal. Elas estao documentadas separadamente em [IA_PANDASAI.md](IA_PANDASAI.md).
+
+### Troubleshooting: PySUS no Windows
+
+Em alguns ambientes Windows, o PySUS pode apresentar um problema interno antes mesmo da ETL iniciar.
+
+Sintoma observado:
+
+```text
+Erro ao importar SIA
+Tipo: RecursionError
+Mensagem: maximum recursion depth exceeded
+```
+
+Esse erro acontece no import abaixo, antes da criacao de `SIA()` e antes de `SIA().load()`:
+
+O import recomendado no projeto e:
+
+```python
+from pysus import SIA
+```
+
+O traceback observado anteriormente indicava recursao interna no pacote `pysus/ftp/__init__.py`, especialmente em chamadas relacionadas a `Directory(parent_path)`. A causa provavel e um comportamento interno do PySUS/FTP em alguns ambientes Windows.
+
+O projeto espera Python `>=3.10,<3.12`.
+
+Primeiro teste recomendado no Windows: mover o projeto para um caminho simples, por exemplo:
+
+```text
+C:\dev\DSC_SEC-MME
+```
+
+Evite, nesse teste, caminhos com OneDrive, espacos ou acentos.
+
+O script abaixo diagnostica import, criacao da instancia, `SIA().load()` e listagem de arquivos `PA`/`PB`, sem executar a ETL, acessar banco ou modificar arquivos do projeto:
+
+```powershell
+python scripts/test_pysus_sia.py
+```
+
+Se o erro persistir mesmo fora do OneDrive e de caminhos com espacos ou acentos, a recomendacao preferencial para execucao estavel da ETL e rodar via WSL/Linux ou Docker. O projeto nao deve trocar `from pysus import SIA` por imports antigos nem mascarar o erro com contornos locais.
 
 ## Configuracao
 
@@ -109,6 +151,12 @@ Comando:
 
 ```powershell
 uv run python main.py
+```
+
+Alternativa para ambientes sem `uv` configurado:
+
+```powershell
+python main.py
 ```
 
 ## Execucao com Docker
@@ -353,7 +401,7 @@ Antes de rodar em producao:
 1. Confirmar que `.env` existe para Docker ou que `config/.env` existe para execucao Python direta.
 2. Confirmar que o banco possui as tabelas esperadas ou permissao para cria-las via `to_sql`.
 3. Confirmar conectividade com o DATASUS.
-4. Rodar `uv run python main.py`.
+4. Rodar `uv run python main.py` ou, em ambientes sem `uv`, `python main.py`.
 5. Conferir logs de validacao do periodo.
 6. Conferir total de registros no banco.
 7. Atualizar o Power BI, se aplicavel.

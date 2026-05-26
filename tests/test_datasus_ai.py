@@ -176,6 +176,23 @@ class TestDatasusAiFlow(unittest.TestCase):
         self.assertEqual(resposta, GENERIC_AI_ERROR_MESSAGE)
         mock_log.assert_called_with("qual o total de valor aprovado?", status="erro_inesperado")
 
+    @patch(
+        "src.ai.datasus_ai.load_controlled_datasus_dataframe",
+        side_effect=RuntimeError("erro de provider com possível segredo"),
+    )
+    @patch("src.ai.datasus_ai.validar_mes_solicitado_no_prompt", return_value=(True, ""))
+    @patch("src.ai.datasus_ai.log_ai_question")
+    def test_erro_no_carregamento_dos_dados_retorna_mensagem_generica(
+        self,
+        mock_log,
+        _mock_validar_mes,
+        _mock_load_data,
+    ):
+        resposta = perguntar_datasus("qual o total de valor aprovado?")
+
+        self.assertEqual(resposta, GENERIC_AI_ERROR_MESSAGE)
+        mock_log.assert_called_with("qual o total de valor aprovado?", status="erro_inesperado")
+
     def test_arquivo_nao_contem_comandos_sql_de_escrita(self):
         import src.ai.datasus_ai as datasus_ai
 

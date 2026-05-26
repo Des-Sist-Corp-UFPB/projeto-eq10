@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -11,8 +12,12 @@ MISSING_LLM_KEY_MESSAGE = "Configuração incompleta da IA: chave do modelo ause
 PANDASAI_IMPORT_ERROR_MESSAGE = (
     "Dependências da IA não instaladas. Instale pandasai e pandasai-litellm."
 )
+PANDASAI_LITELLM_ERROR_MESSAGE = (
+    "Erro ao executar PandasAI/LiteLLM. Verifique chave, modelo e dependências da IA."
+)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
+logger = logging.getLogger(__name__)
 
 
 def _load_env_files() -> None:
@@ -25,16 +30,37 @@ def _load_env_files() -> None:
     load_dotenv(BASE_DIR / "config" / ".env")
 
 
+def _is_safe_debug_enabled() -> bool:
+    return (os.getenv("AI_DEBUG_SAFE") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def _get_llm_config() -> tuple[str, str]:
     _load_env_files()
 
     model = os.getenv("AI_LLM_MODEL") or DEFAULT_LLM_MODEL
-    api_key = os.getenv("AI_LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+    ai_api_key = os.getenv("AI_LLM_API_KEY")
+
+    if ai_api_key and not os.getenv("OPENAI_API_KEY"):
+        os.environ["OPENAI_API_KEY"] = ai_api_key
+
+    api_key = ai_api_key or os.getenv("OPENAI_API_KEY")
 
     if not api_key:
         raise RuntimeError(MISSING_LLM_KEY_MESSAGE)
 
     return model, api_key
+
+
+def _build_pandasai_litellm_error_message(error: Exception) -> str:
+    if _is_safe_debug_enabled():
+        return f"{PANDASAI_LITELLM_ERROR_MESSAGE} Tipo: {type(error).__name__}"
+
+    return PANDASAI_LITELLM_ERROR_MESSAGE
 
 
 def _build_prompt(prompt_usuario: str, data_inicio: Any, data_fim_exclusiva: Any) -> str:
@@ -84,16 +110,20 @@ def executar_pergunta_com_pandasai(
     except ModuleNotFoundError as exc:
         raise RuntimeError(PANDASAI_IMPORT_ERROR_MESSAGE) from exc
 
-    llm = LiteLLM(model=model, api_key=api_key)
-    pai.config.set({"llm": llm})
-
-    # PandasAI v3 recomenda pai.DataFrame e pai.config.set({"llm": llm}).
-    # O DataFrame recebido aqui ja foi limitado e filtrado por data_provider.py.
-    pandasai_df = pai.DataFrame(df.copy())
-    prompt_com_regras = _build_prompt(prompt_usuario, data_inicio, data_fim_exclusiva)
+    pandasai_df = None
 
     try:
+        llm = LiteLLM(model=model, api_key=api_key)
+        pai.config.set({"llm": llm})
+
+        # PandasAI v3 recomenda pai.DataFrame e pai.config.set({"llm": llm}).
+        # O DataFrame recebido aqui ja foi limitado e filtrado por data_provider.py.
+        pandasai_df = pai.DataFrame(df.copy())
+        prompt_com_regras = _build_prompt(prompt_usuario, data_inicio, data_fim_exclusiva)
         resposta = pandasai_df.chat(prompt_com_regras)
         return str(resposta)
+    except Exception as exc:
+        logger.warning("Erro seguro PandasAI/LiteLLM | tipo=%s", type(exc).__name__)
+        raise RuntimeError(_build_pandasai_litellm_error_message(exc)) from exc
     finally:
         _clear_pandasai_context(pai, pandasai_df)

@@ -1,6 +1,6 @@
 from src.utils import get_target_period 
 import pandas as pd
-from pysus.online_data.SIA import SIA
+from pysus import SIA
 from datetime import datetime
 from pathlib import Path
 
