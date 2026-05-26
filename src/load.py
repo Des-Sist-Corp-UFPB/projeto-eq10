@@ -20,8 +20,8 @@ from dotenv import load_dotenv
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Define o caminho do arquivo .env (subindo dois níveis e acessando /config/.env)
-env_path = Path(__file__).resolve().parent.parent / 'config' / '.env'
+# Define o caminho do arquivo .env (na raiz do projeto)
+env_path = Path(__file__).resolve().parent.parent / '.env'
 
 # Carrega as variáveis de ambiente do arquivo especificado
 load_dotenv(env_path)
@@ -41,20 +41,17 @@ database = os.getenv('database')
 # Host alternativo usado em ambientes Docker (comentado)
 #host = 'host.docker.internal'
 
-# Define o host como localhost (conexão local)
-user = f"{os.getenv('user')}"
-host = f"{os.getenv('host')}"
-password = f"{os.getenv('password')}"
-database = f"{os.getenv('database')}"
-
 # Função responsável por criar e retornar o engine de conexão com o PostgreSQL
 def get_engine():
     # Log informando tentativa de conexão
     logging.info(f"→ Conectando em {host}:5432/{database}")
     
+    # Usamos quote_plus para escapar caracteres especiais na senha
+    safe_password = quote_plus(password) if password else ""
+    
     # Cria e retorna o engine usando SQLAlchemy
     return create_engine(
-        f"postgresql://{user}:{password}@{host}/{database}?sslmode=require&channel_binding=require"
+        f"postgresql://{user}:{safe_password}@{host}/{database}?sslmode=require&channel_binding=require"
     )
     
 # Cria o engine chamando a função

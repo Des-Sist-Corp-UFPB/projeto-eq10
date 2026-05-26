@@ -38,7 +38,11 @@ def extract_data(sia) -> Path:
         # 3. Correção do Bug de Data: Extrai os 2 últimos caracteres ANTES da extensão
         # Ex: "PAPB2612.dbc" -> pega "12" ao invés de apenas "2"
         str_mes = Path(ultimo_arquivo.name).stem[-2:]
-        mes_ultimo_arquivo = int(str_mes)
+        try:
+            mes_ultimo_arquivo = int(str_mes)
+        except ValueError:
+            logger.error(f"Erro ao extrair o mês do arquivo {ultimo_arquivo.name}. Finalizando extração.")
+            return None
 
         logger.info(
             f"Validação de mês | Arquivo FTP: {mes_ultimo_arquivo:02d} | Esperado: {mes_esperado:02d} | Ano Alvo: {ano_alvo}"
