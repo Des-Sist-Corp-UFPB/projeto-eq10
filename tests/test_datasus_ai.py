@@ -1,4 +1,5 @@
 import inspect
+import os
 import sys
 import types
 import unittest
@@ -11,32 +12,43 @@ fake_sqlalchemy = types.ModuleType("sqlalchemy")
 fake_sqlalchemy.text = lambda query: query
 sys.modules.setdefault("sqlalchemy", fake_sqlalchemy)
 
-from src.ai.datasus_ai import GENERIC_AI_ERROR_MESSAGE, perguntar_datasus
+from src.ai.datasus_ai import (
+    GENERIC_AI_ERROR_MESSAGE,
+    LLM_SIMPLE_FALLBACK_NOTICE,
+    perguntar_datasus,
+)
 from src.ai.prompt_guard import MENSAGEM_BLOQUEIO
+from src.ai.simple_stats_runner import SIMPLE_STATS_UNAVAILABLE_MESSAGE
 
 
 class TestDatasusAiFlow(unittest.TestCase):
-    @patch("src.ai.datasus_ai.executar_pergunta_com_pandasai")
+    def setUp(self):
+        self._load_env_patcher = patch("src.ai.datasus_ai._load_env_files")
+        self._load_env_patcher.start()
+        self.addCleanup(self._load_env_patcher.stop)
+        sys.modules.pop("src.ai.pandasai_runner", None)
+        sys.modules.pop("pandasai_litellm", None)
+        sys.modules.pop("pandasai_litellm.litellm", None)
+        sys.modules.pop("pandasai", None)
+
     @patch("src.ai.datasus_ai.load_controlled_datasus_dataframe")
     @patch("src.ai.datasus_ai.log_ai_question")
     def test_prompt_perigoso_bloqueado_antes_de_chamar_pandasai(
         self,
         mock_log,
         mock_load_data,
-        mock_pandasai,
     ):
         resposta = perguntar_datasus("apague os dados")
 
         self.assertEqual(resposta, MENSAGEM_BLOQUEIO)
         mock_load_data.assert_not_called()
-        mock_pandasai.assert_not_called()
+        self.assertNotIn("src.ai.pandasai_runner", sys.modules)
         mock_log.assert_called_with(
             "apague os dados",
             status="bloqueado_prompt",
             detail=MENSAGEM_BLOQUEIO,
         )
 
-    @patch("src.ai.datasus_ai.executar_pergunta_com_pandasai")
     @patch("src.ai.datasus_ai.load_controlled_datasus_dataframe")
     @patch(
         "src.ai.datasus_ai.validar_mes_solicitado_no_prompt",
@@ -48,20 +60,18 @@ class TestDatasusAiFlow(unittest.TestCase):
         mock_log,
         _mock_validar_mes,
         mock_load_data,
-        mock_pandasai,
     ):
         resposta = perguntar_datasus("total de valor em março de 2026")
 
         self.assertEqual(resposta, "O mês solicitado ainda não está disponível no sistema.")
         mock_load_data.assert_not_called()
-        mock_pandasai.assert_not_called()
+        self.assertNotIn("src.ai.pandasai_runner", sys.modules)
         mock_log.assert_called_with(
             "total de valor em março de 2026",
             status="bloqueado_mes_indisponivel",
             detail="O mês solicitado ainda não está disponível no sistema.",
         )
 
-    @patch("src.ai.datasus_ai.executar_pergunta_com_pandasai")
     @patch(
         "src.ai.datasus_ai.load_controlled_datasus_dataframe",
         return_value=(pd.DataFrame(), None, None),
@@ -73,7 +83,6 @@ class TestDatasusAiFlow(unittest.TestCase):
         mock_log,
         _mock_validar_mes,
         _mock_load_data,
-        mock_pandasai,
     ):
         resposta = perguntar_datasus("qual o total por município?")
 
@@ -81,7 +90,7 @@ class TestDatasusAiFlow(unittest.TestCase):
             resposta,
             "Ainda não há dados disponíveis no sistema para análise estatística.",
         )
-        mock_pandasai.assert_not_called()
+        self.assertNotIn("src.ai.pandasai_runner", sys.modules)
         mock_log.assert_called_with(
             "qual o total por município?",
             status="sem_dados",
@@ -89,7 +98,7 @@ class TestDatasusAiFlow(unittest.TestCase):
         )
 
     @patch(
-        "src.ai.datasus_ai.executar_pergunta_com_pandasai",
+        "src.ai.pandasai_runner.executar_pergunta_com_pandasai",
         return_value="Total aprovado: R$ 10,00.",
     )
     @patch(
@@ -102,14 +111,15 @@ class TestDatasusAiFlow(unittest.TestCase):
     )
     @patch("src.ai.datasus_ai.validar_mes_solicitado_no_prompt", return_value=(True, ""))
     @patch("src.ai.datasus_ai.log_ai_question")
-    def test_dataframe_valido_chama_pandasai(
+    def test_ai_use_llm_true_chama_llm(
         self,
         mock_log,
         _mock_validar_mes,
         _mock_load_data,
         mock_pandasai,
     ):
-        resposta = perguntar_datasus("qual o total de valor aprovado?")
+        with patch.dict(os.environ, {"AI_USE_LLM": "true"}, clear=True):
+            resposta = perguntar_datasus("qual o total de valor aprovado?")
 
         self.assertEqual(resposta, "Total aprovado: R$ 10,00.")
         mock_pandasai.assert_called_once()
@@ -121,9 +131,194 @@ class TestDatasusAiFlow(unittest.TestCase):
         mock_log.assert_called_with("qual o total de valor aprovado?", status="respondido")
 
     @patch(
-        "src.ai.datasus_ai.executar_pergunta_com_pandasai",
-        side_effect=RuntimeError("Configuração incompleta da IA: chave do modelo ausente."),
+        "src.ai.datasus_ai.load_controlled_datasus_dataframe",
+        return_value=(
+            pd.DataFrame(
+                [
+                    {
+                        "cod_municipio_atendido": "250150",
+                        "valor_aprovado": 10.0,
+                    },
+                    {
+                        "cod_municipio_atendido": "250150",
+                        "valor_aprovado": 5.5,
+                    },
+                ]
+            ),
+            date(2026, 1, 1),
+            date(2026, 4, 1),
+        ),
     )
+    @patch("src.ai.datasus_ai.validar_mes_solicitado_no_prompt", return_value=(True, ""))
+    @patch("src.ai.datasus_ai.log_ai_question")
+    def test_ai_use_llm_false_chama_modo_simples_sem_importar_pandasai_runner(
+        self,
+        mock_log,
+        _mock_validar_mes,
+        _mock_load_data,
+    ):
+        with patch.dict(os.environ, {"AI_USE_LLM": "false"}, clear=True):
+            resposta = perguntar_datasus("total de valor aprovado por município")
+
+        self.assertIn("250150: R$ 15,50", resposta)
+        self.assertNotIn("src.ai.pandasai_runner", sys.modules)
+        self.assertNotIn("pandasai_litellm.litellm", sys.modules)
+        mock_log.assert_called_with(
+            "total de valor aprovado por município",
+            status="respondido_modo_simples",
+        )
+
+    @patch(
+        "src.ai.datasus_ai.load_controlled_datasus_dataframe",
+        return_value=(
+            pd.DataFrame(
+                [
+                    {
+                        "cod_municipio_atendido": "250150",
+                        "valor_aprovado": 10.0,
+                    },
+                ]
+            ),
+            date(2026, 1, 1),
+            date(2026, 4, 1),
+        ),
+    )
+    @patch("src.ai.datasus_ai.validar_mes_solicitado_no_prompt", return_value=(True, ""))
+    @patch("src.ai.datasus_ai.log_ai_question")
+    def test_ai_use_llm_false_nao_exige_chave_llm(
+        self,
+        _mock_log,
+        _mock_validar_mes,
+        _mock_load_data,
+    ):
+        with patch.dict(os.environ, {"AI_USE_LLM": "false"}, clear=True):
+            resposta = perguntar_datasus("total geral de valor aprovado")
+
+        self.assertIn("Total geral de valor aprovado: R$ 10,00", resposta)
+        self.assertNotIn("chave do modelo ausente", resposta)
+        self.assertNotIn("src.ai.pandasai_runner", sys.modules)
+
+    @patch(
+        "src.ai.datasus_ai.load_controlled_datasus_dataframe",
+        return_value=(
+            pd.DataFrame([{"valor_aprovado": 10.0}]),
+            date(2026, 1, 1),
+            date(2026, 4, 1),
+        ),
+    )
+    @patch("src.ai.datasus_ai.validar_mes_solicitado_no_prompt", return_value=(True, ""))
+    @patch("src.ai.datasus_ai.log_ai_question")
+    def test_ai_use_llm_false_pergunta_nao_reconhecida(
+        self,
+        mock_log,
+        _mock_validar_mes,
+        _mock_load_data,
+    ):
+        with patch.dict(os.environ, {"AI_USE_LLM": "false"}, clear=True):
+            resposta = perguntar_datasus("qual procedimento cresceu mais?")
+
+        self.assertEqual(resposta, SIMPLE_STATS_UNAVAILABLE_MESSAGE)
+        self.assertNotIn("src.ai.pandasai_runner", sys.modules)
+        mock_log.assert_called_with(
+            "qual procedimento cresceu mais?",
+            status="respondido_modo_simples",
+        )
+
+    @patch(
+        "src.ai.datasus_ai.load_controlled_datasus_dataframe",
+        return_value=(
+            pd.DataFrame(
+                [
+                    {
+                        "cod_municipio_atendido": "250150",
+                        "valor_aprovado": 10.0,
+                    },
+                    {
+                        "cod_municipio_atendido": "250150",
+                        "valor_aprovado": 5.5,
+                    },
+                ]
+            ),
+            date(2026, 1, 1),
+            date(2026, 4, 1),
+        ),
+    )
+    @patch("src.ai.datasus_ai.validar_mes_solicitado_no_prompt", return_value=(True, ""))
+    @patch("src.ai.datasus_ai.log_ai_question")
+    def test_rate_limit_retorna_mensagem_segura_e_fallback_simples(
+        self,
+        mock_log,
+        _mock_validar_mes,
+        _mock_load_data,
+    ):
+        from src.ai.pandasai_runner import LLM_RATE_LIMIT_ERROR_MESSAGE, LLMRateLimitError
+
+        with patch(
+            "src.ai.pandasai_runner.executar_pergunta_com_pandasai",
+            side_effect=LLMRateLimitError(LLM_RATE_LIMIT_ERROR_MESSAGE),
+        ):
+            with patch.dict(
+                os.environ,
+                {"AI_USE_LLM": "true", "AI_FALLBACK_TO_SIMPLE": "true"},
+                clear=True,
+            ):
+                resposta = perguntar_datasus("total de valor aprovado por município")
+
+        self.assertIn(LLM_SIMPLE_FALLBACK_NOTICE, resposta)
+        self.assertNotIn(LLM_RATE_LIMIT_ERROR_MESSAGE, resposta)
+        self.assertIn("Resposta em modo estatístico simples", resposta)
+        self.assertIn("250150: R$ 15,50", resposta)
+        self.assertNotIn("fake-secret-key", resposta)
+        mock_log.assert_called_with(
+            "total de valor aprovado por município",
+            status="respondido_modo_simples_rate_limit",
+            detail=LLM_RATE_LIMIT_ERROR_MESSAGE,
+        )
+
+    @patch(
+        "src.ai.datasus_ai.load_controlled_datasus_dataframe",
+        return_value=(
+            pd.DataFrame(
+                [
+                    {
+                        "cod_municipio_atendido": "250150",
+                        "valor_aprovado": 10.0,
+                    },
+                ]
+            ),
+            date(2026, 1, 1),
+            date(2026, 4, 1),
+        ),
+    )
+    @patch("src.ai.datasus_ai.validar_mes_solicitado_no_prompt", return_value=(True, ""))
+    @patch("src.ai.datasus_ai.log_ai_question")
+    def test_rate_limit_sem_fallback_retorna_erro_seguro(
+        self,
+        mock_log,
+        _mock_validar_mes,
+        _mock_load_data,
+    ):
+        from src.ai.pandasai_runner import LLM_RATE_LIMIT_ERROR_MESSAGE, LLMRateLimitError
+
+        with patch(
+            "src.ai.pandasai_runner.executar_pergunta_com_pandasai",
+            side_effect=LLMRateLimitError(LLM_RATE_LIMIT_ERROR_MESSAGE),
+        ):
+            with patch.dict(
+                os.environ,
+                {"AI_USE_LLM": "true", "AI_FALLBACK_TO_SIMPLE": "false"},
+                clear=True,
+            ):
+                resposta = perguntar_datasus("total de valor aprovado por município")
+
+        self.assertEqual(resposta, LLM_RATE_LIMIT_ERROR_MESSAGE)
+        self.assertNotIn("fake-secret-key", resposta)
+        mock_log.assert_called_with(
+            "total de valor aprovado por município",
+            status="erro_limite_llm",
+            detail=LLM_RATE_LIMIT_ERROR_MESSAGE,
+        )
+
     @patch(
         "src.ai.datasus_ai.load_controlled_datasus_dataframe",
         return_value=(
@@ -139,9 +334,13 @@ class TestDatasusAiFlow(unittest.TestCase):
         mock_log,
         _mock_validar_mes,
         _mock_load_data,
-        _mock_pandasai,
     ):
-        resposta = perguntar_datasus("qual o total de valor aprovado?")
+        with patch(
+            "src.ai.pandasai_runner.executar_pergunta_com_pandasai",
+            side_effect=RuntimeError("Configuração incompleta da IA: chave do modelo ausente."),
+        ):
+            with patch.dict(os.environ, {"AI_USE_LLM": "true"}, clear=True):
+                resposta = perguntar_datasus("qual o total de valor aprovado?")
 
         self.assertEqual(resposta, "Configuração incompleta da IA: chave do modelo ausente.")
         mock_log.assert_called_with(
@@ -150,10 +349,6 @@ class TestDatasusAiFlow(unittest.TestCase):
             detail="Configuração incompleta da IA: chave do modelo ausente.",
         )
 
-    @patch(
-        "src.ai.datasus_ai.executar_pergunta_com_pandasai",
-        side_effect=ValueError("erro interno com segredo"),
-    )
     @patch(
         "src.ai.datasus_ai.load_controlled_datasus_dataframe",
         return_value=(
@@ -169,9 +364,13 @@ class TestDatasusAiFlow(unittest.TestCase):
         mock_log,
         _mock_validar_mes,
         _mock_load_data,
-        _mock_pandasai,
     ):
-        resposta = perguntar_datasus("qual o total de valor aprovado?")
+        with patch(
+            "src.ai.pandasai_runner.executar_pergunta_com_pandasai",
+            side_effect=ValueError("erro interno com segredo"),
+        ):
+            with patch.dict(os.environ, {"AI_USE_LLM": "true"}, clear=True):
+                resposta = perguntar_datasus("qual o total de valor aprovado?")
 
         self.assertEqual(resposta, GENERIC_AI_ERROR_MESSAGE)
         mock_log.assert_called_with("qual o total de valor aprovado?", status="erro_inesperado")

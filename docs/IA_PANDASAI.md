@@ -103,18 +103,75 @@ Essas variaveis devem apontar para um usuario PostgreSQL somente leitura. Nao in
 Configure o modelo usado pela integracao experimental:
 
 ```env
+AI_USE_LLM=false
+AI_FALLBACK_TO_SIMPLE=true
+AI_LLM_PROVIDER=openai
 AI_LLM_MODEL=gpt-4.1-mini
-AI_LLM_API_KEY=sua_chave_do_modelo
+AI_LLM_API_KEY=sua_chave
 AI_DEBUG_SAFE=false
+
+# Exemplo Gemini:
+# AI_LLM_PROVIDER=gemini
+# AI_LLM_MODEL=gemini/gemini-2.0-flash
+# AI_LLM_API_KEY=sua_chave_gemini
+
+# Exemplo OpenRouter:
+# AI_LLM_PROVIDER=openrouter
+# AI_LLM_MODEL=openrouter/openrouter/free
+# AI_LLM_API_KEY=sua_chave_openrouter
 ```
 
-`AI_LLM_API_KEY` e a chave usada pela camada experimental de IA. `OPENAI_API_KEY` pode ser usado como fallback quando `AI_LLM_API_KEY` nao estiver definido. Quando `AI_LLM_API_KEY` existir e `OPENAI_API_KEY` nao estiver definido no ambiente, o runner tambem define `OPENAI_API_KEY` em memoria para compatibilidade com LiteLLM/OpenAI.
+`AI_LLM_PROVIDER` define o provedor usado pelo LiteLLM. Os valores suportados sao `openai`, `gemini` e `openrouter`.
+
+Para OpenAI, `AI_LLM_API_KEY` e a chave usada pela camada experimental de IA. `OPENAI_API_KEY` pode ser usado como fallback quando `AI_LLM_API_KEY` nao estiver definido. Quando `AI_LLM_API_KEY` existir e `OPENAI_API_KEY` nao estiver definido no ambiente, o runner tambem define `OPENAI_API_KEY` em memoria para compatibilidade com LiteLLM/OpenAI.
+
+Para Gemini, use `AI_LLM_PROVIDER=gemini`. A chave pode vir de `AI_LLM_API_KEY` ou `GEMINI_API_KEY`. O modelo deve usar o prefixo `gemini/`; se o valor for informado sem esse prefixo, a camada adiciona o prefixo antes de chamar LiteLLM.
+
+Para OpenRouter, use `AI_LLM_PROVIDER=openrouter`. A chave pode vir de `AI_LLM_API_KEY` ou `OPENROUTER_API_KEY`. O modelo deve usar o prefixo `openrouter/`; se `AI_LLM_MODEL` estiver vazio, o padrao usado e `openrouter/openrouter/free`.
 
 `AI_DEBUG_SAFE=false` e o padrao recomendado. Quando definido como `true`, erros seguros da chamada PandasAI/LiteLLM podem incluir apenas o nome da classe da excecao, sem stack trace e sem credenciais. Use esse modo somente para diagnostico local.
 
 Nao inclua chaves reais em arquivos versionados.
 
+`AI_USE_LLM=false` ativa o modo estatistico simples local. Nesse modo, a camada nao importa, instancia nem chama PandasAI, LiteLLM, OpenAI, Gemini ou qualquer API externa, e tambem nao exige `AI_LLM_API_KEY`.
+
+Para ativar o modo com PandasAI/LiteLLM, defina:
+
+```env
+AI_USE_LLM=true
+```
+
+ChatGPT Plus nao inclui creditos da API. Mesmo com uma assinatura ativa no ChatGPT, chamadas via LiteLLM/OpenAI API podem falhar com `RateLimitError` ou erro de billing quando nao houver credito ou faturamento configurado na plataforma de API. Gemini, OpenAI e OpenRouter tambem podem retornar erros de quota, credito, limite ou indisponibilidade temporaria. Modelos gratuitos do OpenRouter podem ter limites proprios de uso e disponibilidade. Nesse caso, use `AI_USE_LLM=false` para testar perguntas estatisticas simples localmente.
+
+`AI_FALLBACK_TO_SIMPLE=true` permite que a camada tente o modo estatistico simples quando o LLM falhar por limite, quota, credito, billing ou indisponibilidade temporaria. Com `AI_FALLBACK_TO_SIMPLE=false`, a camada retorna apenas uma mensagem segura explicando o limite da API.
+
 Observacao: o LiteLLM pode emitir warnings sobre `botocore` ausente quando dependencias opcionais de AWS Bedrock/SageMaker nao estao instaladas. Esses warnings nao significam necessariamente falha quando o provedor usado for OpenAI.
+
+## Modos de Execucao
+
+### Modo LLM
+
+Com `AI_USE_LLM=true`, a camada chama PandasAI/LiteLLM depois das validacoes e do carregamento do DataFrame controlado. Esse modo permite perguntas mais flexiveis e pode usar OpenAI, Gemini ou OpenRouter, mas depende de chave de API, modelo valido, dependencias instaladas e limite/credito/billing disponivel no provedor.
+
+Se a API retornar erro de limite, quota, credito, billing ou indisponibilidade temporaria, a resposta deve ser segura. Quando `AI_FALLBACK_TO_SIMPLE=true`, o sistema tenta responder pela estatistica simples usando o mesmo DataFrame controlado.
+
+### Modo Estatistico Simples
+
+Com `AI_USE_LLM=false`, a camada nao chama PandasAI nem LiteLLM. Ela usa apenas pandas sobre o DataFrame controlado retornado por `load_controlled_datasus_dataframe()`.
+
+Esse modo simples e o fallback mais confiavel quando provedores externos estao sem credito, com limite excedido ou temporariamente indisponiveis.
+
+O suporte inicial cobre:
+
+- total de `valor_aprovado` por municipio de atendimento;
+- total de `frequencia` por sexo;
+- unidades com maior `quantidade_apresentada`;
+- media de idade;
+- total geral de `valor_aprovado`;
+- contagem de registros.
+- rankings basicos por municipio, unidade ou sexo.
+
+Perguntas fora desse conjunto retornam uma mensagem amigavel informando que ainda nao estao disponiveis no modo simples.
 
 ## Integracao Experimental com PandasAI
 

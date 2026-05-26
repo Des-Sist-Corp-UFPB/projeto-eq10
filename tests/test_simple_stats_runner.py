@@ -1,0 +1,137 @@
+import inspect
+import unittest
+from datetime import date
+
+import pandas as pd
+
+from src.ai.simple_stats_runner import (
+    SIMPLE_STATS_UNAVAILABLE_MESSAGE,
+    executar_pergunta_estatistica_simples,
+    executar_pergunta_simples,
+)
+
+
+class TestSimpleStatsRunner(unittest.TestCase):
+    def setUp(self):
+        self.df = pd.DataFrame(
+            [
+                {
+                    "cod_municipio_atendido": "250150",
+                    "valor_aprovado": 10.5,
+                    "frequencia": 2,
+                    "sexo": "M",
+                    "cod_unidade": "U1",
+                    "quantidade_apresentada": 5,
+                    "idade": 30,
+                },
+                {
+                    "cod_municipio_atendido": "250150",
+                    "valor_aprovado": 20,
+                    "frequencia": 3,
+                    "sexo": "F",
+                    "cod_unidade": "U2",
+                    "quantidade_apresentada": 8,
+                    "idade": 40,
+                },
+                {
+                    "cod_municipio_atendido": "251250",
+                    "valor_aprovado": 7,
+                    "frequencia": 4,
+                    "sexo": "F",
+                    "cod_unidade": "U1",
+                    "quantidade_apresentada": 6,
+                    "idade": 20,
+                },
+            ]
+        )
+        self.data_inicio = date(2026, 1, 1)
+        self.data_fim = date(2026, 4, 1)
+
+    def _ask(self, prompt):
+        return executar_pergunta_estatistica_simples(
+            self.df,
+            prompt,
+            self.data_inicio,
+            self.data_fim,
+        )
+
+    def test_total_valor_aprovado_por_municipio(self):
+        resposta = self._ask("total de valor aprovado por município")
+
+        self.assertIn("Total de valor aprovado por município", resposta)
+        self.assertIn("250150: R$ 30,50", resposta)
+        self.assertIn("251250: R$ 7,00", resposta)
+
+    def test_alias_publico_executar_pergunta_simples(self):
+        resposta = executar_pergunta_simples(
+            self.df,
+            "total geral de valor aprovado",
+            self.data_inicio,
+            self.data_fim,
+        )
+
+        self.assertIn("Total geral de valor aprovado: R$ 37,50", resposta)
+
+    def test_frequencia_total_por_sexo(self):
+        resposta = self._ask("frequência total por sexo")
+
+        self.assertIn("Frequência total por sexo", resposta)
+        self.assertIn("F: 7", resposta)
+        self.assertIn("M: 2", resposta)
+
+    def test_unidades_com_maior_quantidade_apresentada(self):
+        resposta = self._ask("unidades com maior quantidade apresentada")
+
+        self.assertIn("Unidades com maior quantidade apresentada", resposta)
+        self.assertIn("1. U1: 11", resposta)
+        self.assertIn("2. U2: 8", resposta)
+
+    def test_media_de_idade(self):
+        resposta = self._ask("média de idade dos atendimentos")
+
+        self.assertIn("Média de idade dos atendimentos: 30,00 anos", resposta)
+
+    def test_total_geral_valor_aprovado(self):
+        resposta = self._ask("total geral de valor aprovado")
+
+        self.assertIn("Total geral de valor aprovado: R$ 37,50", resposta)
+
+    def test_contagem_de_registros(self):
+        resposta = self._ask("contagem de registros")
+
+        self.assertIn("Contagem de registros: 3", resposta)
+
+    def test_ranking_basico_por_municipio(self):
+        resposta = self._ask("ranking por município")
+
+        self.assertIn("Ranking por município usando valor aprovado", resposta)
+        self.assertIn("1. 250150: R$ 30,50", resposta)
+        self.assertIn("2. 251250: R$ 7,00", resposta)
+
+    def test_ranking_basico_por_sexo_com_frequencia(self):
+        resposta = self._ask("ranking por sexo por frequência")
+
+        self.assertIn("Ranking por sexo usando frequência", resposta)
+        self.assertIn("1. F: 7", resposta)
+        self.assertIn("2. M: 2", resposta)
+
+    def test_pergunta_nao_reconhecida(self):
+        resposta = self._ask("qual procedimento cresceu mais?")
+
+        self.assertEqual(resposta, SIMPLE_STATS_UNAVAILABLE_MESSAGE)
+
+    def test_runner_nao_contem_escrita_em_banco_ou_arquivos(self):
+        import src.ai.simple_stats_runner as simple_stats_runner
+
+        source = inspect.getsource(simple_stats_runner)
+        upper_source = source.upper()
+
+        for fragment in [".to_sql", "to_sql(", "to_parquet", "to_csv", "open("]:
+            self.assertNotIn(fragment, source)
+
+        for command in ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE"]:
+            self.assertNotRegex(upper_source, rf"\b{command}\b")
+
+
+if __name__ == "__main__":
+    unittest.main()
