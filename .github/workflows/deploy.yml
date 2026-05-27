@@ -34,15 +34,6 @@ jobs:
           push: true
           tags: ${{ env.IMAGE }}
 
-      - name: Copiar docker-compose para o servidor
-        uses: appleboy/scp-action@master
-        with:
-          host: dsc.rodrigor.com
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_DEPLOY_KEY }}
-          source: "docker-compose.prod.yml"
-          target: "/home/${{ secrets.SSH_USERNAME }}/"
-
       - name: Deploy no servidor
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -54,6 +45,26 @@ jobs:
           key: ${{ secrets.SSH_DEPLOY_KEY }}
           envs: IMAGE,OPENROUTER_API_KEY
           script: |
+            # Cria o docker-compose.prod.yml diretamente no servidor
+            cat << 'EOF' > docker-compose.prod.yml
+            services:
+              app:
+                image: ${IMAGE}
+                ports:
+                  - "127.0.0.1:8110:8501"
+                environment:
+                  - AI_DB_HOST=postgres
+                  - AI_DB_USER=eq10
+                  - AI_DB_PASSWORD=9eHKqhJIJGUy4ZjDStWQ
+                  - AI_DB_NAME=eq10
+                  - AI_USE_LLM=true
+                  - AI_LLM_PROVIDER=openrouter
+                  - AI_LLM_MODEL=openrouter/openrouter/free
+                env_file:
+                  - .env.prod
+                restart: always
+            EOF
+            
             # Cria o arquivo de ambiente para o container
             echo "IMAGE=${IMAGE}" > .env.prod
             echo "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}" >> .env.prod
