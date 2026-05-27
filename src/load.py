@@ -51,7 +51,7 @@ def get_engine():
     
     # Cria e retorna o engine usando SQLAlchemy
     return create_engine(
-        f"postgresql://{user}:{safe_password}@{host}/{database}?sslmode=require&channel_binding=require"
+        f"postgresql+psycopg2://{user}:{safe_password}@{host}/{database}?sslmode=require&channel_binding=require"
     )
     
 # Cria o engine chamando a função

@@ -37,7 +37,7 @@ def get_readonly_engine():
 
     encoded_password = quote_plus(env["AI_DB_PASSWORD"])
     database_url = (
-        f"postgresql://{env['AI_DB_USER']}:{encoded_password}"
+        f"postgresql+psycopg2://{env['AI_DB_USER']}:{encoded_password}"
         f"@{env['AI_DB_HOST']}/{env['AI_DB_NAME']}"
         "?sslmode=require&channel_binding=require"
     )
