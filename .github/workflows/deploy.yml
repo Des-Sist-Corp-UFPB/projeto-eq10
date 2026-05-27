@@ -46,10 +46,10 @@ jobs:
           envs: IMAGE,OPENROUTER_API_KEY
           script: |
             # Cria o docker-compose.prod.yml diretamente no servidor
-            cat << EOF > docker-compose.prod.yml
+            cat << 'EOF' > docker-compose.prod.yml
             services:
               app:
-                image: ${IMAGE}
+                image: ${{ env.IMAGE }}
                 ports:
                   - "127.0.0.1:8110:8501"
                 environment:
@@ -66,7 +66,7 @@ jobs:
             EOF
             
             # Cria o arquivo de ambiente para o container
-            echo "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}" > .env.prod
+            echo "OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" > .env.prod
             
             # Puxa a nova imagem e sobe a aplicacao
             docker compose -f docker-compose.prod.yml pull
