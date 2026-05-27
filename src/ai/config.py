@@ -1,7 +1,7 @@
 """Configuracoes seguras da camada de IA."""
 
 AI_MAX_MONTHS = 3
-AI_MAX_ROWS = 5000
+AI_MAX_ROWS = 5000000
 AI_ALLOWED_TABLES = ["data_sus"]
 AI_ALLOWED_COLUMNS = [
     "frequencia",
