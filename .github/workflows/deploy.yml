@@ -72,6 +72,9 @@ jobs:
             # Cria o arquivo de ambiente para o container
             echo "OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" > .env
             
+            # Desativa qualquer variavel global do servidor que tente roubar o arquivo
+            unset COMPOSE_FILE
+            
             # Puxa a nova imagem e sobe a aplicacao isolada
-            docker compose -p eq10_app pull
-            docker compose -p eq10_app up -d
+            docker compose -f docker-compose.yml -p eq10_app pull
+            docker compose -f docker-compose.yml -p eq10_app up -d
