@@ -45,11 +45,14 @@ jobs:
           key: ${{ secrets.SSH_DEPLOY_KEY }}
           envs: IMAGE,OPENROUTER_API_KEY
           script: |
-            # Cria um diretorio limpo para o deploy para evitar conflito com arquivos antigos
-            mkdir -p app_deploy
-            cd app_deploy
+            # Entra na pasta raiz do usuario
+            cd ~
             
-            # Cria o docker-compose.yml limpo
+            # DESTRUIÇÃO de qualquer arquivo antigo que possa estar corrompendo o Docker Compose
+            rm -rf app_deploy
+            rm -f docker-compose*.yml .env*
+            
+            # Cria o docker-compose.yml limpo e definitivo
             cat << 'EOF' > docker-compose.yml
             services:
               app:
@@ -69,12 +72,9 @@ jobs:
                 restart: always
             EOF
             
-            # Cria o arquivo de ambiente para o container
+            # Cria o arquivo de ambiente limpo
             echo "OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" > .env
             
-            # Desativa qualquer variavel global do servidor que tente roubar o arquivo
-            unset COMPOSE_FILE
-            
-            # Puxa a nova imagem e sobe a aplicacao isolada
-            docker compose -f docker-compose.yml -p eq10_app pull
-            docker compose -f docker-compose.yml -p eq10_app up -d
+            # Puxa a nova imagem e sobe a aplicacao
+            docker compose pull
+            docker compose up -d
