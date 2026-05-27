@@ -17,6 +17,12 @@ config/.env
 config/*.env
 
 data
+data/*.sqlite
+data/*.sqlite3
+data/*.parquet
 logs
 notebooks/.ipynb_checkpoints
 power bi/Telas
+*.tmp
+*.bak
+*.backup

@@ -263,6 +263,44 @@ python -m streamlit run app_ai_chat.py
 
 Nesta fase, a interface usa a integracao experimental com PandasAI ja encapsulada em `src/ai/datasus_ai.py`.
 
+## Rodando o chat com Docker
+
+A configuracao Docker do chat usa Python 3.11 em ambiente isolado. Isso evita problemas em maquinas onde o Python local e 3.13, versao que nao e compativel com PandasAI/pandasai-litellm neste projeto.
+
+Antes de subir o container, crie um `.env` local na raiz do projeto com as variaveis `AI_DB_*`, `AI_LLM_*` e demais configuracoes da camada de IA. Esse arquivo nao deve ser commitado e nao e copiado para a imagem Docker; o compose apenas injeta as variaveis em tempo de execucao com `env_file: ./.env`.
+
+Build da imagem do chat:
+
+```powershell
+docker compose -f docker-compose.chat.yml build
+```
+
+Rodar a interface Streamlit:
+
+```powershell
+docker compose -f docker-compose.chat.yml up
+```
+
+Diagnosticar se as variaveis estao chegando ao container sem expor credenciais:
+
+```powershell
+docker compose -f docker-compose.chat.yml run --rm chat-ai python -c "import os; print(os.getenv('AI_LLM_PROVIDER')); print(os.getenv('AI_LLM_MODEL')); print(bool(os.getenv('AI_LLM_API_KEY'))); print(os.getenv('AI_DB_USER')); print(os.getenv('AI_DB_HOST'))"
+```
+
+Acesse no navegador:
+
+```text
+http://localhost:8501
+```
+
+Testar a CLI dentro do mesmo ambiente Docker:
+
+```powershell
+docker compose -f docker-compose.chat.yml run --rm chat-ai python scripts/ask_datasus_ai.py "qual o total de valor aprovado por municipio?"
+```
+
+O container do chat executa apenas `app_ai_chat.py` por padrao, ou `scripts/ask_datasus_ai.py` quando chamado manualmente como no exemplo acima. Ele nao executa `main.py`, nao coleta dados novos do DATASUS e nao modifica o banco; a camada de IA deve continuar apontando para um usuario PostgreSQL somente leitura nas variaveis `AI_DB_*`.
+
 ## Status Atual
 
 A camada chama PandasAI em modo experimental. O fluxo atual mantem dados controlados e validacoes antes da chamada de IA.
