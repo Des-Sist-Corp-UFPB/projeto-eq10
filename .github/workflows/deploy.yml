@@ -30,13 +30,34 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile.chat
           push: true
           tags: ${{ env.IMAGE }}
 
-      - name: Deploy no servidor
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Copiar docker-compose para o servidor
+        uses: appleboy/scp-action@master
         with:
           host: dsc.rodrigor.com
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_DEPLOY_KEY }}
-          script: echo "deploy"
+          source: "docker-compose.prod.yml"
+          target: "/home/${{ secrets.SSH_USERNAME }}/"
+
+      - name: Deploy no servidor
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE: ${{ env.IMAGE }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        with:
+          host: dsc.rodrigor.com
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_DEPLOY_KEY }}
+          envs: IMAGE,OPENROUTER_API_KEY
+          script: |
+            # Cria o arquivo de ambiente para o container
+            echo "IMAGE=${IMAGE}" > .env.prod
+            echo "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}" >> .env.prod
+            
+            # Puxa a nova imagem e sobe a aplicacao
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d

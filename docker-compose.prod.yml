@@ -1,0 +1,20 @@
+services:
+  app:
+    image: ${IMAGE:-ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest}
+    ports:
+      - "127.0.0.1:8110:8501"
+    environment:
+      # Conexão com o banco de dados em produção
+      - AI_DB_HOST=postgres
+      - AI_DB_USER=eq10
+      - AI_DB_PASSWORD=9eHKqhJIJGUy4ZjDStWQ
+      - AI_DB_NAME=eq10
+      
+      # Configuração da IA
+      - AI_USE_LLM=true
+      - AI_LLM_PROVIDER=openrouter
+      - AI_LLM_MODEL=openrouter/openrouter/free
+      
+    env_file:
+      - .env.prod
+    restart: always
