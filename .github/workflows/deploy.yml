@@ -45,8 +45,12 @@ jobs:
           key: ${{ secrets.SSH_DEPLOY_KEY }}
           envs: IMAGE,OPENROUTER_API_KEY
           script: |
-            # Cria o docker-compose.prod.yml diretamente no servidor
-            cat << 'EOF' > docker-compose.prod.yml
+            # Cria um diretorio limpo para o deploy para evitar conflito com arquivos antigos
+            mkdir -p app_deploy
+            cd app_deploy
+            
+            # Cria o docker-compose.yml limpo
+            cat << 'EOF' > docker-compose.yml
             services:
               app:
                 image: ${{ env.IMAGE }}
@@ -61,13 +65,13 @@ jobs:
                   - AI_LLM_PROVIDER=openrouter
                   - AI_LLM_MODEL=openrouter/openrouter/free
                 env_file:
-                  - .env.prod
+                  - .env
                 restart: always
             EOF
             
             # Cria o arquivo de ambiente para o container
-            echo "OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" > .env.prod
+            echo "OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" > .env
             
-            # Puxa a nova imagem e sobe a aplicacao
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
+            # Puxa a nova imagem e sobe a aplicacao isolada
+            docker compose -p eq10_app pull
+            docker compose -p eq10_app up -d
