@@ -4,7 +4,7 @@ import unittest
 
 
 WORKFLOW_PATH = Path(".github/workflows/deploy.yml")
-DEPLOY_IMAGE = "ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest"
+GHCR_IMAGE = "ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest"
 
 AI_ENV_NAMES = [
     "AI_DB_USER",
@@ -38,35 +38,29 @@ class TestDeployWorkflow(unittest.TestCase):
     def test_workflow_existe(self):
         self.assertTrue(WORKFLOW_PATH.exists())
 
-    def test_build_usa_dockerfile_chat_e_output_de_imagem(self):
+    def test_build_usa_dockerfile_chat_e_imagem_fixa(self):
         source = self.read_workflow()
 
-        self.assertIn("id: image", source)
-        self.assertIn("steps.image.outputs.deploy_image", source)
-        self.assertIn('>> "$GITHUB_OUTPUT"', source)
-        self.assertIn(f'echo "deploy_image={DEPLOY_IMAGE}" >> "$GITHUB_OUTPUT"', source)
-        self.assertNotIn("github.repository", source)
-        self.assertNotIn("tr '[:upper:]' '[:lower:]'", source)
-        self.assertIn(
-            'run: |\n          echo "Imagem de deploy: ${{ steps.image.outputs.deploy_image }}"',
-            source,
-        )
+        self.assertIn(GHCR_IMAGE, source)
         self.assertIn("uses: docker/build-push-action@v5", source)
         self.assertIn("context: .", source)
         self.assertIn("file: Dockerfile.chat", source)
         self.assertIn("push: true", source)
-        self.assertIn("tags: ${{ steps.image.outputs.deploy_image }}", source)
+        self.assertIn(f"tags: {GHCR_IMAGE}", source)
+        self.assertNotIn("Prepara nome da imagem", source)
+        self.assertNotIn("Mostra imagem de deploy", source)
+        self.assertNotIn("steps.image.outputs.deploy_image", source)
 
-    def test_deploy_usa_deploy_image_do_output(self):
+    def test_deploy_usa_imagem_fixa_sem_variavel_de_imagem(self):
         source = self.read_workflow()
 
-        self.assertIn("DEPLOY_IMAGE: ${{ steps.image.outputs.deploy_image }}", source)
-        self.assertIn("envs: DEPLOY_IMAGE,", source)
-        self.assertIn('docker pull "$DEPLOY_IMAGE"', source)
-        self.assertRegex(source, r'(?m)^\s+"\$DEPLOY_IMAGE"$')
+        self.assertIn(f"docker pull {GHCR_IMAGE}", source)
+        self.assertRegex(source, rf"(?m)^\s+{re.escape(GHCR_IMAGE)}$")
+        self.assertNotIn("DEPLOY_IMAGE", source)
         self.assertNotIn("env.IMAGE", source)
         self.assertNotIn('"$IMAGE"', source)
         self.assertNotIn("GITHUB_ENV", source)
+        self.assertNotIn("GITHUB_OUTPUT", source)
 
     def test_deploy_nao_contem_placeholders_ou_echo_stub(self):
         source = self.read_workflow()
@@ -92,7 +86,7 @@ class TestDeployWorkflow(unittest.TestCase):
         self.assertNotIn("secrets.AI_DB_NAME", source)
         self.assertNotIn("secrets.AI_LLM_API_KEY", source)
 
-        expected_envs = "envs: DEPLOY_IMAGE," + ",".join(AI_ENV_NAMES)
+        expected_envs = "envs: " + ",".join(AI_ENV_NAMES)
         self.assertIn(expected_envs, source)
 
     def test_deploy_sobe_container_streamlit_na_porta_8110_para_8501(self):

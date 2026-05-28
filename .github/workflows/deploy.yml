@@ -16,15 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepara nome da imagem
-        id: image
-        run: |
-          echo "deploy_image=ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest" >> "$GITHUB_OUTPUT"
-
-      - name: Mostra imagem de deploy
-        run: |
-          echo "Imagem de deploy: ${{ steps.image.outputs.deploy_image }}"
-
       - name: Login no GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -38,12 +29,11 @@ jobs:
           context: .
           file: Dockerfile.chat
           push: true
-          tags: ${{ steps.image.outputs.deploy_image }}
+          tags: ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest
 
       - name: Deploy no servidor
         uses: appleboy/ssh-action@v1.0.3
         env:
-          DEPLOY_IMAGE: ${{ steps.image.outputs.deploy_image }}
           AI_DB_USER: ${{ vars.AI_DB_USER }}
           AI_DB_PASSWORD: ${{ secrets.AI_DB_PASSWORD }}
           AI_DB_HOST: ${{ vars.AI_DB_HOST }}
@@ -58,9 +48,9 @@ jobs:
           host: dsc.rodrigor.com
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_DEPLOY_KEY }}
-          envs: DEPLOY_IMAGE,AI_DB_USER,AI_DB_PASSWORD,AI_DB_HOST,AI_DB_NAME,AI_USE_LLM,AI_FALLBACK_TO_SIMPLE,AI_LLM_PROVIDER,AI_LLM_MODEL,AI_LLM_API_KEY,AI_DEBUG_SAFE
+          envs: AI_DB_USER,AI_DB_PASSWORD,AI_DB_HOST,AI_DB_NAME,AI_USE_LLM,AI_FALLBACK_TO_SIMPLE,AI_LLM_PROVIDER,AI_LLM_MODEL,AI_LLM_API_KEY,AI_DEBUG_SAFE
           script: |
-            docker pull "$DEPLOY_IMAGE"
+            docker pull ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest
 
             docker stop eq10-chat || true
             docker rm eq10-chat || true
@@ -79,4 +69,4 @@ jobs:
               -e AI_LLM_MODEL="$AI_LLM_MODEL" \
               -e AI_LLM_API_KEY="$AI_LLM_API_KEY" \
               -e AI_DEBUG_SAFE="$AI_DEBUG_SAFE" \
-              "$DEPLOY_IMAGE"
+              ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest
