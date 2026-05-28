@@ -34,6 +34,7 @@ jobs:
       - name: Deploy no servidor
         uses: appleboy/ssh-action@v1.0.3
         env:
+          IMAGE: ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest
           AI_DB_USER: ${{ vars.AI_DB_USER }}
           AI_DB_PASSWORD: ${{ secrets.AI_DB_PASSWORD }}
           AI_DB_HOST: ${{ vars.AI_DB_HOST }}
@@ -48,26 +49,7 @@ jobs:
           host: dsc.rodrigor.com
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_DEPLOY_KEY }}
-          envs: AI_DB_USER,AI_DB_PASSWORD,AI_DB_HOST,AI_DB_NAME,AI_USE_LLM,AI_FALLBACK_TO_SIMPLE,AI_LLM_PROVIDER,AI_LLM_MODEL,AI_LLM_API_KEY,AI_DEBUG_SAFE
+          envs: IMAGE,AI_DB_USER,AI_DB_PASSWORD,AI_DB_HOST,AI_DB_NAME,AI_USE_LLM,AI_FALLBACK_TO_SIMPLE,AI_LLM_PROVIDER,AI_LLM_MODEL,AI_LLM_API_KEY,AI_DEBUG_SAFE
           script: |
-            echo "=== DIAGNOSTICO DEPLOY EQ10 ==="
-
-            echo "Imagem fixa esperada:"
-            echo "ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest"
-
-            echo "Variavel IMAGE no servidor:"
-            printenv IMAGE || true
-
-            echo "Variaveis relacionadas a imagem no servidor:"
-            env | grep -i image || true
-
-            echo "Containers existentes com eq10/chat/CONFIGURAR:"
-            docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" | grep -E "eq10|chat|CONFIGURAR" || true
-
-            echo "Imagens locais relacionadas:"
-            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}" | grep -E "eq10|CONFIGURAR|des-sist" || true
-
-            echo "Docker version:"
-            docker --version || true
-
-            echo "=== FIM DIAGNOSTICO DEPLOY EQ10 ==="
+            echo "Deploy solicitado para imagem:"
+            echo "$IMAGE"

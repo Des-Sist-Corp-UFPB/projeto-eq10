@@ -60,13 +60,16 @@ class TestDeployWorkflow(unittest.TestCase):
         self.assertNotIn("Mostra imagem de deploy", source)
         self.assertNotIn("steps.image.outputs.deploy_image", source)
 
-    def test_deploy_usa_imagem_fixa_sem_variavel_de_imagem(self):
+    def test_deploy_define_image_para_portal_da_disciplina(self):
         source = self.read_workflow()
 
         self.assertIn(GHCR_IMAGE, source)
+        self.assertIn(f"IMAGE: {GHCR_IMAGE}", source)
+        self.assertIn("envs: IMAGE,", source)
+        self.assertIn('echo "Deploy solicitado para imagem:"', source)
+        self.assertIn('echo "$IMAGE"', source)
         self.assertNotIn("DEPLOY_IMAGE", source)
         self.assertNotIn("env.IMAGE", source)
-        self.assertNotIn('"$IMAGE"', source)
         self.assertNotIn("GITHUB_ENV", source)
         self.assertNotIn("GITHUB_OUTPUT", source)
         self.assertNotIn("docker pull", source)
@@ -77,34 +80,21 @@ class TestDeployWorkflow(unittest.TestCase):
     def test_deploy_nao_contem_placeholders_ou_echo_stub(self):
         source = self.read_workflow()
 
-        self.assertNotIn("ghcr.io/CONFIG" + "URAR", source)
+        self.assertNotIn("CONFIG" + "URAR", source)
         self.assertNotIn("*" * 3, source)
         self.assertNotIn('script: echo "deploy"', source)
         self.assertNotIn("script: echo 'deploy'", source)
 
-    def test_deploy_tem_apenas_diagnostico_seguro_no_script(self):
+    def test_deploy_tem_diagnostico_simples_por_image(self):
         source = self.read_workflow()
 
-        self.assertIn('echo "=== DIAGNOSTICO DEPLOY EQ10 ==="', source)
-        self.assertIn('echo "Imagem fixa esperada:"', source)
-        self.assertIn(f'echo "{GHCR_IMAGE}"', source)
-        self.assertIn('echo "Variavel IMAGE no servidor:"', source)
-        self.assertIn("printenv IMAGE || true", source)
-        self.assertIn('echo "Variaveis relacionadas a imagem no servidor:"', source)
-        self.assertIn("env | grep -i image || true", source)
-        self.assertIn('echo "Containers existentes com eq10/chat/CONFIGURAR:"', source)
-        self.assertIn(
-            'docker ps -a --format "table {{.Names}}\\t{{.Image}}\\t{{.Status}}" | grep -E "eq10|chat|CONFIGURAR" || true',
-            source,
-        )
-        self.assertIn('echo "Imagens locais relacionadas:"', source)
-        self.assertIn(
-            'docker images --format "table {{.Repository}}\\t{{.Tag}}\\t{{.ID}}" | grep -E "eq10|CONFIGURAR|des-sist" || true',
-            source,
-        )
-        self.assertIn('echo "Docker version:"', source)
-        self.assertIn("docker --version || true", source)
-        self.assertIn('echo "=== FIM DIAGNOSTICO DEPLOY EQ10 ==="', source)
+        self.assertIn('echo "Deploy solicitado para imagem:"', source)
+        self.assertIn('echo "$IMAGE"', source)
+        self.assertNotIn("printenv IMAGE", source)
+        self.assertNotIn("grep -i image", source)
+        self.assertNotIn("docker ps", source)
+        self.assertNotIn("docker images", source)
+        self.assertNotIn("docker --version", source)
 
     def test_arquivos_de_deploy_nao_usam_image_ou_placeholders(self):
         forbidden_fragments = [
@@ -113,7 +103,6 @@ class TestDeployWorkflow(unittest.TestCase):
             "*" * 3,
             "DEPLOY_IMAGE",
             "env.IMAGE",
-            '"$IMAGE"',
             "steps.image.outputs.deploy_image",
         ]
 
@@ -147,7 +136,7 @@ class TestDeployWorkflow(unittest.TestCase):
         self.assertNotIn("secrets.AI_DB_NAME", source)
         self.assertNotIn("secrets.AI_LLM_API_KEY", source)
 
-        expected_envs = "envs: " + ",".join(AI_ENV_NAMES)
+        expected_envs = "envs: IMAGE," + ",".join(AI_ENV_NAMES)
         self.assertIn(expected_envs, source)
 
     def test_modo_diagnostico_nao_executa_container_ou_pull(self):
