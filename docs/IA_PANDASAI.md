@@ -301,6 +301,32 @@ docker compose -f docker-compose.chat.yml run --rm chat-ai python scripts/ask_da
 
 O container do chat executa apenas `app_ai_chat.py` por padrao, ou `scripts/ask_datasus_ai.py` quando chamado manualmente como no exemplo acima. Ele nao executa `main.py`, nao coleta dados novos do DATASUS e nao modifica o banco; a camada de IA deve continuar apontando para um usuario PostgreSQL somente leitura nas variaveis `AI_DB_*`.
 
+## Deploy do chat via GitHub Actions
+
+O workflow `.github/workflows/deploy.yml` publica a imagem do chat no GitHub Container Registry usando `Dockerfile.chat` e atualiza o container `eq10-chat` no servidor. O container Streamlit escuta internamente na porta `8501` e o deploy publica a aplicacao no servidor em `127.0.0.1:8110`, sem depender de arquivo `.env` fisico no servidor.
+
+Configure estes GitHub Secrets antes de executar o deploy:
+
+- `SSH_USERNAME`
+- `SSH_DEPLOY_KEY`
+- `AI_DB_PASSWORD`
+- `GEMINI_API_KEY`
+
+Configure estas GitHub Actions Variables antes de executar o deploy:
+
+- `AI_DB_USER`
+- `AI_DB_HOST`
+- `AI_DB_NAME`
+- `AI_USE_LLM`
+- `AI_FALLBACK_TO_SIMPLE`
+- `AI_LLM_PROVIDER`
+- `AI_LLM_MODEL`
+- `AI_DEBUG_SAFE`
+
+No container, `AI_LLM_API_KEY` e preenchida a partir do Secret `GEMINI_API_KEY`. As demais configuracoes nao sensiveis vem de GitHub Actions Variables. O deploy nao usa `env_file` nem arquivo `.env` no servidor; o `.env` local continua sendo util apenas para execucao Docker local com `docker-compose.chat.yml`.
+
+Se a imagem publicada no GHCR estiver privada, o servidor precisa conseguir autenticar antes do `docker pull`. Ha duas opcoes operacionais: tornar o pacote publico nas configuracoes do GitHub Packages, ou fazer `docker login ghcr.io` no servidor com um usuario GitHub e um token com permissao de leitura de pacotes. Nao registre esse token no repositorio; guarde-o apenas no cofre de credenciais do servidor ou no mecanismo seguro usado pela operacao.
+
 ## Status Atual
 
 A camada chama PandasAI em modo experimental. O fluxo atual mantem dados controlados e validacoes antes da chamada de IA.
