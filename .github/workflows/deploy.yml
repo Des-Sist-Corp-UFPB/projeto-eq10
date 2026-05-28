@@ -50,6 +50,18 @@ jobs:
           key: ${{ secrets.SSH_DEPLOY_KEY }}
           envs: AI_DB_USER,AI_DB_PASSWORD,AI_DB_HOST,AI_DB_NAME,AI_USE_LLM,AI_FALLBACK_TO_SIMPLE,AI_LLM_PROVIDER,AI_LLM_MODEL,AI_LLM_API_KEY,AI_DEBUG_SAFE
           script: |
+            echo "Imagem fixa esperada:"
+            echo "ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest"
+
+            echo "Variavel IMAGE no servidor:"
+            printenv IMAGE || true
+
+            echo "Containers antigos eq10-chat:"
+            docker ps -a --filter "name=eq10-chat" --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" || true
+
+            echo "Procurando CONFIGURAR em containers:"
+            docker ps -a --format "{{.Names}} {{.Image}}" | grep CONFIGURAR || true
+
             docker pull ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest
 
             docker stop eq10-chat || true

@@ -4,6 +4,8 @@ import unittest
 
 
 WORKFLOW_PATH = Path(".github/workflows/deploy.yml")
+PROD_COMPOSE_PATH = Path("docker-compose.prod.yml")
+DEPLOY_FILE_PATHS = [WORKFLOW_PATH, PROD_COMPOSE_PATH]
 GHCR_IMAGE = "ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest"
 
 AI_ENV_NAMES = [
@@ -35,8 +37,15 @@ class TestDeployWorkflow(unittest.TestCase):
     def read_workflow(self):
         return WORKFLOW_PATH.read_text(encoding="utf-8")
 
+    def read_deploy_files(self):
+        return {
+            path: path.read_text(encoding="utf-8")
+            for path in DEPLOY_FILE_PATHS
+        }
+
     def test_workflow_existe(self):
         self.assertTrue(WORKFLOW_PATH.exists())
+        self.assertTrue(PROD_COMPOSE_PATH.exists())
 
     def test_build_usa_dockerfile_chat_e_imagem_fixa(self):
         source = self.read_workflow()
@@ -65,10 +74,53 @@ class TestDeployWorkflow(unittest.TestCase):
     def test_deploy_nao_contem_placeholders_ou_echo_stub(self):
         source = self.read_workflow()
 
-        self.assertNotIn("CONFIG" + "URAR", source)
+        self.assertNotIn("ghcr.io/CONFIG" + "URAR", source)
         self.assertNotIn("*" * 3, source)
         self.assertNotIn('script: echo "deploy"', source)
         self.assertNotIn("script: echo 'deploy'", source)
+
+    def test_deploy_tem_diagnostico_seguro_antes_do_pull(self):
+        source = self.read_workflow()
+
+        self.assertIn('echo "Imagem fixa esperada:"', source)
+        self.assertIn(f'echo "{GHCR_IMAGE}"', source)
+        self.assertIn('echo "Variavel IMAGE no servidor:"', source)
+        self.assertIn("printenv IMAGE || true", source)
+        self.assertIn('echo "Containers antigos eq10-chat:"', source)
+        self.assertIn(
+            'docker ps -a --filter "name=eq10-chat" --format "table {{.Names}}\\t{{.Image}}\\t{{.Status}}" || true',
+            source,
+        )
+        self.assertIn('echo "Procurando CONFIGURAR em containers:"', source)
+        self.assertIn(
+            'docker ps -a --format "{{.Names}} {{.Image}}" | grep CONFIGURAR || true',
+            source,
+        )
+
+    def test_arquivos_de_deploy_nao_usam_image_ou_placeholders(self):
+        forbidden_fragments = [
+            "${" + "IMAGE",
+            "ghcr.io/CONFIG" + "URAR",
+            "*" * 3,
+            "DEPLOY_IMAGE",
+            "env.IMAGE",
+            '"$IMAGE"',
+            "steps.image.outputs.deploy_image",
+        ]
+
+        for path, source in self.read_deploy_files().items():
+            with self.subTest(path=str(path)):
+                self.assertIn(GHCR_IMAGE, source)
+
+                for fragment in forbidden_fragments:
+                    self.assertNotIn(fragment, source)
+
+        compose_source = PROD_COMPOSE_PATH.read_text(encoding="utf-8")
+        self.assertIn(f"image: {GHCR_IMAGE}", compose_source)
+        self.assertIn(
+            "AI_DB_PASSWORD=${AI_DB_PASSWORD:?AI_DB_PASSWORD obrigatoria}",
+            compose_source,
+        )
 
     def test_deploy_declara_secrets_variables_e_envs_necessarios(self):
         source = self.read_workflow()
