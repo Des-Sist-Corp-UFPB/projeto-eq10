@@ -18,10 +18,12 @@ jobs:
 
       - name: Prepara nome da imagem lowercase
         id: image
-        run: echo "deploy_image=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]'):latest" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "deploy_image=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]'):latest" >> "$GITHUB_OUTPUT"
 
       - name: Mostra imagem de deploy
-        run: echo "Imagem de deploy: ${{ steps.image.outputs.deploy_image }}"
+        run: |
+          echo "Imagem de deploy: ${{ steps.image.outputs.deploy_image }}"
 
       - name: Login no GitHub Container Registry
         uses: docker/login-action@v3

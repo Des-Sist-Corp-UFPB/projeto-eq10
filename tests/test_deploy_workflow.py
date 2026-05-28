@@ -43,7 +43,11 @@ class TestDeployWorkflow(unittest.TestCase):
         self.assertIn("id: image", source)
         self.assertIn("steps.image.outputs.deploy_image", source)
         self.assertIn('>> "$GITHUB_OUTPUT"', source)
-        self.assertIn('run: echo "Imagem de deploy: ${{ steps.image.outputs.deploy_image }}"', source)
+        self.assertIn("run: |\n          echo \"deploy_image=", source)
+        self.assertIn(
+            'run: |\n          echo "Imagem de deploy: ${{ steps.image.outputs.deploy_image }}"',
+            source,
+        )
         self.assertIn("uses: docker/build-push-action@v5", source)
         self.assertIn("context: .", source)
         self.assertIn("file: Dockerfile.chat", source)
