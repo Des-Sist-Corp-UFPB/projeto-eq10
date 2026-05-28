@@ -38,16 +38,16 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           IMAGE: ${{ env.IMAGE }}
-          AI_DB_USER: ${{ secrets.AI_DB_USER }}
+          AI_DB_USER: ${{ vars.AI_DB_USER }}
           AI_DB_PASSWORD: ${{ secrets.AI_DB_PASSWORD }}
-          AI_DB_HOST: ${{ secrets.AI_DB_HOST }}
-          AI_DB_NAME: ${{ secrets.AI_DB_NAME }}
-          AI_USE_LLM: ${{ secrets.AI_USE_LLM }}
-          AI_FALLBACK_TO_SIMPLE: ${{ secrets.AI_FALLBACK_TO_SIMPLE }}
-          AI_LLM_PROVIDER: ${{ secrets.AI_LLM_PROVIDER }}
-          AI_LLM_MODEL: ${{ secrets.AI_LLM_MODEL }}
-          AI_LLM_API_KEY: ${{ secrets.AI_LLM_API_KEY }}
-          AI_DEBUG_SAFE: ${{ secrets.AI_DEBUG_SAFE }}
+          AI_DB_HOST: ${{ vars.AI_DB_HOST }}
+          AI_DB_NAME: ${{ vars.AI_DB_NAME }}
+          AI_USE_LLM: ${{ vars.AI_USE_LLM }}
+          AI_FALLBACK_TO_SIMPLE: ${{ vars.AI_FALLBACK_TO_SIMPLE }}
+          AI_LLM_PROVIDER: ${{ vars.AI_LLM_PROVIDER }}
+          AI_LLM_MODEL: ${{ vars.AI_LLM_MODEL }}
+          AI_LLM_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AI_DEBUG_SAFE: ${{ vars.AI_DEBUG_SAFE }}
         with:
           host: dsc.rodrigor.com
           username: ${{ secrets.SSH_USERNAME }}
@@ -62,7 +62,7 @@ jobs:
             docker run -d \
               --name eq10-chat \
               --restart unless-stopped \
-              -p 8501:8501 \
+              -p 127.0.0.1:8110:8501 \
               -e AI_DB_USER="$AI_DB_USER" \
               -e AI_DB_PASSWORD="$AI_DB_PASSWORD" \
               -e AI_DB_HOST="$AI_DB_HOST" \
