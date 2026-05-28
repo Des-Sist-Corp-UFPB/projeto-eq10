@@ -4,6 +4,7 @@ import unittest
 
 
 WORKFLOW_PATH = Path(".github/workflows/deploy.yml")
+DEPLOY_IMAGE = "ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest"
 
 AI_ENV_NAMES = [
     "AI_DB_USER",
@@ -43,7 +44,9 @@ class TestDeployWorkflow(unittest.TestCase):
         self.assertIn("id: image", source)
         self.assertIn("steps.image.outputs.deploy_image", source)
         self.assertIn('>> "$GITHUB_OUTPUT"', source)
-        self.assertIn("run: |\n          echo \"deploy_image=", source)
+        self.assertIn(f'echo "deploy_image={DEPLOY_IMAGE}" >> "$GITHUB_OUTPUT"', source)
+        self.assertNotIn("github.repository", source)
+        self.assertNotIn("tr '[:upper:]' '[:lower:]'", source)
         self.assertIn(
             'run: |\n          echo "Imagem de deploy: ${{ steps.image.outputs.deploy_image }}"',
             source,

@@ -16,10 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepara nome da imagem lowercase
+      - name: Prepara nome da imagem
         id: image
         run: |
-          echo "deploy_image=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]'):latest" >> "$GITHUB_OUTPUT"
+          echo "deploy_image=ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest" >> "$GITHUB_OUTPUT"
 
       - name: Mostra imagem de deploy
         run: |
