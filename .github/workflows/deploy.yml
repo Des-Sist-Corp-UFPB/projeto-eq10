@@ -50,35 +50,24 @@ jobs:
           key: ${{ secrets.SSH_DEPLOY_KEY }}
           envs: AI_DB_USER,AI_DB_PASSWORD,AI_DB_HOST,AI_DB_NAME,AI_USE_LLM,AI_FALLBACK_TO_SIMPLE,AI_LLM_PROVIDER,AI_LLM_MODEL,AI_LLM_API_KEY,AI_DEBUG_SAFE
           script: |
+            echo "=== DIAGNOSTICO DEPLOY EQ10 ==="
+
             echo "Imagem fixa esperada:"
             echo "ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest"
 
             echo "Variavel IMAGE no servidor:"
             printenv IMAGE || true
 
-            echo "Containers antigos eq10-chat:"
-            docker ps -a --filter "name=eq10-chat" --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" || true
+            echo "Variaveis relacionadas a imagem no servidor:"
+            env | grep -i image || true
 
-            echo "Procurando CONFIGURAR em containers:"
-            docker ps -a --format "{{.Names}} {{.Image}}" | grep CONFIGURAR || true
+            echo "Containers existentes com eq10/chat/CONFIGURAR:"
+            docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" | grep -E "eq10|chat|CONFIGURAR" || true
 
-            docker pull ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest
+            echo "Imagens locais relacionadas:"
+            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}" | grep -E "eq10|CONFIGURAR|des-sist" || true
 
-            docker stop eq10-chat || true
-            docker rm eq10-chat || true
+            echo "Docker version:"
+            docker --version || true
 
-            docker run -d \
-              --name eq10-chat \
-              --restart unless-stopped \
-              -p 127.0.0.1:8110:8501 \
-              -e AI_DB_USER="$AI_DB_USER" \
-              -e AI_DB_PASSWORD="$AI_DB_PASSWORD" \
-              -e AI_DB_HOST="$AI_DB_HOST" \
-              -e AI_DB_NAME="$AI_DB_NAME" \
-              -e AI_USE_LLM="$AI_USE_LLM" \
-              -e AI_FALLBACK_TO_SIMPLE="$AI_FALLBACK_TO_SIMPLE" \
-              -e AI_LLM_PROVIDER="$AI_LLM_PROVIDER" \
-              -e AI_LLM_MODEL="$AI_LLM_MODEL" \
-              -e AI_LLM_API_KEY="$AI_LLM_API_KEY" \
-              -e AI_DEBUG_SAFE="$AI_DEBUG_SAFE" \
-              ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest
+            echo "=== FIM DIAGNOSTICO DEPLOY EQ10 ==="

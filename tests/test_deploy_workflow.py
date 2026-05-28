@@ -63,13 +63,16 @@ class TestDeployWorkflow(unittest.TestCase):
     def test_deploy_usa_imagem_fixa_sem_variavel_de_imagem(self):
         source = self.read_workflow()
 
-        self.assertIn(f"docker pull {GHCR_IMAGE}", source)
-        self.assertRegex(source, rf"(?m)^\s+{re.escape(GHCR_IMAGE)}$")
+        self.assertIn(GHCR_IMAGE, source)
         self.assertNotIn("DEPLOY_IMAGE", source)
         self.assertNotIn("env.IMAGE", source)
         self.assertNotIn('"$IMAGE"', source)
         self.assertNotIn("GITHUB_ENV", source)
         self.assertNotIn("GITHUB_OUTPUT", source)
+        self.assertNotIn("docker pull", source)
+        self.assertNotIn("docker run", source)
+        self.assertNotIn("docker stop", source)
+        self.assertNotIn("docker rm", source)
 
     def test_deploy_nao_contem_placeholders_ou_echo_stub(self):
         source = self.read_workflow()
@@ -79,23 +82,29 @@ class TestDeployWorkflow(unittest.TestCase):
         self.assertNotIn('script: echo "deploy"', source)
         self.assertNotIn("script: echo 'deploy'", source)
 
-    def test_deploy_tem_diagnostico_seguro_antes_do_pull(self):
+    def test_deploy_tem_apenas_diagnostico_seguro_no_script(self):
         source = self.read_workflow()
 
+        self.assertIn('echo "=== DIAGNOSTICO DEPLOY EQ10 ==="', source)
         self.assertIn('echo "Imagem fixa esperada:"', source)
         self.assertIn(f'echo "{GHCR_IMAGE}"', source)
         self.assertIn('echo "Variavel IMAGE no servidor:"', source)
         self.assertIn("printenv IMAGE || true", source)
-        self.assertIn('echo "Containers antigos eq10-chat:"', source)
+        self.assertIn('echo "Variaveis relacionadas a imagem no servidor:"', source)
+        self.assertIn("env | grep -i image || true", source)
+        self.assertIn('echo "Containers existentes com eq10/chat/CONFIGURAR:"', source)
         self.assertIn(
-            'docker ps -a --filter "name=eq10-chat" --format "table {{.Names}}\\t{{.Image}}\\t{{.Status}}" || true',
+            'docker ps -a --format "table {{.Names}}\\t{{.Image}}\\t{{.Status}}" | grep -E "eq10|chat|CONFIGURAR" || true',
             source,
         )
-        self.assertIn('echo "Procurando CONFIGURAR em containers:"', source)
+        self.assertIn('echo "Imagens locais relacionadas:"', source)
         self.assertIn(
-            'docker ps -a --format "{{.Names}} {{.Image}}" | grep CONFIGURAR || true',
+            'docker images --format "table {{.Repository}}\\t{{.Tag}}\\t{{.ID}}" | grep -E "eq10|CONFIGURAR|des-sist" || true',
             source,
         )
+        self.assertIn('echo "Docker version:"', source)
+        self.assertIn("docker --version || true", source)
+        self.assertIn('echo "=== FIM DIAGNOSTICO DEPLOY EQ10 ==="', source)
 
     def test_arquivos_de_deploy_nao_usam_image_ou_placeholders(self):
         forbidden_fragments = [
@@ -141,19 +150,17 @@ class TestDeployWorkflow(unittest.TestCase):
         expected_envs = "envs: " + ",".join(AI_ENV_NAMES)
         self.assertIn(expected_envs, source)
 
-    def test_deploy_sobe_container_streamlit_na_porta_8110_para_8501(self):
+    def test_modo_diagnostico_nao_executa_container_ou_pull(self):
         source = self.read_workflow()
 
-        self.assertIn("docker stop eq10-chat || true", source)
-        self.assertIn("docker rm eq10-chat || true", source)
-        self.assertIn("docker run -d", source)
-        self.assertIn("--name eq10-chat", source)
-        self.assertIn("--restart unless-stopped", source)
-        self.assertIn("-p 127.0.0.1:8110:8501", source)
+        self.assertNotIn("docker pull", source)
+        self.assertNotIn("docker stop", source)
+        self.assertNotIn("docker rm", source)
+        self.assertNotIn("docker run", source)
+        self.assertNotIn("--name eq10-chat", source)
+        self.assertNotIn("--restart unless-stopped", source)
+        self.assertNotIn("-p 127.0.0.1:8110:8501", source)
         self.assertNotIn("-p 8501:8501", source)
-
-        for env_name in AI_ENV_NAMES:
-            self.assertIn(f'-e {env_name}="${env_name}"'.replace('"AI_', '"$AI_'), source)
 
         self.assertNotIn("main.py", source)
         self.assertNotIn("env_file", source)
