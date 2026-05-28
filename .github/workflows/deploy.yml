@@ -30,13 +30,47 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile.chat
           push: true
           tags: ${{ env.IMAGE }}
 
       - name: Deploy no servidor
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE: ${{ env.IMAGE }}
+          AI_DB_USER: ${{ secrets.AI_DB_USER }}
+          AI_DB_PASSWORD: ${{ secrets.AI_DB_PASSWORD }}
+          AI_DB_HOST: ${{ secrets.AI_DB_HOST }}
+          AI_DB_NAME: ${{ secrets.AI_DB_NAME }}
+          AI_USE_LLM: ${{ secrets.AI_USE_LLM }}
+          AI_FALLBACK_TO_SIMPLE: ${{ secrets.AI_FALLBACK_TO_SIMPLE }}
+          AI_LLM_PROVIDER: ${{ secrets.AI_LLM_PROVIDER }}
+          AI_LLM_MODEL: ${{ secrets.AI_LLM_MODEL }}
+          AI_LLM_API_KEY: ${{ secrets.AI_LLM_API_KEY }}
+          AI_DEBUG_SAFE: ${{ secrets.AI_DEBUG_SAFE }}
         with:
           host: dsc.rodrigor.com
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_DEPLOY_KEY }}
-          script: echo "deploy"
+          envs: IMAGE,AI_DB_USER,AI_DB_PASSWORD,AI_DB_HOST,AI_DB_NAME,AI_USE_LLM,AI_FALLBACK_TO_SIMPLE,AI_LLM_PROVIDER,AI_LLM_MODEL,AI_LLM_API_KEY,AI_DEBUG_SAFE
+          script: |
+            docker pull "$IMAGE"
+
+            docker stop eq10-chat || true
+            docker rm eq10-chat || true
+
+            docker run -d \
+              --name eq10-chat \
+              --restart unless-stopped \
+              -p 8501:8501 \
+              -e AI_DB_USER="$AI_DB_USER" \
+              -e AI_DB_PASSWORD="$AI_DB_PASSWORD" \
+              -e AI_DB_HOST="$AI_DB_HOST" \
+              -e AI_DB_NAME="$AI_DB_NAME" \
+              -e AI_USE_LLM="$AI_USE_LLM" \
+              -e AI_FALLBACK_TO_SIMPLE="$AI_FALLBACK_TO_SIMPLE" \
+              -e AI_LLM_PROVIDER="$AI_LLM_PROVIDER" \
+              -e AI_LLM_MODEL="$AI_LLM_MODEL" \
+              -e AI_LLM_API_KEY="$AI_LLM_API_KEY" \
+              -e AI_DEBUG_SAFE="$AI_DEBUG_SAFE" \
+              "$IMAGE"
