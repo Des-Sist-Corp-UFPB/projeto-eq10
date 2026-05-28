@@ -30,51 +30,13 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: Dockerfile.chat
           push: true
           tags: ${{ env.IMAGE }}
 
       - name: Deploy no servidor
         uses: appleboy/ssh-action@v1.0.3
-        env:
-          IMAGE: ${{ env.IMAGE }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         with:
           host: dsc.rodrigor.com
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_DEPLOY_KEY }}
-          envs: IMAGE,OPENROUTER_API_KEY
-          script: |
-            # Entra na pasta raiz do usuario
-            cd ~
-            
-            # DESTRUIÇÃO de qualquer arquivo antigo que possa estar corrompendo o Docker Compose
-            rm -rf app_deploy
-            rm -f docker-compose*.yml .env*
-            
-            # Cria o docker-compose.yml limpo e definitivo
-            cat << 'EOF' > docker-compose.yml
-            services:
-              app:
-                image: ${{ env.IMAGE }}
-                ports:
-                  - "127.0.0.1:8110:8501"
-                environment:
-                  - AI_DB_HOST=postgres
-                  - AI_DB_USER=eq10
-                  - AI_DB_PASSWORD=9eHKqhJIJGUy4ZjDStWQ
-                  - AI_DB_NAME=eq10
-                  - AI_USE_LLM=true
-                  - AI_LLM_PROVIDER=openrouter
-                  - AI_LLM_MODEL=openrouter/openrouter/free
-                env_file:
-                  - .env
-                restart: always
-            EOF
-            
-            # Cria o arquivo de ambiente limpo
-            echo "OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" > .env
-            
-            # Puxa a nova imagem e sobe a aplicacao
-            docker compose pull
-            docker compose up -d
+          script: echo "deploy"
