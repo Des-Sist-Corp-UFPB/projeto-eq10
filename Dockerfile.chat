@@ -20,6 +20,6 @@ COPY app_ai_chat.py ./
 COPY scripts ./scripts
 COPY src ./src
 
-EXPOSE 8501
+EXPOSE 8080
 
-CMD ["python", "-m", "streamlit", "run", "app_ai_chat.py", "--server.address=0.0.0.0", "--server.port=8501"]
+CMD ["python", "-m", "streamlit", "run", "app_ai_chat.py", "--server.address=0.0.0.0", "--server.port=8080"]

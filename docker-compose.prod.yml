@@ -2,7 +2,7 @@ services:
   app:
     image: ${IMAGE:-ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest}
     ports:
-      - "127.0.0.1:8110:8501"
+      - "127.0.0.1:8110:8080"
     environment:
       # Conexão com o banco de dados em produção
       - AI_DB_HOST=postgres
