@@ -39,7 +39,10 @@ if __name__ == "__main__":
 
         # EXTRACT
         logger.info("🔄 Etapa: EXTRACT")
-        extract_data(sia)
+        extracted_path = extract_data(sia)
+        if not extracted_path:
+            logger.warning("Nenhum dado novo extraído. Encerrando o processo.")
+            sys.exit(0)
         logger.info("✅ Extração concluída")
 
         # TRANSFORM
