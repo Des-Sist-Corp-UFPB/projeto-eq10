@@ -68,3 +68,6 @@ data/*.xlsx
 .docker/
 docker-compose.override.yml
 postgres-db-volume/
+
+#testes
+testing_ai
