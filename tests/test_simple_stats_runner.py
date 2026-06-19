@@ -16,29 +16,41 @@ class TestSimpleStatsRunner(unittest.TestCase):
         self.df = pd.DataFrame(
             [
                 {
-                    "cod_municipio_atendido": "250150",
+                    "municipio_atendimento": "Cajazeiras",
+                    "municipio_residencia": "Sousa",
                     "valor_aprovado": 10.5,
                     "frequencia": 2,
                     "sexo": "M",
-                    "cod_unidade": "U1",
+                    "unidade": "Hospital Regional",
+                    "procedimento": "Consulta medica",
+                    "raca_cor": "Parda",
+                    "ocupacao": "Agricultor",
                     "quantidade_apresentada": 5,
                     "idade": 30,
                 },
                 {
-                    "cod_municipio_atendido": "250150",
+                    "municipio_atendimento": "Cajazeiras",
+                    "municipio_residencia": "Cajazeiras",
                     "valor_aprovado": 20,
                     "frequencia": 3,
                     "sexo": "F",
-                    "cod_unidade": "U2",
+                    "unidade": "UPA Central",
+                    "procedimento": "Exame laboratorial",
+                    "raca_cor": "Branca",
+                    "ocupacao": "Professor",
                     "quantidade_apresentada": 8,
                     "idade": 40,
                 },
                 {
-                    "cod_municipio_atendido": "251250",
+                    "municipio_atendimento": "Sousa",
+                    "municipio_residencia": "Sousa",
                     "valor_aprovado": 7,
                     "frequencia": 4,
                     "sexo": "F",
-                    "cod_unidade": "U1",
+                    "unidade": "Hospital Regional",
+                    "procedimento": "Consulta medica",
+                    "raca_cor": "Parda",
+                    "ocupacao": "Agricultor",
                     "quantidade_apresentada": 6,
                     "idade": 20,
                 },
@@ -58,9 +70,16 @@ class TestSimpleStatsRunner(unittest.TestCase):
     def test_total_valor_aprovado_por_municipio(self):
         resposta = self._ask("total de valor aprovado por município")
 
-        self.assertIn("Total de valor aprovado por município", resposta)
-        self.assertIn("250150: R$ 30,50", resposta)
-        self.assertIn("251250: R$ 7,00", resposta)
+        self.assertIn("Total de valor aprovado por município de atendimento", resposta)
+        self.assertIn("Cajazeiras: R$ 30,50", resposta)
+        self.assertIn("Sousa: R$ 7,00", resposta)
+
+    def test_total_valor_aprovado_por_municipio_de_residencia(self):
+        resposta = self._ask("total de valor aprovado por município de residência")
+
+        self.assertIn("Total de valor aprovado por município de residência", resposta)
+        self.assertIn("Cajazeiras: R$ 20,00", resposta)
+        self.assertIn("Sousa: R$ 17,50", resposta)
 
     def test_alias_publico_executar_pergunta_simples(self):
         resposta = executar_pergunta_simples(
@@ -83,8 +102,8 @@ class TestSimpleStatsRunner(unittest.TestCase):
         resposta = self._ask("unidades com maior quantidade apresentada")
 
         self.assertIn("Unidades com maior quantidade apresentada", resposta)
-        self.assertIn("1. U1: 11", resposta)
-        self.assertIn("2. U2: 8", resposta)
+        self.assertIn("1. Hospital Regional: 11", resposta)
+        self.assertIn("2. UPA Central: 8", resposta)
 
     def test_media_de_idade(self):
         resposta = self._ask("média de idade dos atendimentos")
@@ -104,9 +123,16 @@ class TestSimpleStatsRunner(unittest.TestCase):
     def test_ranking_basico_por_municipio(self):
         resposta = self._ask("ranking por município")
 
-        self.assertIn("Ranking por município usando valor aprovado", resposta)
-        self.assertIn("1. 250150: R$ 30,50", resposta)
-        self.assertIn("2. 251250: R$ 7,00", resposta)
+        self.assertIn("Ranking por município de atendimento usando valor aprovado", resposta)
+        self.assertIn("1. Cajazeiras: R$ 30,50", resposta)
+        self.assertIn("2. Sousa: R$ 7,00", resposta)
+
+    def test_ranking_basico_por_procedimento(self):
+        resposta = self._ask("ranking por procedimento por valor aprovado")
+
+        self.assertIn("Ranking por procedimento usando valor aprovado", resposta)
+        self.assertIn("1. Exame laboratorial: R$ 20,00", resposta)
+        self.assertIn("2. Consulta medica: R$ 17,50", resposta)
 
     def test_ranking_basico_por_sexo_com_frequencia(self):
         resposta = self._ask("ranking por sexo por frequência")

@@ -20,7 +20,7 @@ Ela detalha a arquitetura, estrutura de pastas, fluxo ETL, configuracao de ambie
 
 ## Camada de IA
 
-Este projeto possui uma camada experimental e isolada de analise estatistica com PandasAI. Ela e somente leitura, nao executa a ETL principal e trabalha com DataFrames controlados da tabela `data_sus`.
+Este projeto possui uma camada experimental e isolada de analise estatistica com PandasAI. Ela e somente leitura, nao executa a ETL principal e trabalha com DataFrames controlados da view `vw_data_sus_ia`.
 
 Veja detalhes em: [docs/IA_PANDASAI.md](docs/IA_PANDASAI.md)
 

@@ -7,10 +7,16 @@ from datetime import date
 import pandas as pd
 from sqlalchemy import text
 
-from src.ai.config import AI_ALLOWED_COLUMNS, AI_ALLOWED_TABLES, AI_MAX_MONTHS, AI_MAX_ROWS
+from src.ai.config import (
+    AI_ALLOWED_COLUMNS,
+    AI_ALLOWED_TABLES,
+    AI_DATA_SOURCE,
+    AI_MAX_MONTHS,
+    AI_MAX_ROWS,
+)
 from src.ai.read_only_datasus import get_last_available_date, get_readonly_engine
 
-DATA_SUS_TABLE = "data_sus"
+DATA_SUS_AI_VIEW = AI_DATA_SOURCE
 
 
 def _first_day_of_month(reference_date: date) -> date:
@@ -32,14 +38,14 @@ def _first_day_next_month(reference_date: date) -> date:
 
 
 def load_controlled_datasus_dataframe():
-    """Carrega um DataFrame controlado da tabela data_sus.
+    """Carrega um DataFrame controlado da fonte enriquecida da camada de IA.
 
     A consulta carrega apenas dados ja existentes no banco, limitada aos ultimos
     3 meses disponiveis, respeitando allowlist de colunas e limite maximo de
     linhas configurados para a camada de IA.
     """
-    if DATA_SUS_TABLE not in AI_ALLOWED_TABLES:
-        raise RuntimeError("Tabela data_sus nao esta liberada para a camada de IA.")
+    if DATA_SUS_AI_VIEW not in AI_ALLOWED_TABLES:
+        raise RuntimeError("Fonte de dados da IA nao esta liberada.")
 
     engine = get_readonly_engine()
     ultima_data = get_last_available_date(engine)
@@ -50,11 +56,12 @@ def load_controlled_datasus_dataframe():
     primeiro_dia_mes_final = _first_day_of_month(ultima_data)
     data_inicio = _first_day_months_before(primeiro_dia_mes_final, AI_MAX_MONTHS - 1)
     data_fim_exclusiva = _first_day_next_month(primeiro_dia_mes_final)
-    selected_columns = ", ".join(AI_ALLOWED_COLUMNS)
+    selected_columns = ",\n            ".join(AI_ALLOWED_COLUMNS)
 
     query = text(f"""
-        SELECT {selected_columns}
-        FROM {DATA_SUS_TABLE}
+        SELECT
+            {selected_columns}
+        FROM {DATA_SUS_AI_VIEW}
         WHERE data >= :data_inicio
           AND data < :data_fim_exclusiva
         ORDER BY data DESC

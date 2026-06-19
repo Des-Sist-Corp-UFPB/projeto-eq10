@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from urllib.parse import quote_plus
 
+from src.ai.config import AI_DATA_SOURCE
+
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 AI_DB_ENV_VARS = ["AI_DB_USER", "AI_DB_PASSWORD", "AI_DB_HOST", "AI_DB_NAME"]
@@ -13,6 +15,9 @@ AI_CONFIG_ERROR_MESSAGE = "Configuração incompleta da camada de IA: variáveis
 
 
 def _load_env_files() -> None:
+    if os.getenv("ENVIRONMENT", "").strip().lower() == "test":
+        return
+
     try:
         from dotenv import load_dotenv
     except ModuleNotFoundError:
@@ -48,10 +53,10 @@ def get_readonly_engine():
 
 
 def get_last_available_date(engine):
-    """Retorna a ultima data disponivel na tabela data_sus ou None."""
+    """Retorna a ultima data disponivel na fonte da camada de IA ou None."""
     from sqlalchemy import text
 
-    query = text("SELECT MAX(data)::date AS ultima_data FROM data_sus")
+    query = text(f"SELECT MAX(data)::date AS ultima_data FROM {AI_DATA_SOURCE}")
 
     with engine.connect() as conn:
         result = conn.execute(query).mappings().first()

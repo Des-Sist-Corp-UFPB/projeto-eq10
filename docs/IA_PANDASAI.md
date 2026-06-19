@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-A camada `src/ai/` foi criada para permitir analises estatisticas com PandasAI sobre dados ja existentes no PostgreSQL, especialmente a tabela `data_sus`.
+A camada `src/ai/` foi criada para permitir analises estatisticas com PandasAI sobre dados ja existentes no PostgreSQL, usando como fonte principal a view `vw_data_sus_ia`.
 
 PandasAI esta integrado em modo experimental. A chamada so acontece depois das validacoes de prompt, mes disponivel e carregamento de um DataFrame controlado.
 
@@ -13,7 +13,7 @@ A IA nao participa da ETL principal. Ela nao extrai dados do DATASUS, nao transf
 ```text
 DATASUS
 -> ETL tradicional
--> PostgreSQL / tabela data_sus
+-> PostgreSQL / view vw_data_sus_ia
 -> camada src/ai/
 -> DataFrame controlado
 -> integracao experimental com PandasAI
@@ -26,7 +26,7 @@ PandasAI recebe apenas o DataFrame controlado vindo de `src/ai/data_provider.py`
 - Separacao da ETL principal.
 - Conexao propria para IA.
 - Usuario PostgreSQL somente leitura.
-- Allowlist de tabela.
+- Allowlist de fonte de dados.
 - Allowlist de colunas.
 - Limite maximo de meses.
 - Limite maximo de linhas.
@@ -46,7 +46,7 @@ Observacao sobre linhas: o limite maximo de linhas existe como protecao operacio
 - Calcular totais, medias, rankings e comparacoes simples.
 - Analisar apenas os ultimos 3 meses disponiveis.
 - Informar quando um mes solicitado ainda nao esta no sistema.
-- Responder apenas com base na tabela `data_sus`.
+- Responder apenas com base na view `vw_data_sus_ia`.
 
 ## O que a IA Nunca Deve Fazer
 
@@ -84,6 +84,38 @@ data < :data_fim_exclusiva
 ```
 
 Por isso, o fim do periodo pode aparecer nas respostas como `ate antes de YYYY-MM-DD`. Exemplo: se a maior data disponivel estiver em marco de 2026, o periodo dos ultimos 3 meses pode ser descrito como `2026-01-01 ate antes de 2026-04-01`.
+
+## Fonte de Dados da IA
+
+A camada de IA consulta a view `vw_data_sus_ia`. Essa view enriquece os registros da fato `data_sus` com dimensoes legiveis para que as respostas usem nomes descritivos em vez de codigos.
+
+A aplicacao nao cria, recria nem altera essa view. Ela apenas executa consultas `SELECT` sobre `vw_data_sus_ia` usando a conexao somente leitura configurada em `AI_DB_*`.
+
+O DataFrame controlado possui estas colunas:
+
+| Coluna | Descricao |
+| --- | --- |
+| `data` | data do registro |
+| `idade` | idade do paciente/usuario |
+| `sexo` | sexo |
+| `municipio_atendimento` | municipio onde ocorreu o atendimento |
+| `municipio_residencia` | municipio de residencia |
+| `raca_cor` | raca/cor |
+| `unidade` | unidade de atendimento |
+| `ocupacao` | ocupacao |
+| `procedimento` | procedimento realizado |
+| `frequencia` | frequencia |
+| `quantidade_apresentada` | quantidade apresentada |
+| `valor_apresentado` | valor apresentado |
+| `valor_aprovado` | valor aprovado |
+
+Regras de uso esperadas:
+
+- perguntas sobre atendimento por municipio devem usar `municipio_atendimento`;
+- perguntas sobre residencia dos pacientes devem usar `municipio_residencia`;
+- perguntas sobre tipos de procedimento devem usar `procedimento`;
+- perguntas sobre unidade de atendimento devem usar `unidade`;
+- perguntas por raca/cor devem usar `raca_cor`.
 
 ## Variaveis de Ambiente
 
@@ -169,7 +201,7 @@ O suporte inicial cobre:
 - media de idade;
 - total geral de `valor_aprovado`;
 - contagem de registros.
-- rankings basicos por municipio, unidade ou sexo.
+- rankings basicos por municipio de atendimento, municipio de residencia, unidade, procedimento, raca/cor, ocupacao ou sexo.
 
 Perguntas fora desse conjunto retornam uma mensagem amigavel informando que ainda nao estao disponiveis no modo simples.
 
@@ -200,7 +232,7 @@ CREATE USER ia_readonly WITH PASSWORD 'senha_forte_aqui';
 
 GRANT CONNECT ON DATABASE seu_banco TO ia_readonly;
 GRANT USAGE ON SCHEMA public TO ia_readonly;
-GRANT SELECT ON TABLE public.data_sus TO ia_readonly;
+GRANT SELECT ON public.vw_data_sus_ia TO ia_readonly;
 
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
 ON ALL TABLES IN SCHEMA public
@@ -210,6 +242,12 @@ REVOKE CREATE ON SCHEMA public FROM ia_readonly;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
 GRANT SELECT ON TABLES TO ia_readonly;
+```
+
+Se o usuario readonly tiver outro nome no ambiente, ajuste o comando. O ponto essencial e garantir permissao equivalente a:
+
+```sql
+GRANT SELECT ON vw_data_sus_ia TO ia_readonly;
 ```
 
 ## Fluxo Atual da Funcao perguntar_datasus
@@ -227,7 +265,7 @@ O PandasAI e executado apenas com o DataFrame retornado por `load_controlled_dat
 Execute os testes atuais com:
 
 ```powershell
-python -m unittest tests.test_prompt_guard tests.test_ai_data_provider tests.test_ai_month_checker tests.test_datasus_ai tests.test_pandasai_runner tests.test_ask_datasus_ai_cli
+python -m unittest tests.test_prompt_guard tests.test_ai_data_provider tests.test_ai_month_checker tests.test_datasus_ai tests.test_pandasai_runner tests.test_simple_stats_runner tests.test_ask_datasus_ai_cli
 ```
 
 Os testes usam mocks para evitar conexao real com PostgreSQL e chamada real ao modelo.
@@ -243,7 +281,7 @@ python scripts/ask_datasus_ai.py "qual o total de valor aprovado por municipio?"
 Para responder de verdade, sao necessarias:
 
 - variaveis `AI_DB_*` configuradas;
-- usuario readonly com acesso a tabela `data_sus`;
+- usuario readonly com acesso de `SELECT` a view `vw_data_sus_ia`;
 - `AI_LLM_API_KEY` ou `OPENAI_API_KEY` configurada;
 - dependencias instaladas.
 

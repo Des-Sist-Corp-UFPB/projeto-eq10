@@ -23,6 +23,9 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 
 
 def _load_env_files() -> None:
+    if os.getenv("ENVIRONMENT", "").strip().lower() == "test":
+        return
+
     try:
         from dotenv import load_dotenv
     except ModuleNotFoundError:

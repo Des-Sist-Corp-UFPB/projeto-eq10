@@ -1,14 +1,9 @@
 import inspect
-import sys
-import types
 import unittest
 from datetime import date
 from unittest.mock import MagicMock, Mock, patch
 
-fake_sqlalchemy = types.ModuleType("sqlalchemy")
-fake_sqlalchemy.text = lambda query: query
-sys.modules.setdefault("sqlalchemy", fake_sqlalchemy)
-
+from src.ai.config import AI_DATA_SOURCE
 from src.ai.month_checker import (
     MENSAGEM_MES_INDISPONIVEL,
     _primeiro_dia_mes_seguinte,
@@ -55,6 +50,14 @@ class TestAiMonthChecker(unittest.TestCase):
         mock_get_engine.return_value = engine
 
         self.assertTrue(mes_existe_no_banco(2026, 3))
+        query = str(connection.execute.call_args.args[0])
+        params = connection.execute.call_args.args[1]
+
+        self.assertIn(f"FROM {AI_DATA_SOURCE}", query)
+        self.assertNotRegex(query, r"FROM\s+data_sus\b")
+        self.assertTrue(query.strip().upper().startswith("SELECT"))
+        self.assertEqual(params["data_inicio"], date(2026, 3, 1))
+        self.assertEqual(params["data_fim_exclusiva"], date(2026, 4, 1))
 
     @patch("src.ai.month_checker.get_readonly_engine")
     def test_mes_existe_no_banco_retorna_false_quando_query_nao_encontra_registro(

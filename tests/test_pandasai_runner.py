@@ -20,12 +20,30 @@ from src.ai.pandasai_runner import (
     is_llm_enabled,
 )
 
+AI_ENV_KEYS = (
+    "AI_USE_LLM",
+    "AI_LLM_PROVIDER",
+    "AI_LLM_MODEL",
+    "AI_LLM_API_KEY",
+    "OPENAI_API_KEY",
+    "OPENROUTER_API_KEY",
+    "GEMINI_API_KEY",
+    "AI_DEBUG_SAFE",
+    "AI_FALLBACK_TO_SIMPLE",
+)
+
 
 class TestPandasAiRunner(unittest.TestCase):
-    def setUp(self):
-        self._load_env_patcher = patch("src.ai.pandasai_runner._load_env_files")
-        self._load_env_patcher.start()
-        self.addCleanup(self._load_env_patcher.stop)
+    def _ai_env(self, **overrides):
+        env = {"ENVIRONMENT": "test"}
+        for key in AI_ENV_KEYS:
+            if key in overrides and overrides[key] is not None:
+                env[key] = overrides[key]
+
+        return env
+
+    def _patch_ai_env(self, **overrides):
+        return patch.dict(os.environ, self._ai_env(**overrides), clear=True)
 
     def _install_fake_pandasai(self, fake_df_class, fake_litellm_class):
         fake_pai = types.ModuleType("pandasai")
@@ -45,7 +63,7 @@ class TestPandasAiRunner(unittest.TestCase):
         return patch.dict(sys.modules, modules), fake_pai
 
     def test_falha_com_runtime_error_seguro_sem_chave_modelo(self):
-        with patch.dict(os.environ, {"AI_LLM_MODEL": "gpt-4.1-mini"}, clear=True):
+        with self._patch_ai_env(AI_LLM_MODEL="gpt-4.1-mini"):
             with self.assertRaises(RuntimeError) as context:
                 executar_pergunta_com_pandasai(
                     pd.DataFrame([{"valor_aprovado": 10}]),
@@ -57,11 +75,11 @@ class TestPandasAiRunner(unittest.TestCase):
         self.assertEqual(str(context.exception), MISSING_LLM_KEY_MESSAGE)
 
     def test_ai_use_llm_false_desativa_llm(self):
-        with patch.dict(os.environ, {"AI_USE_LLM": "false"}, clear=True):
+        with self._patch_ai_env(AI_USE_LLM="false"):
             self.assertFalse(is_llm_enabled())
 
     def test_ai_use_llm_padrao_ativo(self):
-        with patch.dict(os.environ, {}, clear=True):
+        with self._patch_ai_env():
             self.assertTrue(is_llm_enabled())
 
     def test_sanitizacao_de_unicode_problematico(self):
@@ -95,10 +113,9 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(
-                os.environ,
-                {"AI_LLM_API_KEY": "fake-key", "AI_LLM_MODEL": "gpt-4.1-mini"},
-                clear=True,
+            with self._patch_ai_env(
+                AI_LLM_API_KEY="fake-key",
+                AI_LLM_MODEL="gpt-4.1-mini",
             ):
                 resposta = executar_pergunta_com_pandasai(
                     original_df,
@@ -112,6 +129,12 @@ class TestPandasAiRunner(unittest.TestCase):
         self.assertIsNot(captured["df"], original_df)
         self.assertIn("Use apenas o DataFrame fornecido", captured["prompt"])
         self.assertIn("2026-01-01 até antes de 2026-04-01", captured["prompt"])
+        self.assertIn("vw_data_sus_ia", captured["prompt"])
+        self.assertIn("municipio_atendimento: municipio onde ocorreu o atendimento", captured["prompt"])
+        self.assertIn("municipio_residencia: municipio de residencia", captured["prompt"])
+        self.assertIn("procedimento: procedimento realizado", captured["prompt"])
+        self.assertIn("Para perguntas sobre atendimento por municipio, use municipio_atendimento", captured["prompt"])
+        self.assertIn("Para perguntas sobre residencia dos pacientes, use municipio_residencia", captured["prompt"])
         self.assertIn(
             "Sempre atribua a resposta final a uma variavel chamada result",
             captured["prompt"],
@@ -152,7 +175,7 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(os.environ, {"AI_LLM_API_KEY": "fake-key"}, clear=True):
+            with self._patch_ai_env(AI_LLM_API_KEY="fake-key"):
                 resposta = executar_pergunta_com_pandasai(
                     pd.DataFrame([{"valor_aprovado": 10}]),
                     "qual a media?",
@@ -173,15 +196,15 @@ class TestPandasAiRunner(unittest.TestCase):
                     "value": pd.DataFrame(
                         [
                             {
-                                "municipio": "251250",
+                                "municipio_atendimento": "Cajazeiras",
                                 "total_valor_aprovado": 15681.57,
                             },
                             {
-                                "municipio": "250890",
+                                "municipio_atendimento": "Sousa",
                                 "total_valor_aprovado": 12187.25,
                             },
                             {
-                                "municipio": "250150",
+                                "municipio_atendimento": "Patos",
                                 "total_valor_aprovado": 10854.31,
                             },
                         ]
@@ -198,7 +221,7 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(os.environ, {"AI_LLM_API_KEY": "fake-key"}, clear=True):
+            with self._patch_ai_env(AI_LLM_API_KEY="fake-key"):
                 resposta = executar_pergunta_com_pandasai(
                     pd.DataFrame([{"valor_aprovado": 10}]),
                     "ranking por municipio",
@@ -211,9 +234,9 @@ class TestPandasAiRunner(unittest.TestCase):
             "\n".join(
                 [
                     "Total de valor aprovado por município:",
-                    "1. 251250: R$ 15.681,57",
-                    "2. 250890: R$ 12.187,25",
-                    "3. 250150: R$ 10.854,31",
+                    "1. Cajazeiras: R$ 15.681,57",
+                    "2. Sousa: R$ 12.187,25",
+                    "3. Patos: R$ 10.854,31",
                 ]
             ),
         )
@@ -226,8 +249,14 @@ class TestPandasAiRunner(unittest.TestCase):
             def chat(self, prompt):
                 return pd.DataFrame(
                     [
-                        {"municipio": "251250", "total_valor_aprovado": 15681.57},
-                        {"municipio": "250890", "total_valor_aprovado": 12187.25},
+                        {
+                            "municipio_atendimento": "Cajazeiras",
+                            "total_valor_aprovado": 15681.57,
+                        },
+                        {
+                            "municipio_atendimento": "Sousa",
+                            "total_valor_aprovado": 12187.25,
+                        },
                     ]
                 )
 
@@ -241,7 +270,7 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(os.environ, {"AI_LLM_API_KEY": "fake-key"}, clear=True):
+            with self._patch_ai_env(AI_LLM_API_KEY="fake-key"):
                 resposta = executar_pergunta_com_pandasai(
                     pd.DataFrame([{"valor_aprovado": 10}]),
                     "total por municipio",
@@ -250,8 +279,8 @@ class TestPandasAiRunner(unittest.TestCase):
                 )
 
         self.assertIn("Total de valor aprovado por município:", resposta)
-        self.assertIn("1. 251250: R$ 15.681,57", resposta)
-        self.assertIn("2. 250890: R$ 12.187,25", resposta)
+        self.assertIn("1. Cajazeiras: R$ 15.681,57", resposta)
+        self.assertIn("2. Sousa: R$ 12.187,25", resposta)
 
     def test_pandasai_string_tem_unicode_problematico_sanitizado(self):
         class FakePandasAiDataFrame:
@@ -271,7 +300,7 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(os.environ, {"AI_LLM_API_KEY": "fake-key"}, clear=True):
+            with self._patch_ai_env(AI_LLM_API_KEY="fake-key"):
                 resposta = executar_pergunta_com_pandasai(
                     pd.DataFrame([{"valor_aprovado": 10}]),
                     "qual o total?",
@@ -304,7 +333,7 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(os.environ, {"OPENAI_API_KEY": "openai-fallback"}, clear=True):
+            with self._patch_ai_env(OPENAI_API_KEY="openai-fallback"):
                 resposta = executar_pergunta_com_pandasai(
                     pd.DataFrame([{"valor_aprovado": 10}]),
                     "qual o total?",
@@ -335,10 +364,9 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(
-                os.environ,
-                {"AI_LLM_API_KEY": "fake-key", "AI_LLM_MODEL": "gpt-4.1-mini"},
-                clear=True,
+            with self._patch_ai_env(
+                AI_LLM_API_KEY="fake-key",
+                AI_LLM_MODEL="gpt-4.1-mini",
             ):
                 resposta = executar_pergunta_com_pandasai(
                     pd.DataFrame([{"valor_aprovado": 10}]),
@@ -373,14 +401,10 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(
-                os.environ,
-                {
-                    "AI_LLM_PROVIDER": "gemini",
-                    "AI_LLM_MODEL": "gemini-2.0-flash",
-                    "GEMINI_API_KEY": "gemini-fallback",
-                },
-                clear=True,
+            with self._patch_ai_env(
+                AI_LLM_PROVIDER="gemini",
+                AI_LLM_MODEL="gemini-2.0-flash",
+                GEMINI_API_KEY="gemini-fallback",
             ):
                 resposta = executar_pergunta_com_pandasai(
                     pd.DataFrame([{"valor_aprovado": 10}]),
@@ -414,14 +438,10 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(
-                os.environ,
-                {
-                    "AI_LLM_PROVIDER": "gemini",
-                    "AI_LLM_MODEL": "gemini/gemini-2.0-flash",
-                    "AI_LLM_API_KEY": "gemini-ai-key",
-                },
-                clear=True,
+            with self._patch_ai_env(
+                AI_LLM_PROVIDER="gemini",
+                AI_LLM_MODEL="gemini/gemini-2.0-flash",
+                AI_LLM_API_KEY="gemini-ai-key",
             ):
                 resposta = executar_pergunta_com_pandasai(
                     pd.DataFrame([{"valor_aprovado": 10}]),
@@ -457,14 +477,10 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(
-                os.environ,
-                {
-                    "AI_LLM_PROVIDER": "openrouter",
-                    "AI_LLM_MODEL": "openrouter/openrouter/free",
-                    "OPENROUTER_API_KEY": "openrouter-fallback",
-                },
-                clear=True,
+            with self._patch_ai_env(
+                AI_LLM_PROVIDER="openrouter",
+                AI_LLM_MODEL="openrouter/openrouter/free",
+                OPENROUTER_API_KEY="openrouter-fallback",
             ):
                 resposta = executar_pergunta_com_pandasai(
                     pd.DataFrame([{"valor_aprovado": 10}]),
@@ -498,14 +514,10 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(
-                os.environ,
-                {
-                    "AI_LLM_PROVIDER": "openrouter",
-                    "AI_LLM_MODEL": "openrouter/openrouter/free",
-                    "AI_LLM_API_KEY": "openrouter-ai-key",
-                },
-                clear=True,
+            with self._patch_ai_env(
+                AI_LLM_PROVIDER="openrouter",
+                AI_LLM_MODEL="openrouter/openrouter/free",
+                AI_LLM_API_KEY="openrouter-ai-key",
             ):
                 resposta = executar_pergunta_com_pandasai(
                     pd.DataFrame([{"valor_aprovado": 10}]),
@@ -541,13 +553,9 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(
-                os.environ,
-                {
-                    "AI_LLM_PROVIDER": "openrouter",
-                    "AI_LLM_API_KEY": "openrouter-ai-key",
-                },
-                clear=True,
+            with self._patch_ai_env(
+                AI_LLM_PROVIDER="openrouter",
+                AI_LLM_API_KEY="openrouter-ai-key",
             ):
                 resposta = executar_pergunta_com_pandasai(
                     pd.DataFrame([{"valor_aprovado": 10}]),
@@ -561,14 +569,10 @@ class TestPandasAiRunner(unittest.TestCase):
         self.assertEqual(captured["api_key"], "openrouter-ai-key")
 
     def test_openrouter_exige_prefixo_openrouter(self):
-        with patch.dict(
-            os.environ,
-                {
-                    "AI_LLM_PROVIDER": "openrouter",
-                    "AI_LLM_MODEL": "openrouter-free",
-                    "AI_LLM_API_KEY": "openrouter-ai-key",
-                },
-            clear=True,
+        with self._patch_ai_env(
+            AI_LLM_PROVIDER="openrouter",
+            AI_LLM_MODEL="openrouter-free",
+            AI_LLM_API_KEY="openrouter-ai-key",
         ):
             with self.assertRaises(RuntimeError) as context:
                 executar_pergunta_com_pandasai(
@@ -583,13 +587,9 @@ class TestPandasAiRunner(unittest.TestCase):
         self.assertNotIn("openrouter-ai-key", mensagem)
 
     def test_provider_desconhecido_retorna_erro_seguro(self):
-        with patch.dict(
-            os.environ,
-            {
-                "AI_LLM_PROVIDER": "desconhecido",
-                "AI_LLM_API_KEY": "fake-key",
-            },
-            clear=True,
+        with self._patch_ai_env(
+            AI_LLM_PROVIDER="desconhecido",
+            AI_LLM_API_KEY="fake-key",
         ):
             with self.assertRaises(RuntimeError) as context:
                 executar_pergunta_com_pandasai(
@@ -621,7 +621,7 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(os.environ, {"AI_LLM_API_KEY": "fake-key"}, clear=True):
+            with self._patch_ai_env(AI_LLM_API_KEY="fake-key"):
                 with self.assertRaises(RuntimeError) as context:
                     executar_pergunta_com_pandasai(
                         pd.DataFrame([{"valor_aprovado": 10}]),
@@ -653,7 +653,7 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(os.environ, {"AI_LLM_API_KEY": "fake-key"}, clear=True):
+            with self._patch_ai_env(AI_LLM_API_KEY="fake-key"):
                 with self.assertLogs("src.ai.pandasai_runner", level="WARNING") as logs:
                     with self.assertRaises(RuntimeError):
                         executar_pergunta_com_pandasai(
@@ -690,10 +690,9 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(
-                os.environ,
-                {"AI_LLM_API_KEY": "fake-key", "AI_DEBUG_SAFE": "true"},
-                clear=True,
+            with self._patch_ai_env(
+                AI_LLM_API_KEY="fake-key",
+                AI_DEBUG_SAFE="true",
             ):
                 with self.assertRaises(RuntimeError) as context:
                     executar_pergunta_com_pandasai(
@@ -732,7 +731,7 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(os.environ, {"AI_LLM_API_KEY": "fake-key"}, clear=True):
+            with self._patch_ai_env(AI_LLM_API_KEY="fake-key"):
                 with self.assertRaises(RuntimeError) as context:
                     executar_pergunta_com_pandasai(
                         pd.DataFrame([{"valor_aprovado": 10}]),
@@ -767,10 +766,9 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(
-                os.environ,
-                {"AI_LLM_API_KEY": "fake-key", "AI_DEBUG_SAFE": "true"},
-                clear=True,
+            with self._patch_ai_env(
+                AI_LLM_API_KEY="fake-key",
+                AI_DEBUG_SAFE="true",
             ):
                 with self.assertRaises(RuntimeError) as context:
                     executar_pergunta_com_pandasai(
@@ -809,7 +807,7 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(os.environ, {"AI_LLM_API_KEY": "fake-key"}, clear=True):
+            with self._patch_ai_env(AI_LLM_API_KEY="fake-key"):
                 with self.assertRaises(RuntimeError) as context:
                     executar_pergunta_com_pandasai(
                         pd.DataFrame([{"valor_aprovado": 10}]),
@@ -841,7 +839,7 @@ class TestPandasAiRunner(unittest.TestCase):
         )
 
         with modules_patcher:
-            with patch.dict(os.environ, {"AI_LLM_API_KEY": "fake-key"}, clear=True):
+            with self._patch_ai_env(AI_LLM_API_KEY="fake-key"):
                 with self.assertRaises(RuntimeError) as context:
                     executar_pergunta_com_pandasai(
                         pd.DataFrame([{"valor_aprovado": 10}]),

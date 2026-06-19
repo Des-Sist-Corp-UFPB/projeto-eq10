@@ -93,6 +93,9 @@ class LLMRateLimitError(LLMRecoverableError):
 
 
 def _load_env_files() -> None:
+    if os.getenv("ENVIRONMENT", "").strip().lower() == "test":
+        return
+
     try:
         from dotenv import load_dotenv
     except ModuleNotFoundError:
@@ -364,7 +367,7 @@ def _find_dataframe_column(value: pd.DataFrame, candidates: tuple[str, ...]) -> 
 def _format_valor_aprovado_por_municipio(value: pd.DataFrame) -> str | None:
     municipio_column = _find_dataframe_column(
         value,
-        ("municipio", "cod_municipio_atendido"),
+        ("municipio_atendimento", "municipio_residencia", "municipio"),
     )
     total_column = _find_dataframe_column(
         value,
@@ -442,6 +445,28 @@ Nunca responda fora do período disponível.
 Se os dados não forem suficientes, informe isso claramente.
 Responda em português brasileiro.
 Sempre informe o período analisado: {data_inicio} até antes de {data_fim_exclusiva}.
+
+O DataFrame vem da fonte controlada vw_data_sus_ia e possui colunas legiveis:
+- data: data do registro
+- idade: idade do paciente/usuario
+- sexo: sexo
+- municipio_atendimento: municipio onde ocorreu o atendimento
+- municipio_residencia: municipio de residencia
+- raca_cor: raca/cor
+- unidade: unidade de atendimento
+- ocupacao: ocupacao
+- procedimento: procedimento realizado
+- frequencia: frequencia
+- quantidade_apresentada: quantidade apresentada
+- valor_apresentado: valor apresentado
+- valor_aprovado: valor aprovado
+
+Regras de escolha de colunas:
+- Para perguntas sobre atendimento por municipio, use municipio_atendimento.
+- Para perguntas sobre residencia dos pacientes, use municipio_residencia.
+- Para perguntas sobre tipos de procedimento, use procedimento.
+- Para perguntas sobre unidade de atendimento, use unidade.
+- Para perguntas por raca/cor, use raca_cor.
 
 Regras obrigatorias para retorno do codigo PandasAI:
 - Use apenas caracteres ASCII simples em comentarios e strings auxiliares do codigo.

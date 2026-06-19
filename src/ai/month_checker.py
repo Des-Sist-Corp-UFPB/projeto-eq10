@@ -8,6 +8,7 @@ from datetime import date
 
 from sqlalchemy import text
 
+from src.ai.config import AI_DATA_SOURCE
 from src.ai.read_only_datasus import get_readonly_engine
 
 MENSAGEM_MES_INDISPONIVEL = "O mês solicitado ainda não está disponível no sistema."
@@ -69,11 +70,11 @@ def mes_existe_no_banco(ano: int, mes: int) -> bool:
     data_fim_exclusiva = _primeiro_dia_mes_seguinte(ano, mes)
     query = text("""
         SELECT 1
-        FROM data_sus
+        FROM {source}
         WHERE data >= :data_inicio
           AND data < :data_fim_exclusiva
         LIMIT 1
-    """)
+    """.format(source=AI_DATA_SOURCE))
 
     engine = get_readonly_engine()
 

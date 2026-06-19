@@ -46,20 +46,22 @@ def _total_valor_aprovado_por_municipio(
     df: pd.DataFrame,
     data_inicio: Any,
     data_fim_exclusiva: Any,
+    municipio_column: str = "municipio_atendimento",
+    municipio_display: str = "município de atendimento",
 ) -> str:
-    if not _has_columns(df, ["cod_municipio_atendido", "valor_aprovado"]):
+    if not _has_columns(df, [municipio_column, "valor_aprovado"]):
         return SIMPLE_STATS_UNAVAILABLE_MESSAGE
 
-    working_df = df[["cod_municipio_atendido", "valor_aprovado"]].copy()
+    working_df = df[[municipio_column, "valor_aprovado"]].copy()
     working_df["valor_aprovado"] = _numeric_series(working_df, "valor_aprovado")
     result = (
-        working_df.groupby("cod_municipio_atendido", dropna=False)["valor_aprovado"]
+        working_df.groupby(municipio_column, dropna=False)["valor_aprovado"]
         .sum()
         .sort_values(ascending=False)
     )
 
     lines = [
-        "Total de valor aprovado por município de atendimento:",
+        f"Total de valor aprovado por {municipio_display}:",
         _period_text(data_inicio, data_fim_exclusiva),
     ]
     for municipio, total in result.items():
@@ -100,16 +102,16 @@ def _ranking_unidades_por_quantidade(
     data_fim_exclusiva: Any,
     limit: int = 10,
 ) -> str:
-    if not _has_columns(df, ["cod_unidade", "quantidade_apresentada"]):
+    if not _has_columns(df, ["unidade", "quantidade_apresentada"]):
         return SIMPLE_STATS_UNAVAILABLE_MESSAGE
 
-    working_df = df[["cod_unidade", "quantidade_apresentada"]].copy()
+    working_df = df[["unidade", "quantidade_apresentada"]].copy()
     working_df["quantidade_apresentada"] = _numeric_series(
         working_df,
         "quantidade_apresentada",
     )
     result = (
-        working_df.groupby("cod_unidade", dropna=False)["quantidade_apresentada"]
+        working_df.groupby("unidade", dropna=False)["quantidade_apresentada"]
         .sum()
         .sort_values(ascending=False)
         .head(limit)
@@ -158,6 +160,25 @@ def _total_geral_valor_aprovado(
     )
 
 
+def _dimension_from_prompt(prompt: str) -> tuple[str | None, str | None]:
+    if "municipio" in prompt and "residencia" in prompt:
+        return "municipio_residencia", "município de residência"
+    if "municipio" in prompt:
+        return "municipio_atendimento", "município de atendimento"
+    if "unidade" in prompt:
+        return "unidade", "unidade de atendimento"
+    if "procedimento" in prompt:
+        return "procedimento", "procedimento"
+    if "raca cor" in prompt or "raca" in prompt:
+        return "raca_cor", "raça/cor"
+    if "ocupacao" in prompt:
+        return "ocupacao", "ocupação"
+    if "sexo" in prompt:
+        return "sexo", "sexo"
+
+    return None, None
+
+
 def _contagem_registros(
     df: pd.DataFrame,
     data_inicio: Any,
@@ -178,16 +199,6 @@ def _ranking_basico(
     data_fim_exclusiva: Any,
     limit: int = 10,
 ) -> str:
-    dimensions = {
-        "municipio": "cod_municipio_atendido",
-        "unidade": "cod_unidade",
-        "sexo": "sexo",
-    }
-    dimension_display = {
-        "municipio": "município",
-        "unidade": "unidade",
-        "sexo": "sexo",
-    }
     metrics = {
         "valor aprovado": "valor_aprovado",
         "frequencia": "frequencia",
@@ -201,19 +212,15 @@ def _ranking_basico(
         "valor apresentado": "valor apresentado",
     }
 
-    dimension_label = next(
-        (label for label in dimensions if label in prompt),
-        None,
-    )
+    dimension_column, dimension_display = _dimension_from_prompt(prompt)
     metric_label = next(
         (label for label in metrics if label in prompt),
         "valor aprovado",
     )
 
-    if dimension_label is None:
+    if dimension_column is None or dimension_display is None:
         return SIMPLE_STATS_UNAVAILABLE_MESSAGE
 
-    dimension_column = dimensions[dimension_label]
     metric_column = metrics[metric_label]
     if not _has_columns(df, [dimension_column, metric_column]):
         return SIMPLE_STATS_UNAVAILABLE_MESSAGE
@@ -229,7 +236,7 @@ def _ranking_basico(
 
     lines = [
         (
-            f"Ranking por {dimension_display[dimension_label]} "
+            f"Ranking por {dimension_display} "
             f"usando {metric_display[metric_label]}:"
         ),
         _period_text(data_inicio, data_fim_exclusiva),
@@ -257,7 +264,14 @@ def executar_pergunta_estatistica_simples(
         return _ranking_basico(df, prompt, data_inicio, data_fim_exclusiva)
 
     if "valor aprovado" in prompt and "municipio" in prompt:
-        return _total_valor_aprovado_por_municipio(df, data_inicio, data_fim_exclusiva)
+        municipio_column, municipio_display = _dimension_from_prompt(prompt)
+        return _total_valor_aprovado_por_municipio(
+            df,
+            data_inicio,
+            data_fim_exclusiva,
+            municipio_column or "municipio_atendimento",
+            municipio_display or "município de atendimento",
+        )
 
     if "frequencia" in prompt and "sexo" in prompt:
         return _frequencia_por_sexo(df, data_inicio, data_fim_exclusiva)

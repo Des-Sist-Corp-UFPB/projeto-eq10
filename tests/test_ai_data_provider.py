@@ -1,25 +1,41 @@
 import inspect
 import os
-import sys
-import types
 import unittest
 from datetime import date
 from unittest.mock import Mock, patch
 
 import pandas as pd
 
-fake_sqlalchemy = types.ModuleType("sqlalchemy")
-fake_sqlalchemy.text = lambda query: query
-sys.modules.setdefault("sqlalchemy", fake_sqlalchemy)
-
-from src.ai.config import AI_ALLOWED_COLUMNS
+from src.ai.config import AI_ALLOWED_COLUMNS, AI_DATA_SOURCE
 from src.ai.data_provider import load_controlled_datasus_dataframe
 from src.ai.read_only_datasus import AI_CONFIG_ERROR_MESSAGE, get_readonly_engine
 
 
 class TestAiReadOnlyDataLayer(unittest.TestCase):
+    def test_colunas_permitidas_usam_nomes_legiveis_da_view(self):
+        self.assertEqual(
+            AI_ALLOWED_COLUMNS,
+            [
+                "data",
+                "idade",
+                "sexo",
+                "municipio_atendimento",
+                "municipio_residencia",
+                "raca_cor",
+                "unidade",
+                "ocupacao",
+                "procedimento",
+                "frequencia",
+                "quantidade_apresentada",
+                "valor_apresentado",
+                "valor_aprovado",
+            ],
+        )
+        self.assertNotIn("cod_municipio_atendido", AI_ALLOWED_COLUMNS)
+        self.assertNotIn("cod_municipio_residencia", AI_ALLOWED_COLUMNS)
+
     def test_get_readonly_engine_falha_se_faltar_variavel_de_ambiente(self):
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {"ENVIRONMENT": "test"}, clear=True):
             with self.assertRaises(RuntimeError) as context:
                 get_readonly_engine()
 
@@ -69,6 +85,9 @@ class TestAiReadOnlyDataLayer(unittest.TestCase):
             self.assertIn(column, select_clause)
 
         self.assertNotIn("*", select_clause)
+        self.assertIn(f"FROM {AI_DATA_SOURCE}", query)
+        self.assertNotRegex(query, r"FROM\s+data_sus\b")
+        self.assertTrue(query.strip().upper().startswith("SELECT"))
         self.assertIn("data >= :data_inicio", query)
         self.assertIn("data < :data_fim_exclusiva", query)
         self.assertNotIn("data <= :data_fim", query)

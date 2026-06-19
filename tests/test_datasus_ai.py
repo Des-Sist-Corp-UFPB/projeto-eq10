@@ -1,16 +1,11 @@
 import inspect
 import os
 import sys
-import types
 import unittest
 from datetime import date
 from unittest.mock import patch
 
 import pandas as pd
-
-fake_sqlalchemy = types.ModuleType("sqlalchemy")
-fake_sqlalchemy.text = lambda query: query
-sys.modules.setdefault("sqlalchemy", fake_sqlalchemy)
 
 from src.ai.datasus_ai import (
     GENERIC_AI_ERROR_MESSAGE,
@@ -19,6 +14,18 @@ from src.ai.datasus_ai import (
 )
 from src.ai.prompt_guard import MENSAGEM_BLOQUEIO
 from src.ai.simple_stats_runner import SIMPLE_STATS_UNAVAILABLE_MESSAGE
+
+AI_ENV_KEYS = (
+    "AI_USE_LLM",
+    "AI_LLM_PROVIDER",
+    "AI_LLM_MODEL",
+    "AI_LLM_API_KEY",
+    "OPENAI_API_KEY",
+    "OPENROUTER_API_KEY",
+    "GEMINI_API_KEY",
+    "AI_DEBUG_SAFE",
+    "AI_FALLBACK_TO_SIMPLE",
+)
 
 
 class TestDatasusAiFlow(unittest.TestCase):
@@ -30,6 +37,17 @@ class TestDatasusAiFlow(unittest.TestCase):
         sys.modules.pop("pandasai_litellm", None)
         sys.modules.pop("pandasai_litellm.litellm", None)
         sys.modules.pop("pandasai", None)
+
+    def _ai_env(self, **overrides):
+        env = {"ENVIRONMENT": "test"}
+        for key in AI_ENV_KEYS:
+            if key in overrides and overrides[key] is not None:
+                env[key] = overrides[key]
+
+        return env
+
+    def _patch_ai_env(self, **overrides):
+        return patch.dict(os.environ, self._ai_env(**overrides), clear=True)
 
     @patch("src.ai.datasus_ai.load_controlled_datasus_dataframe")
     @patch("src.ai.datasus_ai.log_ai_question")
@@ -118,7 +136,7 @@ class TestDatasusAiFlow(unittest.TestCase):
         _mock_load_data,
         mock_pandasai,
     ):
-        with patch.dict(os.environ, {"AI_USE_LLM": "true"}, clear=True):
+        with self._patch_ai_env(AI_USE_LLM="true"):
             resposta = perguntar_datasus("qual o total de valor aprovado?")
 
         self.assertEqual(resposta, "Total aprovado: R$ 10,00.")
@@ -136,11 +154,11 @@ class TestDatasusAiFlow(unittest.TestCase):
             pd.DataFrame(
                 [
                     {
-                        "cod_municipio_atendido": "250150",
+                        "municipio_atendimento": "Cajazeiras",
                         "valor_aprovado": 10.0,
                     },
                     {
-                        "cod_municipio_atendido": "250150",
+                        "municipio_atendimento": "Cajazeiras",
                         "valor_aprovado": 5.5,
                     },
                 ]
@@ -157,10 +175,10 @@ class TestDatasusAiFlow(unittest.TestCase):
         _mock_validar_mes,
         _mock_load_data,
     ):
-        with patch.dict(os.environ, {"AI_USE_LLM": "false"}, clear=True):
+        with self._patch_ai_env(AI_USE_LLM="false"):
             resposta = perguntar_datasus("total de valor aprovado por município")
 
-        self.assertIn("250150: R$ 15,50", resposta)
+        self.assertIn("Cajazeiras: R$ 15,50", resposta)
         self.assertNotIn("src.ai.pandasai_runner", sys.modules)
         self.assertNotIn("pandasai_litellm.litellm", sys.modules)
         mock_log.assert_called_with(
@@ -174,7 +192,7 @@ class TestDatasusAiFlow(unittest.TestCase):
             pd.DataFrame(
                 [
                     {
-                        "cod_municipio_atendido": "250150",
+                        "municipio_atendimento": "Cajazeiras",
                         "valor_aprovado": 10.0,
                     },
                 ]
@@ -191,7 +209,7 @@ class TestDatasusAiFlow(unittest.TestCase):
         _mock_validar_mes,
         _mock_load_data,
     ):
-        with patch.dict(os.environ, {"AI_USE_LLM": "false"}, clear=True):
+        with self._patch_ai_env(AI_USE_LLM="false"):
             resposta = perguntar_datasus("total geral de valor aprovado")
 
         self.assertIn("Total geral de valor aprovado: R$ 10,00", resposta)
@@ -214,7 +232,7 @@ class TestDatasusAiFlow(unittest.TestCase):
         _mock_validar_mes,
         _mock_load_data,
     ):
-        with patch.dict(os.environ, {"AI_USE_LLM": "false"}, clear=True):
+        with self._patch_ai_env(AI_USE_LLM="false"):
             resposta = perguntar_datasus("qual procedimento cresceu mais?")
 
         self.assertEqual(resposta, SIMPLE_STATS_UNAVAILABLE_MESSAGE)
@@ -230,11 +248,11 @@ class TestDatasusAiFlow(unittest.TestCase):
             pd.DataFrame(
                 [
                     {
-                        "cod_municipio_atendido": "250150",
+                        "municipio_atendimento": "Cajazeiras",
                         "valor_aprovado": 10.0,
                     },
                     {
-                        "cod_municipio_atendido": "250150",
+                        "municipio_atendimento": "Cajazeiras",
                         "valor_aprovado": 5.5,
                     },
                 ]
@@ -257,17 +275,16 @@ class TestDatasusAiFlow(unittest.TestCase):
             "src.ai.pandasai_runner.executar_pergunta_com_pandasai",
             side_effect=LLMRateLimitError(LLM_RATE_LIMIT_ERROR_MESSAGE),
         ):
-            with patch.dict(
-                os.environ,
-                {"AI_USE_LLM": "true", "AI_FALLBACK_TO_SIMPLE": "true"},
-                clear=True,
+            with self._patch_ai_env(
+                AI_USE_LLM="true",
+                AI_FALLBACK_TO_SIMPLE="true",
             ):
                 resposta = perguntar_datasus("total de valor aprovado por município")
 
         self.assertIn(LLM_SIMPLE_FALLBACK_NOTICE, resposta)
         self.assertNotIn(LLM_RATE_LIMIT_ERROR_MESSAGE, resposta)
         self.assertIn("Resposta em modo estatístico simples", resposta)
-        self.assertIn("250150: R$ 15,50", resposta)
+        self.assertIn("Cajazeiras: R$ 15,50", resposta)
         self.assertNotIn("fake-secret-key", resposta)
         mock_log.assert_called_with(
             "total de valor aprovado por município",
@@ -281,7 +298,7 @@ class TestDatasusAiFlow(unittest.TestCase):
             pd.DataFrame(
                 [
                     {
-                        "cod_municipio_atendido": "250150",
+                        "municipio_atendimento": "Cajazeiras",
                         "valor_aprovado": 10.0,
                     },
                 ]
@@ -304,10 +321,9 @@ class TestDatasusAiFlow(unittest.TestCase):
             "src.ai.pandasai_runner.executar_pergunta_com_pandasai",
             side_effect=LLMRateLimitError(LLM_RATE_LIMIT_ERROR_MESSAGE),
         ):
-            with patch.dict(
-                os.environ,
-                {"AI_USE_LLM": "true", "AI_FALLBACK_TO_SIMPLE": "false"},
-                clear=True,
+            with self._patch_ai_env(
+                AI_USE_LLM="true",
+                AI_FALLBACK_TO_SIMPLE="false",
             ):
                 resposta = perguntar_datasus("total de valor aprovado por município")
 
@@ -339,7 +355,7 @@ class TestDatasusAiFlow(unittest.TestCase):
             "src.ai.pandasai_runner.executar_pergunta_com_pandasai",
             side_effect=RuntimeError("Configuração incompleta da IA: chave do modelo ausente."),
         ):
-            with patch.dict(os.environ, {"AI_USE_LLM": "true"}, clear=True):
+            with self._patch_ai_env(AI_USE_LLM="true"):
                 resposta = perguntar_datasus("qual o total de valor aprovado?")
 
         self.assertEqual(resposta, "Configuração incompleta da IA: chave do modelo ausente.")
@@ -369,7 +385,7 @@ class TestDatasusAiFlow(unittest.TestCase):
             "src.ai.pandasai_runner.executar_pergunta_com_pandasai",
             side_effect=ValueError("erro interno com segredo"),
         ):
-            with patch.dict(os.environ, {"AI_USE_LLM": "true"}, clear=True):
+            with self._patch_ai_env(AI_USE_LLM="true"):
                 resposta = perguntar_datasus("qual o total de valor aprovado?")
 
         self.assertEqual(resposta, GENERIC_AI_ERROR_MESSAGE)
