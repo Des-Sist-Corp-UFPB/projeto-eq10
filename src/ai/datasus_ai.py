@@ -9,7 +9,10 @@ from src.ai.data_provider import load_controlled_datasus_dataframe
 from src.ai.month_checker import validar_mes_solicitado_no_prompt
 from src.ai.prompt_guard import validar_prompt
 from src.ai.query_logger import log_ai_question
-from src.ai.simple_stats_runner import executar_pergunta_simples
+from src.ai.simple_stats_runner import (
+    SIMPLE_STATS_UNAVAILABLE_MESSAGE,
+    executar_pergunta_simples,
+)
 
 GENERIC_AI_ERROR_MESSAGE = (
     "Não foi possível processar a pergunta. Verifique a configuração da camada de IA."
@@ -62,6 +65,24 @@ def _responder_modo_simples(df, prompt_usuario, data_inicio, data_fim_exclusiva)
     )
 
 
+def _try_responder_modo_simples(
+    df,
+    prompt_usuario,
+    data_inicio,
+    data_fim_exclusiva,
+) -> str | None:
+    resposta = _responder_modo_simples(
+        df,
+        prompt_usuario,
+        data_inicio,
+        data_fim_exclusiva,
+    )
+    if resposta == SIMPLE_STATS_UNAVAILABLE_MESSAGE:
+        return None
+
+    return resposta
+
+
 def perguntar_datasus(prompt_usuario: str) -> str:
     """Recebe uma pergunta sobre dados SIA/DATASUS sem acionar a ETL principal."""
     valido, mensagem = validar_prompt(prompt_usuario)
@@ -82,8 +103,8 @@ def perguntar_datasus(prompt_usuario: str) -> str:
 
     try:
         df, data_inicio, data_fim_exclusiva = load_controlled_datasus_dataframe()
-    except Exception:
-        log_ai_question(prompt_usuario, status="erro_inesperado")
+    except Exception as exc:
+        log_ai_question(prompt_usuario, status="erro_banco", detail=type(exc).__name__)
         return GENERIC_AI_ERROR_MESSAGE
 
     if df.empty:
@@ -93,6 +114,25 @@ def perguntar_datasus(prompt_usuario: str) -> str:
         log_ai_question(prompt_usuario, status="sem_dados", detail=mensagem_sem_dados)
         return mensagem_sem_dados
 
+    try:
+        resposta_simples = _try_responder_modo_simples(
+            df,
+            prompt_usuario,
+            data_inicio,
+            data_fim_exclusiva,
+        )
+    except Exception as exc:
+        log_ai_question(
+            prompt_usuario,
+            status="erro_modo_simples",
+            detail=type(exc).__name__,
+        )
+        resposta_simples = None
+
+    if resposta_simples is not None:
+        log_ai_question(prompt_usuario, status="respondido_modo_simples")
+        return resposta_simples
+
     if not is_llm_enabled():
         try:
             resposta = _responder_modo_simples(
@@ -101,11 +141,20 @@ def perguntar_datasus(prompt_usuario: str) -> str:
                 data_inicio,
                 data_fim_exclusiva,
             )
-        except Exception:
-            log_ai_question(prompt_usuario, status="erro_inesperado")
+        except Exception as exc:
+            log_ai_question(
+                prompt_usuario,
+                status="erro_modo_simples",
+                detail=type(exc).__name__,
+            )
             return GENERIC_AI_ERROR_MESSAGE
 
-        log_ai_question(prompt_usuario, status="respondido_modo_simples")
+        status = (
+            "pergunta_fora_escopo_modo_simples"
+            if resposta == SIMPLE_STATS_UNAVAILABLE_MESSAGE
+            else "respondido_modo_simples"
+        )
+        log_ai_question(prompt_usuario, status=status)
         return resposta
 
     try:
@@ -157,8 +206,8 @@ def perguntar_datasus(prompt_usuario: str) -> str:
         mensagem_erro = str(exc)
         log_ai_question(prompt_usuario, status="erro_configuracao", detail=mensagem_erro)
         return mensagem_erro
-    except Exception:
-        log_ai_question(prompt_usuario, status="erro_inesperado")
+    except Exception as exc:
+        log_ai_question(prompt_usuario, status="erro_llm", detail=type(exc).__name__)
         return GENERIC_AI_ERROR_MESSAGE
 
     log_ai_question(prompt_usuario, status="respondido")

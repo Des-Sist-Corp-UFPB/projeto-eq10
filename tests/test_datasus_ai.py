@@ -137,16 +137,76 @@ class TestDatasusAiFlow(unittest.TestCase):
         mock_pandasai,
     ):
         with self._patch_ai_env(AI_USE_LLM="true"):
-            resposta = perguntar_datasus("qual o total de valor aprovado?")
+            resposta = perguntar_datasus("compare a variação de idade por período")
 
         self.assertEqual(resposta, "Total aprovado: R$ 10,00.")
         mock_pandasai.assert_called_once()
         args = mock_pandasai.call_args.args
         self.assertIsInstance(args[0], pd.DataFrame)
-        self.assertEqual(args[1], "qual o total de valor aprovado?")
+        self.assertEqual(args[1], "compare a variação de idade por período")
         self.assertEqual(args[2], date(2026, 1, 1))
         self.assertEqual(args[3], date(2026, 4, 1))
-        mock_log.assert_called_with("qual o total de valor aprovado?", status="respondido")
+        mock_log.assert_called_with("compare a variação de idade por período", status="respondido")
+
+    @patch(
+        "src.ai.datasus_ai.load_controlled_datasus_dataframe",
+        return_value=(
+            pd.DataFrame(
+                [
+                    {
+                        "municipio_atendimento": "Cajazeiras",
+                        "valor_aprovado": 10.0,
+                        "frequencia": 2,
+                        "sexo": "M",
+                        "unidade": "Hospital Regional",
+                        "procedimento": "Consulta medica",
+                        "raca_cor": "Parda",
+                        "quantidade_apresentada": 5,
+                        "idade": 30,
+                    },
+                    {
+                        "municipio_atendimento": "Sousa",
+                        "valor_aprovado": 20.0,
+                        "frequencia": 3,
+                        "sexo": "F",
+                        "unidade": "UPA Central",
+                        "procedimento": "Exame laboratorial",
+                        "raca_cor": "Branca",
+                        "quantidade_apresentada": 8,
+                        "idade": 40,
+                    },
+                ]
+            ),
+            date(2026, 1, 1),
+            date(2026, 4, 1),
+        ),
+    )
+    @patch("src.ai.datasus_ai.validar_mes_solicitado_no_prompt", return_value=(True, ""))
+    @patch("src.ai.datasus_ai.log_ai_question")
+    def test_sugestoes_principais_usam_modo_simples_antes_do_llm(
+        self,
+        _mock_log,
+        _mock_validar_mes,
+        _mock_load_data,
+    ):
+        prompts = {
+            "Média de idade dos atendimentos": "Média de idade dos atendimentos",
+            "Frequência total por sexo": "Frequência total por sexo",
+            "Unidades com maior quantidade apresentada": "Unidades com maior quantidade apresentada",
+            "Procedimentos com maior valor aprovado": "Ranking por procedimento usando valor aprovado",
+            "Valor aprovado por município de atendimento": "Total de valor aprovado por município de atendimento",
+            "Valor aprovado por raça/cor": "Ranking por raça/cor usando valor aprovado",
+        }
+
+        with self._patch_ai_env(AI_USE_LLM="true"):
+            for prompt, expected in prompts.items():
+                with self.subTest(prompt=prompt):
+                    resposta = perguntar_datasus(prompt)
+                    self.assertIn(expected, resposta)
+                    self.assertNotEqual(resposta, GENERIC_AI_ERROR_MESSAGE)
+                    self.assertNotEqual(resposta, SIMPLE_STATS_UNAVAILABLE_MESSAGE)
+
+        self.assertNotIn("src.ai.pandasai_runner", sys.modules)
 
     @patch(
         "src.ai.datasus_ai.load_controlled_datasus_dataframe",
@@ -239,7 +299,7 @@ class TestDatasusAiFlow(unittest.TestCase):
         self.assertNotIn("src.ai.pandasai_runner", sys.modules)
         mock_log.assert_called_with(
             "qual procedimento cresceu mais?",
-            status="respondido_modo_simples",
+            status="pergunta_fora_escopo_modo_simples",
         )
 
     @patch(
@@ -279,15 +339,15 @@ class TestDatasusAiFlow(unittest.TestCase):
                 AI_USE_LLM="true",
                 AI_FALLBACK_TO_SIMPLE="true",
             ):
-                resposta = perguntar_datasus("total de valor aprovado por município")
+                resposta = perguntar_datasus("compare a variação de valor aprovado por período")
 
         self.assertIn(LLM_SIMPLE_FALLBACK_NOTICE, resposta)
         self.assertNotIn(LLM_RATE_LIMIT_ERROR_MESSAGE, resposta)
         self.assertIn("Resposta em modo estatístico simples", resposta)
-        self.assertIn("Cajazeiras: R$ 15,50", resposta)
+        self.assertIn(SIMPLE_STATS_UNAVAILABLE_MESSAGE, resposta)
         self.assertNotIn("fake-secret-key", resposta)
         mock_log.assert_called_with(
-            "total de valor aprovado por município",
+            "compare a variação de valor aprovado por período",
             status="respondido_modo_simples_rate_limit",
             detail=LLM_RATE_LIMIT_ERROR_MESSAGE,
         )
@@ -325,12 +385,12 @@ class TestDatasusAiFlow(unittest.TestCase):
                 AI_USE_LLM="true",
                 AI_FALLBACK_TO_SIMPLE="false",
             ):
-                resposta = perguntar_datasus("total de valor aprovado por município")
+                resposta = perguntar_datasus("compare a variação de valor aprovado por período")
 
         self.assertEqual(resposta, LLM_RATE_LIMIT_ERROR_MESSAGE)
         self.assertNotIn("fake-secret-key", resposta)
         mock_log.assert_called_with(
-            "total de valor aprovado por município",
+            "compare a variação de valor aprovado por período",
             status="erro_limite_llm",
             detail=LLM_RATE_LIMIT_ERROR_MESSAGE,
         )
@@ -356,11 +416,11 @@ class TestDatasusAiFlow(unittest.TestCase):
             side_effect=RuntimeError("Configuração incompleta da IA: chave do modelo ausente."),
         ):
             with self._patch_ai_env(AI_USE_LLM="true"):
-                resposta = perguntar_datasus("qual o total de valor aprovado?")
+                resposta = perguntar_datasus("compare a variação de idade por período")
 
         self.assertEqual(resposta, "Configuração incompleta da IA: chave do modelo ausente.")
         mock_log.assert_called_with(
-            "qual o total de valor aprovado?",
+            "compare a variação de idade por período",
             status="erro_configuracao",
             detail="Configuração incompleta da IA: chave do modelo ausente.",
         )
@@ -386,10 +446,14 @@ class TestDatasusAiFlow(unittest.TestCase):
             side_effect=ValueError("erro interno com segredo"),
         ):
             with self._patch_ai_env(AI_USE_LLM="true"):
-                resposta = perguntar_datasus("qual o total de valor aprovado?")
+                resposta = perguntar_datasus("compare a variação de idade por período")
 
         self.assertEqual(resposta, GENERIC_AI_ERROR_MESSAGE)
-        mock_log.assert_called_with("qual o total de valor aprovado?", status="erro_inesperado")
+        mock_log.assert_called_with(
+            "compare a variação de idade por período",
+            status="erro_llm",
+            detail="ValueError",
+        )
 
     @patch(
         "src.ai.datasus_ai.load_controlled_datasus_dataframe",
@@ -406,7 +470,11 @@ class TestDatasusAiFlow(unittest.TestCase):
         resposta = perguntar_datasus("qual o total de valor aprovado?")
 
         self.assertEqual(resposta, GENERIC_AI_ERROR_MESSAGE)
-        mock_log.assert_called_with("qual o total de valor aprovado?", status="erro_inesperado")
+        mock_log.assert_called_with(
+            "qual o total de valor aprovado?",
+            status="erro_banco",
+            detail="RuntimeError",
+        )
 
     def test_arquivo_nao_contem_comandos_sql_de_escrita(self):
         import src.ai.datasus_ai as datasus_ai

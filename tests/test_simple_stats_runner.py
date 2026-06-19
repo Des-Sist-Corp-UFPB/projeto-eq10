@@ -74,6 +74,13 @@ class TestSimpleStatsRunner(unittest.TestCase):
         self.assertIn("Cajazeiras: R$ 30,50", resposta)
         self.assertIn("Sousa: R$ 7,00", resposta)
 
+    def test_sugestao_valor_aprovado_por_municipio_de_atendimento(self):
+        resposta = self._ask("Valor aprovado por município de atendimento")
+
+        self.assertIn("Total de valor aprovado por município de atendimento", resposta)
+        self.assertIn("Cajazeiras: R$ 30,50", resposta)
+        self.assertIn("Sousa: R$ 7,00", resposta)
+
     def test_total_valor_aprovado_por_municipio_de_residencia(self):
         resposta = self._ask("total de valor aprovado por município de residência")
 
@@ -105,8 +112,27 @@ class TestSimpleStatsRunner(unittest.TestCase):
         self.assertIn("1. Hospital Regional: 11", resposta)
         self.assertIn("2. UPA Central: 8", resposta)
 
+    def test_sugestao_procedimentos_com_maior_valor_aprovado(self):
+        resposta = self._ask("Procedimentos com maior valor aprovado")
+
+        self.assertIn("Ranking por procedimento usando valor aprovado", resposta)
+        self.assertIn("1. Exame laboratorial: R$ 20,00", resposta)
+        self.assertIn("2. Consulta medica: R$ 17,50", resposta)
+
+    def test_sugestao_valor_aprovado_por_raca_cor(self):
+        resposta = self._ask("Valor aprovado por raça/cor")
+
+        self.assertIn("Ranking por raça/cor usando valor aprovado", resposta)
+        self.assertIn("1. Branca: R$ 20,00", resposta)
+        self.assertIn("2. Parda: R$ 17,50", resposta)
+
     def test_media_de_idade(self):
         resposta = self._ask("média de idade dos atendimentos")
+
+        self.assertIn("Média de idade dos atendimentos: 30,00 anos", resposta)
+
+    def test_normaliza_acentos_em_perguntas_simples(self):
+        resposta = self._ask("media de idade dos atendimentos no ultimo mes")
 
         self.assertIn("Média de idade dos atendimentos: 30,00 anos", resposta)
 

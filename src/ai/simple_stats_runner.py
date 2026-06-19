@@ -259,6 +259,7 @@ def executar_pergunta_estatistica_simples(
 ) -> str:
     """Responde perguntas estatisticas conhecidas usando apenas pandas local."""
     prompt = _normalize_prompt(prompt_usuario)
+    dimension_column, _dimension_display = _dimension_from_prompt(prompt)
 
     if "ranking" in prompt or "rankings" in prompt or "top" in prompt:
         return _ranking_basico(df, prompt, data_inicio, data_fim_exclusiva)
@@ -273,6 +274,9 @@ def executar_pergunta_estatistica_simples(
             municipio_display or "município de atendimento",
         )
 
+    if "valor aprovado" in prompt and dimension_column is not None:
+        return _ranking_basico(df, prompt, data_inicio, data_fim_exclusiva)
+
     if "frequencia" in prompt and "sexo" in prompt:
         return _frequencia_por_sexo(df, data_inicio, data_fim_exclusiva)
 
@@ -285,6 +289,16 @@ def executar_pergunta_estatistica_simples(
 
     if "media" in prompt and "idade" in prompt:
         return _media_idade(df, data_inicio, data_fim_exclusiva)
+
+    if (
+        dimension_column is not None
+        and (
+            "frequencia" in prompt
+            or "quantidade apresentada" in prompt
+            or "valor apresentado" in prompt
+        )
+    ):
+        return _ranking_basico(df, prompt, data_inicio, data_fim_exclusiva)
 
     if "valor aprovado" in prompt and ("total" in prompt or "soma" in prompt):
         return _total_geral_valor_aprovado(df, data_inicio, data_fim_exclusiva)
