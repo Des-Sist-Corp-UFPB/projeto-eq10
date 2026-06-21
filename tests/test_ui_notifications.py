@@ -39,6 +39,8 @@ class TestUiNotifications(unittest.TestCase):
         self.assertIn("success-feedback-stack", html)
         self.assertIn("success-feedback-card", html)
         self.assertIn("success-feedback-icon", html)
+        self.assertIn("&#10003;", html)
+        self.assertNotIn("âœ", html)
         self.assertIn("#f0fdf4", SUCCESS_FEEDBACK_CSS)
         self.assertIn("#bbf7d0", SUCCESS_FEEDBACK_CSS)
         self.assertIn("#166534", SUCCESS_FEEDBACK_CSS)

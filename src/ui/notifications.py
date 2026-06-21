@@ -52,7 +52,7 @@ def build_success_feedback_html(message: Any) -> str:
         SUCCESS_FEEDBACK_CSS
         + '<div class="success-feedback-stack" aria-live="polite" aria-atomic="true">'
         + '<section class="success-feedback-card" role="status">'
-        + '<span class="success-feedback-icon" aria-hidden="true">✓</span>'
+        + '<span class="success-feedback-icon" aria-hidden="true">&#10003;</span>'
         + f'<span class="success-feedback-message">{safe_message}</span>'
         + "</section></div>"
     )

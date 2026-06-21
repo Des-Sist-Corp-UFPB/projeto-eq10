@@ -9,6 +9,7 @@ from typing import Any
 import streamlit as st
 
 from src.auth.session import login_session, logout_session
+from src.auth.security import MIN_PASSWORD_LENGTH
 from src.auth.user_service import AuthValidationError, UserService, safe_auth_exception_summary
 from src.auth.validation import validate_login_fields, validate_register_fields
 from src.ui.notifications import queue_toast
@@ -19,6 +20,15 @@ AUTH_UNAVAILABLE_MESSAGE = (
 )
 
 logger = logging.getLogger(__name__)
+
+PROFILE_WIDGET_KEYS = (
+    "auth-change-name-input",
+    "auth-change-email-input",
+    "auth-current-password-input",
+    "auth-new-password-input",
+    "auth-confirm-password-input",
+    "auth-deactivate-email-input",
+)
 
 AUTH_MODAL_CSS = """
 <style>
@@ -184,6 +194,29 @@ AUTH_MODAL_CSS = """
         border-color: rgba(37, 99, 235, 0.64) !important;
         box-shadow: 0 0 0 3px rgba(123, 44, 191, 0.16) !important;
         outline: none !important;
+    }
+
+    [data-testid="stDialog"] [data-testid="stTextInput"] button,
+    [data-testid="stDialog"] [data-testid="stTextInput"] [role="button"] {
+        min-width: 2.2rem !important;
+        min-height: 2.2rem !important;
+        width: 2.2rem !important;
+        height: 2.2rem !important;
+        margin-right: 0.24rem !important;
+        border: 0 !important;
+        border-radius: 999px !important;
+        background: transparent !important;
+        color: #64748B !important;
+        box-shadow: none !important;
+    }
+
+    [data-testid="stDialog"] [data-testid="stTextInput"] button:hover,
+    [data-testid="stDialog"] [data-testid="stTextInput"] button:focus,
+    [data-testid="stDialog"] [data-testid="stTextInput"] [role="button"]:hover,
+    [data-testid="stDialog"] [data-testid="stTextInput"] [role="button"]:focus {
+        background: rgba(123, 44, 191, 0.08) !important;
+        color: #4C1D95 !important;
+        box-shadow: none !important;
     }
 
     [data-testid="stDialog"] [data-testid="stFormSubmitButton"] {
@@ -392,6 +425,13 @@ AUTH_MODAL_CSS = """
         border-radius: 1rem;
         background: #FFFFFF;
         box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+        transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+    }
+
+    .auth-profile-action-card:hover {
+        border-color: rgba(37, 99, 235, 0.34);
+        box-shadow: 0 13px 27px rgba(15, 23, 42, 0.09);
+        transform: translateY(-1px);
     }
 
     .auth-profile-action-card::before {
@@ -604,6 +644,17 @@ def close_auth_panel(*, redirect: bool = True) -> None:
     close_auth_modal(redirect=redirect)
 
 
+def _clear_profile_form_state() -> None:
+    for key in PROFILE_WIDGET_KEYS:
+        st.session_state.pop(key, None)
+
+
+def switch_profile_panel(panel: str) -> None:
+    # Profile action clicks only change panels; persistence runs in form submits.
+    _clear_profile_form_state()
+    set_auth_panel(panel)
+
+
 def _finish_auth_success() -> None:
     target_page = st.session_state.get("auth_target_page_on_success")
     close_auth_modal(redirect=False)
@@ -709,7 +760,7 @@ def _render_profile_action_card(
         unsafe_allow_html=True,
     )
     if st.button(button_label, key=button_key, use_container_width=True):
-        set_auth_panel(target_panel)
+        switch_profile_panel(target_panel)
         st.rerun()
 
 
@@ -833,7 +884,7 @@ def _render_forgot_password_panel() -> None:
         unsafe_allow_html=True,
     )
     if st.button("Voltar para entrar", key="auth-forgot-back-login", use_container_width=True):
-        set_auth_panel("login")
+        switch_profile_panel("login")
         st.rerun()
 
 
@@ -904,7 +955,7 @@ def _render_profile_panel() -> None:
         unsafe_allow_html=True,
     )
     if st.button("Desativar conta", key="auth-profile-deactivate", use_container_width=True):
-        set_auth_panel("deactivate_account")
+        switch_profile_panel("deactivate_account")
         st.rerun()
 
 
@@ -917,34 +968,41 @@ def _render_change_name_panel() -> None:
     st.markdown('<section class="auth-profile-form-panel"></section>', unsafe_allow_html=True)
     _render_auth_dialog_heading("Alterar nome", "Atualize o nome exibido na sua conta.")
 
-    service = _get_auth_service_or_none()
-    if service is None:
-        _render_global_error(st, AUTH_UNAVAILABLE_MESSAGE)
-        return
+    global_slot = st.empty()
 
     with st.form("auth-change-name-form", clear_on_submit=False):
-        nome = st.text_input("Nome", value=user["nome"])
+        nome = st.text_input("Nome", value=user["nome"], key="auth-change-name-input")
+        field_error_slots = {"nome": st.empty()}
         submitted = st.form_submit_button("Salvar nome", use_container_width=True)
 
     if st.button("Voltar ao perfil", key="auth-name-back", use_container_width=True):
-        set_auth_panel("profile")
+        switch_profile_panel("profile")
         st.rerun()
 
     if submitted:
+        if not (nome or "").strip():
+            _render_field_errors(field_error_slots, {"nome": "Informe o novo nome."})
+            return
+
+        service = _get_auth_service_or_none()
+        if service is None:
+            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+            return
+
         try:
             updated_user = service.update_name(int(user["id"]), nome)
         except AuthValidationError as exc:
-            _render_global_error(st, exc.public_message)
+            _render_global_error(global_slot, exc.public_message)
         except Exception as exc:
             logger.warning(
                 "Erro seguro alterar_nome | causa=%s | tipo=%s",
                 safe_auth_exception_summary(exc),
                 type(exc).__name__,
             )
-            _render_global_error(st, AUTH_UNAVAILABLE_MESSAGE)
+            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
         else:
             login_session(st.session_state, updated_user)
-            set_auth_panel("profile")
+            switch_profile_panel("profile")
             queue_toast(st.session_state, "Nome atualizado com sucesso.")
             st.rerun()
 
@@ -961,22 +1019,51 @@ def _render_change_password_panel() -> None:
         "Informe a senha atual antes de definir uma nova senha.",
     )
 
-    service = _get_auth_service_or_none()
-    if service is None:
-        _render_global_error(st, AUTH_UNAVAILABLE_MESSAGE)
-        return
+    global_slot = st.empty()
 
     with st.form("auth-change-password-form", clear_on_submit=True):
-        senha_atual = st.text_input("Senha atual", type="password")
-        nova_senha = st.text_input("Nova senha", type="password", placeholder="No mínimo 8 caracteres")
-        confirmar_senha = st.text_input("Confirmar nova senha", type="password")
+        senha_atual = st.text_input("Senha atual", type="password", key="auth-current-password-input")
+        field_error_slots = {"senha_atual": st.empty()}
+        nova_senha = st.text_input(
+            "Nova senha",
+            type="password",
+            placeholder="No mínimo 8 caracteres",
+            key="auth-new-password-input",
+        )
+        field_error_slots["nova_senha"] = st.empty()
+        confirmar_senha = st.text_input(
+            "Confirmar nova senha",
+            type="password",
+            key="auth-confirm-password-input",
+        )
+        field_error_slots["confirmar_senha"] = st.empty()
         submitted = st.form_submit_button("Salvar senha", use_container_width=True)
 
     if st.button("Voltar ao perfil", key="auth-password-back", use_container_width=True):
-        set_auth_panel("profile")
+        switch_profile_panel("profile")
         st.rerun()
 
     if submitted:
+        field_errors: dict[str, str] = {}
+        if not senha_atual:
+            field_errors["senha_atual"] = "Informe sua senha atual."
+        if not nova_senha:
+            field_errors["nova_senha"] = "Informe uma nova senha."
+        elif len(nova_senha) < MIN_PASSWORD_LENGTH:
+            field_errors["nova_senha"] = f"A senha deve ter pelo menos {MIN_PASSWORD_LENGTH} caracteres."
+        if not confirmar_senha:
+            field_errors["confirmar_senha"] = "Confirme sua nova senha."
+        elif nova_senha and nova_senha != confirmar_senha:
+            field_errors["confirmar_senha"] = "As senhas não coincidem."
+        if field_errors:
+            _render_field_errors(field_error_slots, field_errors)
+            return
+
+        service = _get_auth_service_or_none()
+        if service is None:
+            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+            return
+
         try:
             service.change_password(
                 int(user["id"]),
@@ -985,16 +1072,16 @@ def _render_change_password_panel() -> None:
                 confirmar_senha,
             )
         except AuthValidationError as exc:
-            _render_global_error(st, exc.public_message)
+            _render_global_error(global_slot, exc.public_message)
         except Exception as exc:
             logger.warning(
                 "Erro seguro alterar_senha | causa=%s | tipo=%s",
                 safe_auth_exception_summary(exc),
                 type(exc).__name__,
             )
-            _render_global_error(st, AUTH_UNAVAILABLE_MESSAGE)
+            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
         else:
-            set_auth_panel("profile")
+            switch_profile_panel("profile")
             queue_toast(st.session_state, "Senha alterada com sucesso.")
             st.rerun()
 
@@ -1011,11 +1098,6 @@ def _render_change_email_panel() -> None:
         "Informe o novo e-mail para iniciar a alteracao.",
     )
 
-    service = _get_auth_service_or_none()
-    if service is None:
-        _render_global_error(st, AUTH_UNAVAILABLE_MESSAGE)
-        return
-
     global_slot = st.empty()
 
     with st.form("auth-change-email-form", clear_on_submit=False):
@@ -1028,12 +1110,16 @@ def _render_change_email_panel() -> None:
             """,
             unsafe_allow_html=True,
         )
-        novo_email = st.text_input("Novo e-mail", placeholder="novo.email@exemplo.com")
+        novo_email = st.text_input(
+            "Novo e-mail",
+            placeholder="novo.email@exemplo.com",
+            key="auth-change-email-input",
+        )
         field_error_slots = {"email": st.empty()}
         submitted = st.form_submit_button("Continuar", use_container_width=True)
 
     if st.button("Voltar ao perfil", key="auth-email-back", use_container_width=True):
-        set_auth_panel("profile")
+        switch_profile_panel("profile")
         st.rerun()
 
     if submitted:
@@ -1047,10 +1133,19 @@ def _render_change_email_panel() -> None:
             _render_field_errors(field_error_slots, {"email": "Informe um e-mail diferente do atual."})
             return
 
+        service = _get_auth_service_or_none()
+        if service is None:
+            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+            return
+
         try:
             updated_user = service.update_email(int(user["id"]), clean_email)
         except AuthValidationError as exc:
-            _render_global_error(global_slot, exc.public_message)
+            public_message = exc.public_message
+            normalized_message = public_message.casefold()
+            if "existe" in normalized_message and "e-mail" in normalized_message:
+                public_message = "Este e-mail já está em uso."
+            _render_global_error(global_slot, public_message)
         except Exception as exc:
             logger.warning(
                 "Erro seguro alterar_email | causa=%s | tipo=%s",
@@ -1060,7 +1155,7 @@ def _render_change_email_panel() -> None:
             _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
         else:
             login_session(st.session_state, updated_user)
-            set_auth_panel("profile")
+            switch_profile_panel("profile")
             queue_toast(st.session_state, "E-mail atualizado com sucesso.")
             st.rerun()
 
@@ -1089,18 +1184,18 @@ def _render_deactivate_account_panel() -> None:
     )
 
     global_slot = st.empty()
-    service = _get_auth_service_or_none()
-    if service is None:
-        _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
-        return
 
     with st.form("auth-deactivate-account-form", clear_on_submit=False):
-        confirmar_email = st.text_input("Confirme seu e-mail", placeholder=user["email"])
+        confirmar_email = st.text_input(
+            "Confirme seu e-mail",
+            placeholder=user["email"],
+            key="auth-deactivate-email-input",
+        )
         field_error_slots = {"email": st.empty()}
         submitted = st.form_submit_button("Desativar conta", use_container_width=True)
 
     if st.button("Voltar ao perfil", key="auth-deactivate-back", use_container_width=True):
-        set_auth_panel("profile")
+        switch_profile_panel("profile")
         st.rerun()
 
     if submitted:
@@ -1108,6 +1203,11 @@ def _render_deactivate_account_panel() -> None:
         typed_email = confirmar_email.strip().casefold()
         if typed_email != expected_email:
             _render_field_errors(field_error_slots, {"email": "Digite seu e-mail para confirmar a desativacao."})
+            return
+
+        service = _get_auth_service_or_none()
+        if service is None:
+            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
             return
 
         try:

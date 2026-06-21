@@ -248,6 +248,7 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn("auth-profile-action-card", auth_source)
         self.assertIn("auth-profile-action-title", auth_source)
         self.assertIn("auth-profile-action-description", auth_source)
+        self.assertIn(".auth-profile-action-card:hover", auth_source)
         self.assertIn('title="Alterar nome"', auth_source)
         self.assertIn('description="Atualize o nome exibido na sua conta."', auth_source)
         self.assertIn('button_key="auth-profile-change-name"', auth_source)
@@ -281,6 +282,46 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn(".st-key-auth-menu-logout button", app_source)
         self.assertIn("#FEF2F2", app_source)
         self.assertIn("#B42318", app_source)
+        self.assertIn('[data-testid="stTextInput"] button', auth_source)
+        self.assertIn("background: rgba(123, 44, 191, 0.08)", auth_source)
+
+    def test_profile_actions_separam_troca_de_painel_do_submit(self):
+        auth_source = AUTH_MODAL_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("PROFILE_WIDGET_KEYS", auth_source)
+        self.assertIn("def _clear_profile_form_state", auth_source)
+        self.assertIn("def switch_profile_panel", auth_source)
+        self.assertIn("switch_profile_panel(target_panel)", auth_source)
+        self.assertIn("st.session_state.pop(key, None)", auth_source)
+
+        for key in [
+            "auth-change-name-input",
+            "auth-change-email-input",
+            "auth-current-password-input",
+            "auth-new-password-input",
+            "auth-confirm-password-input",
+            "auth-deactivate-email-input",
+        ]:
+            self.assertIn(key, auth_source)
+
+        for function_name in [
+            "_render_change_name_panel",
+            "_render_change_email_panel",
+            "_render_change_password_panel",
+            "_render_deactivate_account_panel",
+        ]:
+            start = auth_source.index(f"def {function_name}")
+            next_def = auth_source.find("\ndef ", start + 1)
+            panel_source = auth_source[start:next_def if next_def != -1 else len(auth_source)]
+            submit_index = panel_source.index("if submitted:")
+            service_index = panel_source.index("service = _get_auth_service_or_none()")
+
+            self.assertGreater(service_index, submit_index)
+
+        self.assertIn("Informe o novo nome.", auth_source)
+        self.assertIn("Informe sua senha atual.", auth_source)
+        self.assertIn("Este e-mail", auth_source)
+        self.assertIn("em uso.", auth_source)
 
     def test_app_ui_foi_separada_em_componentes(self):
         source = APP_PATH.read_text(encoding="utf-8")
