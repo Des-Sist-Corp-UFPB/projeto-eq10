@@ -9,10 +9,15 @@ import logging
 import re
 from typing import Any
 
-import pandas as pd
 import streamlit as st
 
-from src.ai.datasus_ai import perguntar_datasus
+from src.auth.session import can_access_chat
+from src.ui.auth_modal import open_auth_modal, render_auth_panel
+from src.ui.header import render_auth_header
+from src.ui.notifications import render_pending_toast
+from src.ui.protected_chat import render_chat_auth_gate
+from src.ui.sidebar import CHAT_PAGE, DEFAULT_PAGE, get_current_page, render_sidebar
+from src.ui.statistics_page import render_statistics_page
 
 APP_TITLE = "Assistente Estatístico SIA/DATASUS"
 APP_SUBTITLE = "Converse com os dados disponíveis do SIA/DATASUS"
@@ -42,6 +47,20 @@ EXAMPLE_PROMPTS = (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@st.cache_resource(show_spinner=False)
+def _get_pandas_module() -> Any:
+    import pandas
+
+    return pandas
+
+
+@st.cache_resource(show_spinner=False)
+def _get_datasus_question_runner() -> Any:
+    from src.ai.datasus_ai import perguntar_datasus
+
+    return perguntar_datasus
 
 _SPECIAL_CHAR_TRANSLATION = str.maketrans(
     {
@@ -87,7 +106,7 @@ def _apply_style() -> None:
             --color-text: #1E293B;
             --color-muted: #64748B;
             --color-success-bg: #ECFEFF;
-            --sidebar-width: 230px;
+            --sidebar-width: 260px;
             --content-width: 960px;
             --shadow-card: 0 16px 34px rgba(15, 23, 42, 0.10);
             --shadow-soft: 0 10px 24px rgba(76, 29, 149, 0.13);
@@ -128,7 +147,7 @@ def _apply_style() -> None:
             z-index: 1000;
             width: var(--sidebar-width);
             min-height: 100vh;
-            padding: 0.7rem 0.7rem 1rem;
+            padding: 1.1rem 1rem 1rem;
             background: linear-gradient(180deg, var(--color-purple) 0%, var(--color-purple-dark) 100%);
             color: #FFFFFF;
             box-shadow: 14px 0 34px rgba(76, 29, 149, 0.18);
@@ -137,53 +156,45 @@ def _apply_style() -> None:
         .sidebar-brand {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            min-height: 3.2rem;
-            margin-bottom: 1.9rem;
+            gap: 0.95rem;
+            min-height: 5.2rem;
+            margin: 0 -1rem 2.2rem;
+            padding: 0 1.15rem 1.35rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.28);
         }
 
         .brand-mark {
             display: grid;
             place-items: center;
-            width: 2.55rem;
-            height: 2.55rem;
-            border-radius: 0.7rem;
-            background: rgba(255, 255, 255, 0.16);
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+            width: 4.2rem;
+            height: 4.2rem;
+            flex: 0 0 4.2rem;
+            overflow: hidden;
+            border-radius: 999px;
+            background: #FFFFFF;
+            box-shadow:
+                inset 0 0 0 2px rgba(255, 255, 255, 0.88),
+                0 0 0 4px rgba(56, 189, 248, 0.26),
+                0 12px 24px rgba(15, 23, 42, 0.18);
         }
 
-        .brand-spark {
-            position: relative;
-            width: 1.35rem;
-            height: 1.1rem;
+        .brand-logo {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
         }
 
-        .brand-spark::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            border-left: 2px solid #FFFFFF;
-            border-bottom: 2px solid #FFFFFF;
-            border-radius: 0 0 0 8px;
-            transform: skewX(-18deg);
-        }
-
-        .brand-spark::after {
-            content: "";
-            position: absolute;
-            right: 0;
-            top: 0.12rem;
-            width: 0.56rem;
-            height: 0.56rem;
-            border-top: 2px solid #FFFFFF;
-            border-right: 2px solid #FFFFFF;
-            transform: rotate(45deg);
+        .brand-logo-fallback {
+            color: var(--color-purple-dark);
+            font-size: 0.95rem;
+            font-weight: 850;
         }
 
         .brand-title {
             margin: 0;
             color: #FFFFFF;
-            font-size: 0.93rem;
+            font-size: 1.05rem;
             line-height: 1.1;
             font-weight: 800;
             letter-spacing: 0;
@@ -192,31 +203,117 @@ def _apply_style() -> None:
         .brand-subtitle {
             margin: 0.28rem 0 0;
             color: rgba(255, 255, 255, 0.82);
-            font-size: 0.76rem;
+            font-size: 0.86rem;
             line-height: 1.1;
         }
 
         .sidebar-nav {
             display: grid;
-            gap: 0.6rem;
+            gap: 1rem;
+        }
+
+        .sidebar-nav-item {
+            position: relative;
+        }
+
+        .st-key-sidebar-nav-estatisticas,
+        .st-key-sidebar-nav-chat-ia {
+            position: fixed;
+            left: 1rem;
+            z-index: 1002;
+            width: calc(var(--sidebar-width) - 2rem);
+            height: 3.35rem;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .st-key-sidebar-nav-estatisticas {
+            top: 8.65rem;
+        }
+
+        .st-key-sidebar-nav-chat-ia {
+            top: 13rem;
+        }
+
+        .st-key-sidebar-nav-estatisticas [data-testid="stButton"],
+        .st-key-sidebar-nav-chat-ia [data-testid="stButton"] {
+            width: 100%;
+            height: 100%;
+        }
+
+        .st-key-sidebar-nav-estatisticas [data-testid="stButton"] button,
+        .st-key-sidebar-nav-chat-ia [data-testid="stButton"] button {
+            width: 100%;
+            height: 3.35rem;
+            min-height: 3.35rem;
+            padding: 0;
+            border: 0;
+            border-radius: 0.9rem;
+            background: transparent;
+            color: transparent;
+            box-shadow: none;
+        }
+
+        .st-key-sidebar-nav-estatisticas [data-testid="stButton"] button:hover,
+        .st-key-sidebar-nav-estatisticas [data-testid="stButton"] button:focus,
+        .st-key-sidebar-nav-chat-ia [data-testid="stButton"] button:hover,
+        .st-key-sidebar-nav-chat-ia [data-testid="stButton"] button:focus {
+            border: 0;
+            background: rgba(255, 255, 255, 0.08);
+            color: transparent;
+            box-shadow: none;
         }
 
         .sidebar-link {
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            min-height: 2.75rem;
-            padding: 0 0.95rem;
-            border-radius: 0.62rem;
+            min-height: 3.35rem;
+            padding: 0 1rem;
+            border-radius: 0.9rem;
             color: rgba(255, 255, 255, 0.86);
-            font-size: 0.88rem;
+            font-size: 1rem;
             font-weight: 760;
+            text-decoration: none;
+            transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
         }
 
-        .sidebar-link.active {
+        .app-sidebar a,
+        .app-sidebar a:visited,
+        .app-sidebar a:hover,
+        .app-sidebar a:focus,
+        .sidebar-link,
+        .sidebar-link:visited {
+            color: inherit;
+            text-decoration: none !important;
+        }
+
+        .sidebar-link:hover,
+        .sidebar-link:focus {
             background: var(--color-purple-soft);
             color: #FFFFFF;
             box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+        }
+
+        .sidebar-link.active {
+            background: #FFFFFF;
+            color: var(--color-purple-dark) !important;
+            box-shadow: 0 13px 22px rgba(15, 23, 42, 0.18);
+        }
+
+        .sidebar-link:hover,
+        .sidebar-link:focus {
+            transform: translateX(1px);
+        }
+
+        .sidebar-section-label {
+            margin: 0.65rem 0 0.2rem;
+            padding: 0 0.95rem;
+            color: rgba(255, 255, 255, 0.62);
+            font-size: 0.68rem;
+            font-weight: 820;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
         }
 
         .nav-icon {
@@ -254,8 +351,7 @@ def _apply_style() -> None:
         }
 
         .nav-icon.stats::before,
-        .nav-icon.stats::after,
-        .hero-chart span {
+        .nav-icon.stats::after {
             content: "";
             position: absolute;
             bottom: 0.16rem;
@@ -345,46 +441,6 @@ def _apply_style() -> None:
             line-height: 1.5;
         }
 
-        .hero-chart {
-            position: relative;
-            display: grid;
-            place-items: center;
-            width: 4rem;
-            height: 4rem;
-            flex: 0 0 4rem;
-            border-radius: 0.9rem;
-            background: rgba(255, 255, 255, 0.16);
-            color: #FFFFFF;
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-        }
-
-        .hero-chart::before {
-            content: "";
-            position: absolute;
-            left: 1.18rem;
-            bottom: 1.08rem;
-            width: 1.6rem;
-            height: 1.5rem;
-            border-left: 3px solid #FFFFFF;
-            border-bottom: 3px solid #FFFFFF;
-            border-radius: 0 0 0 0.16rem;
-        }
-
-        .hero-chart span:nth-child(1) {
-            left: 1.52rem;
-            height: 0.72rem;
-        }
-
-        .hero-chart span:nth-child(2) {
-            left: 2rem;
-            height: 1.24rem;
-        }
-
-        .hero-chart span:nth-child(3) {
-            left: 2.48rem;
-            height: 0.92rem;
-        }
-
         .intro-card {
             display: flex;
             gap: 1.05rem;
@@ -472,6 +528,144 @@ def _apply_style() -> None:
             background: var(--color-cyan);
             box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
             flex: 0 0 auto;
+        }
+
+        .top-auth-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.9rem;
+        }
+
+        .top-auth-title {
+            margin: 0;
+            color: var(--color-muted);
+            font-size: 0.84rem;
+            font-weight: 760;
+        }
+
+        .top-auth-user {
+            margin: 0.2rem 0 0;
+            color: var(--color-text);
+            font-size: 0.95rem;
+            font-weight: 780;
+        }
+
+        [data-testid="stPopover"] > button {
+            border: 1px solid rgba(123, 44, 191, 0.18);
+            border-radius: 0.85rem;
+            background: #FFFFFF;
+            color: var(--color-purple-dark);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+            font-weight: 780;
+        }
+
+        [data-testid="stPopoverBody"] {
+            background: #FFFFFF !important;
+            color: var(--color-text) !important;
+            border: 1px solid rgba(15, 23, 42, 0.08) !important;
+            border-radius: 0.9rem !important;
+            box-shadow: 0 18px 38px rgba(15, 23, 42, 0.16) !important;
+        }
+
+        [data-testid="stPopoverBody"] *,
+        .profile-menu,
+        .profile-menu * {
+            color: var(--color-text) !important;
+        }
+
+        .st-key-auth-menu-profile button {
+            border: 1px solid rgba(123, 44, 191, 0.18) !important;
+            border-radius: 0.72rem !important;
+            background: #FFFFFF !important;
+            color: var(--color-purple-dark) !important;
+            font-weight: 760 !important;
+        }
+
+        .st-key-auth-menu-logout button {
+            border: 1px solid #FECACA !important;
+            border-radius: 0.72rem !important;
+            background: #FEF2F2 !important;
+            color: #B42318 !important;
+            font-weight: 800 !important;
+        }
+
+        .auth-gate,
+        .public-dashboard-card {
+            background: var(--color-card);
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            border-radius: 1rem;
+            box-shadow: var(--shadow-card);
+        }
+
+        .auth-gate h2,
+        .public-dashboard-card h2 {
+            margin: 0 0 0.45rem;
+            color: var(--color-text);
+            font-size: 1.25rem;
+            line-height: 1.25;
+            font-weight: 780;
+        }
+
+        .auth-gate p,
+        .public-dashboard-card p {
+            margin: 0;
+            color: var(--color-muted);
+            line-height: 1.55;
+        }
+
+        .auth-gate {
+            max-width: 36rem;
+            margin: 1.5rem auto 0;
+            padding: 1.55rem;
+            text-align: center;
+            border-left: 5px solid var(--color-purple);
+        }
+
+        .public-dashboard-card {
+            overflow: hidden;
+            margin-top: 1rem;
+            border-left: 5px solid var(--color-blue);
+        }
+
+        .public-dashboard-copy {
+            padding: 1.45rem;
+        }
+
+        .powerbi-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+            margin-top: 1.2rem;
+        }
+
+        .powerbi-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 2.9rem;
+            padding: 0 1.15rem;
+            border-radius: 0.82rem;
+            background: linear-gradient(135deg, var(--color-purple) 0%, var(--color-blue) 100%);
+            color: #FFFFFF !important;
+            font-weight: 780;
+            text-decoration: none !important;
+            box-shadow: 0 14px 23px rgba(76, 29, 149, 0.22);
+        }
+
+        .powerbi-link:hover,
+        .powerbi-link:focus {
+            color: #FFFFFF !important;
+            text-decoration: none !important;
+            transform: translateY(-1px);
+            box-shadow: 0 16px 28px rgba(37, 99, 235, 0.28);
+        }
+
+        .powerbi-note {
+            color: var(--color-muted);
+            font-size: 0.86rem;
         }
 
         .suggestion-heading {
@@ -749,34 +943,47 @@ def _apply_style() -> None:
             align-items: center;
         }
 
-        [data-testid="stForm"] div[data-testid="stTextInput"] {
+        [data-testid="stTextInput"] {
             margin: 0;
         }
 
-        [data-testid="stForm"] div[data-testid="stTextInput"] > div,
-        [data-testid="stForm"] div[data-testid="stTextInput"] > div > div {
-            background: transparent;
+        [data-testid="stTextInput"] > div,
+        [data-testid="stTextInput"] > div > div,
+        [data-testid="stTextInput"] div:focus-within {
+            background: transparent !important;
+            border-radius: 0.875rem !important;
+            box-shadow: none !important;
+            outline: none !important;
         }
 
+        [data-testid="stTextInput"] input,
         [data-testid="stForm"] input {
             min-height: 3rem;
-            background: var(--color-input);
-            color: var(--color-text);
-            border: 1px solid transparent;
-            border-radius: 0.82rem;
-            padding: 0 1rem;
-            font-size: 0.98rem;
-            box-shadow: none;
+            background: var(--color-input) !important;
+            color: var(--color-text) !important;
+            border: 1px solid rgba(100, 116, 139, 0.22) !important;
+            border-radius: 0.875rem !important;
+            outline: none !important;
+            padding: 0 1rem !important;
+            font-size: 0.98rem !important;
+            box-shadow: none !important;
+            background-clip: padding-box;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         }
 
+        [data-testid="stTextInput"] input::placeholder,
         [data-testid="stForm"] input::placeholder {
             color: #94A3B8;
             opacity: 1;
         }
 
-        [data-testid="stForm"] input:focus {
-            border-color: rgba(123, 44, 191, 0.42);
-            box-shadow: 0 0 0 4px rgba(123, 44, 191, 0.10);
+        [data-testid="stTextInput"] input:focus,
+        [data-testid="stTextInput"] input:focus-visible,
+        [data-testid="stForm"] input:focus,
+        [data-testid="stForm"] input:focus-visible {
+            border-color: rgba(37, 99, 235, 0.64) !important;
+            box-shadow: 0 0 0 3px rgba(123, 44, 191, 0.16) !important;
+            outline: none !important;
         }
 
         [data-testid="stFormSubmitButton"] {
@@ -807,6 +1014,56 @@ def _apply_style() -> None:
             box-shadow: 0 16px 28px rgba(37, 99, 235, 0.28);
         }
 
+        [data-testid="stForm"]:has(input[aria-label="E-mail"]),
+        [data-testid="stForm"]:has(input[aria-label="Nome"]),
+        [data-testid="stForm"]:has(input[aria-label="Senha atual"]) {
+            max-width: 34rem;
+            margin: 0 auto 0.85rem;
+            padding: 0.35rem 1.4rem 1.35rem;
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            border-top: 0;
+            border-radius: 0 0 1rem 1rem;
+            box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+        }
+
+        [data-testid="stForm"]:has(input[aria-label="E-mail"]) label,
+        [data-testid="stForm"]:has(input[aria-label="Nome"]) label,
+        [data-testid="stForm"]:has(input[aria-label="Senha atual"]) label {
+            color: var(--color-text);
+            font-size: 0.88rem;
+            font-weight: 760;
+        }
+
+        [data-testid="stForm"]:has(input[aria-label="E-mail"]) input,
+        [data-testid="stForm"]:has(input[aria-label="Nome"]) input,
+        [data-testid="stForm"]:has(input[aria-label="Senha atual"]) input {
+            min-height: 2.78rem;
+            border-radius: 0.875rem !important;
+            background: #F8FAFC !important;
+            border-color: rgba(100, 116, 139, 0.22) !important;
+        }
+
+        [data-testid="stForm"]:has(input[aria-label="E-mail"]) [data-testid="stFormSubmitButton"],
+        [data-testid="stForm"]:has(input[aria-label="Nome"]) [data-testid="stFormSubmitButton"],
+        [data-testid="stForm"]:has(input[aria-label="Senha atual"]) [data-testid="stFormSubmitButton"] {
+            justify-content: stretch;
+            margin-top: 0.35rem;
+        }
+
+        [data-testid="stForm"]:has(input[aria-label="E-mail"]) [data-testid="stFormSubmitButton"] button,
+        [data-testid="stForm"]:has(input[aria-label="Nome"]) [data-testid="stFormSubmitButton"] button,
+        [data-testid="stForm"]:has(input[aria-label="Senha atual"]) [data-testid="stFormSubmitButton"] button {
+            width: 100%;
+            height: 2.8rem;
+            min-height: 2.8rem;
+            padding: 0 1rem;
+            border-radius: 0.78rem;
+            background: linear-gradient(135deg, var(--color-purple) 0%, var(--color-blue) 100%);
+            font-size: 0.96rem;
+            font-weight: 800;
+            box-shadow: 0 12px 22px rgba(76, 29, 149, 0.20);
+        }
+
         [data-testid="stSpinner"] {
             color: var(--color-purple-dark);
         }
@@ -833,6 +1090,20 @@ def _apply_style() -> None:
                 padding: 0.7rem 0.5rem;
             }
 
+            .st-key-sidebar-nav-estatisticas,
+            .st-key-sidebar-nav-chat-ia {
+                left: 0.5rem;
+                width: calc(var(--sidebar-width) - 1rem);
+            }
+
+            .st-key-sidebar-nav-estatisticas {
+                top: 7.75rem;
+            }
+
+            .st-key-sidebar-nav-chat-ia {
+                top: 12.1rem;
+            }
+
             .sidebar-brand {
                 justify-content: center;
                 margin-bottom: 1.45rem;
@@ -840,6 +1111,10 @@ def _apply_style() -> None:
 
             .brand-copy,
             .sidebar-link span:not(.nav-icon) {
+                display: none;
+            }
+
+            .sidebar-section-label {
                 display: none;
             }
 
@@ -862,10 +1137,6 @@ def _apply_style() -> None:
 
             .app-hero h1 {
                 font-size: 1.75rem;
-            }
-
-            .hero-chart {
-                display: none;
             }
 
             .intro-card {
@@ -919,6 +1190,24 @@ def _init_messages() -> None:
 
     if "pending_prompt" not in st.session_state:
         st.session_state.pending_prompt = None
+
+    if "auth_panel" not in st.session_state:
+        st.session_state.auth_panel = None
+
+    if "auth_modal_mode" not in st.session_state:
+        st.session_state.auth_modal_mode = None
+
+    if "auth_redirect_on_close" not in st.session_state:
+        st.session_state.auth_redirect_on_close = None
+
+    if "auth_target_page_on_success" not in st.session_state:
+        st.session_state.auth_target_page_on_success = None
+
+    if "current_page" not in st.session_state:
+        st.session_state.current_page = DEFAULT_PAGE
+
+    if "is_authenticated" not in st.session_state:
+        st.session_state.is_authenticated = bool(st.session_state.get("auth_user"))
 
 
 def _escape_text(value: str) -> str:
@@ -978,16 +1267,18 @@ def _try_parse_structured(value: str) -> Any | None:
     return None
 
 
-def _structured_to_frame(value: Any) -> pd.DataFrame | None:
+def _structured_to_frame(value: Any) -> Any | None:
+    pandas_module = _get_pandas_module()
+
     if isinstance(value, dict) and "value" in value:
         value = value["value"]
 
     if isinstance(value, list) and value and all(isinstance(item, dict) for item in value):
-        return pd.DataFrame(value)
+        return pandas_module.DataFrame(value)
 
     if isinstance(value, dict):
         if all(not isinstance(item, (dict, list, tuple, set)) for item in value.values()):
-            return pd.DataFrame([value])
+            return pandas_module.DataFrame([value])
 
     return None
 
@@ -1002,7 +1293,7 @@ def _structured_to_list(value: Any) -> list[str] | None:
     return None
 
 
-def _dataframe_to_html(df: pd.DataFrame) -> str:
+def _dataframe_to_html(df: Any) -> str:
     display_df = df.head(50).copy()
     table_html = display_df.to_html(
         index=False,
@@ -1017,7 +1308,7 @@ def _dataframe_to_html(df: pd.DataFrame) -> str:
     return f'<div class="assistant-table-wrap">{table_html}</div>{note}'
 
 
-def _markdown_table_to_frame(value: str) -> pd.DataFrame | None:
+def _markdown_table_to_frame(value: str) -> Any | None:
     lines = [line.strip() for line in value.splitlines() if "|" in line]
     if len(lines) < 2 or not any(re.fullmatch(r"\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?", line) for line in lines):
         return None
@@ -1037,10 +1328,10 @@ def _markdown_table_to_frame(value: str) -> pd.DataFrame | None:
     if not body:
         return None
 
-    return pd.DataFrame(body, columns=header)
+    return _get_pandas_module().DataFrame(body, columns=header)
 
 
-def _pair_lines_to_frame(value: str) -> tuple[list[str], pd.DataFrame | None]:
+def _pair_lines_to_frame(value: str) -> tuple[list[str], Any | None]:
     intro_lines: list[str] = []
     rows: list[dict[str, str]] = []
 
@@ -1058,7 +1349,7 @@ def _pair_lines_to_frame(value: str) -> tuple[list[str], pd.DataFrame | None]:
     if len(rows) < 2:
         return intro_lines, None
 
-    return intro_lines, pd.DataFrame(rows)
+    return intro_lines, _get_pandas_module().DataFrame(rows)
 
 
 def _plain_list_to_html(value: str) -> str | None:
@@ -1125,44 +1416,18 @@ def _render_assistant_content(content: str) -> str:
     return _paragraphs_to_html(text)
 
 
-def _render_sidebar() -> None:
-    st.markdown(
-        """
-        <aside class="app-sidebar">
-            <div class="sidebar-brand">
-                <div class="brand-mark"><span class="brand-spark"></span></div>
-                <div class="brand-copy">
-                    <p class="brand-title">SIA/DATASUS</p>
-                    <p class="brand-subtitle">Estatística</p>
-                </div>
-            </div>
-            <nav class="sidebar-nav" aria-label="Navegação principal">
-                <div class="sidebar-link active">
-                    <span class="nav-icon chat"></span>
-                    <span>Chat</span>
-                </div>
-                <div class="sidebar-link">
-                    <span class="nav-icon stats"></span>
-                    <span>Estatísticas</span>
-                </div>
-            </nav>
-        </aside>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def _render_hero() -> None:
+def _render_hero(
+    title: str = APP_TITLE,
+    subtitle: str = APP_SUBTITLE,
+    badge: str = "Análise estatística",
+) -> None:
     st.markdown(
         f"""
         <section class="app-hero">
             <div class="hero-content">
-                <span class="hero-badge">Análise estatística</span>
-                <h1>{APP_TITLE}</h1>
-                <p class="app-subtitle">{APP_SUBTITLE}</p>
-            </div>
-            <div class="hero-chart" aria-hidden="true">
-                <span></span><span></span><span></span>
+                <span class="hero-badge">{_escape_text(badge)}</span>
+                <h1>{_escape_text(title)}</h1>
+                <p class="app-subtitle">{_escape_text(subtitle)}</p>
             </div>
         </section>
         """,
@@ -1239,7 +1504,7 @@ def _render_processing_message() -> None:
                 <span class="chat-label">Assistente</span>
                 <div class="chat-content">
                     <div class="processing-content">
-                        <span>Processando pergunta</span>
+                        <span>Processando pergunta...</span>
                         <span class="processing-dots" aria-hidden="true">
                             <span></span><span></span><span></span>
                         </span>
@@ -1287,6 +1552,14 @@ def _queue_prompt(prompt: str) -> None:
     if not clean_prompt:
         return
 
+    if not can_access_chat(st.session_state):
+        open_auth_modal(
+            mode="login",
+            redirect_on_close=DEFAULT_PAGE,
+            target_page_on_success=CHAT_PAGE,
+        )
+        return
+
     if st.session_state.get("pending_prompt") == clean_prompt:
         return
 
@@ -1298,12 +1571,23 @@ def _process_pending_prompt() -> bool:
     if not prompt:
         return False
 
+    if not can_access_chat(st.session_state):
+        st.session_state.pending_prompt = None
+        open_auth_modal(
+            mode="login",
+            redirect_on_close=DEFAULT_PAGE,
+            target_page_on_success=CHAT_PAGE,
+        )
+        logger.warning("Tentativa bloqueada de chat sem usuario autenticado.")
+        return False
+
     st.session_state.pending_prompt = None
     st.session_state.messages.append({"role": "user", "content": prompt})
     _render_chat_history(show_processing=True)
     _render_input_form(disabled=True)
 
     try:
+        perguntar_datasus = _get_datasus_question_runner()
         resposta = perguntar_datasus(prompt)
     except Exception as exc:
         logger.warning("Erro seguro app_ai_chat | tipo=%s", type(exc).__name__)
@@ -1319,12 +1603,14 @@ def _handle_prompt(prompt: str) -> None:
     st.rerun()
 
 
-def main() -> None:
-    st.set_page_config(page_title=APP_TITLE, page_icon="📊", layout="wide")
-    _apply_style()
-    _init_messages()
-    _render_sidebar()
-    _render_hero()
+def _render_chat_page() -> None:
+    _render_hero("Chat IA", APP_SUBTITLE, "Área protegida")
+
+    if not can_access_chat(st.session_state):
+        st.session_state.pending_prompt = None
+        render_chat_auth_gate(open_login=True)
+        return
+
     _render_intro_card()
     selected_prompt = _render_suggestions()
 
@@ -1340,6 +1626,32 @@ def main() -> None:
 
     if submitted and prompt:
         _handle_prompt(prompt)
+
+
+def main() -> None:
+    st.set_page_config(page_title=APP_TITLE, page_icon="📊", layout="wide")
+    _apply_style()
+    _init_messages()
+    render_pending_toast()
+    current_page = get_current_page()
+    if (
+        current_page == CHAT_PAGE
+        and not can_access_chat(st.session_state)
+        and not st.session_state.get("auth_panel")
+    ):
+        open_auth_modal(
+            mode="login",
+            redirect_on_close=DEFAULT_PAGE,
+            target_page_on_success=CHAT_PAGE,
+        )
+    render_auth_header()
+    render_auth_panel()
+    render_sidebar(current_page)
+
+    if current_page == CHAT_PAGE:
+        _render_chat_page()
+    else:
+        render_statistics_page()
 
 
 if __name__ == "__main__":

@@ -301,6 +301,34 @@ python -m streamlit run app_ai_chat.py
 
 Nesta fase, a interface usa a integracao experimental com PandasAI ja encapsulada em `src/ai/datasus_ai.py`.
 
+### Autenticacao da interface
+
+A interface possui duas areas principais na sidebar: `Estatisticas` e `Chat IA`. A area `Estatisticas` e publica e direciona o usuario para o painel oficial do Power BI com os indicadores consolidados do SIA/DATASUS:
+
+```text
+https://app.powerbi.com/view?r=eyJrIjoiMzMyNGZiMDgtNTk1Yy00Y2E4LTgyOTItMTU4MzNiYWUxMDg3IiwidCI6IjlkYmYzMjZlLTIxODUtNGM3OC1iY2NhLTBmNTdmOTc4ZjNkYSJ9
+```
+
+A area `Chat IA` e protegida: o usuario precisa entrar ou criar conta para enviar perguntas ao chat inteligente. A sidebar e a fonte unica de navegacao principal da interface.
+
+A persistencia de usuarios usa a tabela `usuarios`, com senha salva somente como hash seguro. A aplicacao espera os campos:
+
+- `id`
+- `nome`
+- `email`
+- `senha_hash`
+- `role`
+- `criado_em`
+- `atualizado_em`
+- `ultimo_login_em`
+- `deleted_at`
+
+Usuarios desativados devem receber `deleted_at` preenchido. Eles nao aparecem como ativos e nao podem fazer login. O sistema nao deve remover usuarios fisicamente.
+
+A conexao de autenticacao pode usar `AUTH_DATABASE_URL`, `DATABASE_URL`, variaveis `AUTH_DB_*` ou as variaveis de banco ja existentes no ambiente. O usuario de banco usado para autenticacao precisa ter permissao para criar/usar a tabela `usuarios` e para inserir/atualizar esses registros. Isso e separado da permissao readonly usada pela camada de IA para consultar `vw_data_sus_ia`.
+
+As variaveis `AI_DB_*` sao somente leitura e nao devem ser usadas para cadastro/login. Se nenhuma conexao gravavel de autenticacao estiver configurada, a aplicacao usa um fallback SQLite local em `data/auth.sqlite3` e cria a tabela `usuarios` automaticamente. No Docker do chat, o diretorio `./data` e montado em `/app/data`, mantendo esse arquivo persistido entre reinicios do container.
+
 ## Rodando o chat com Docker
 
 A configuracao Docker do chat usa Python 3.11 em ambiente isolado. Isso evita problemas em maquinas onde o Python local e 3.13, versao que nao e compativel com PandasAI/pandasai-litellm neste projeto.
