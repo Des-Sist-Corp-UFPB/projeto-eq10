@@ -339,7 +339,7 @@ AUTH_MODAL_CSS = """
 
     .auth-profile-info-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.75rem;
     }
 
@@ -383,6 +383,45 @@ AUTH_MODAL_CSS = """
         gap: 0.75rem;
     }
 
+    .auth-profile-action-card {
+        min-height: 8.2rem;
+        margin: 0 0 0.55rem;
+        padding: 1rem;
+        border: 1px solid #E2E8F0;
+        border-left: 4px solid #7B2CBF;
+        border-radius: 1rem;
+        background: #FFFFFF;
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+    }
+
+    .auth-profile-action-card::before {
+        content: "";
+        display: block;
+        width: 0.58rem;
+        height: 0.58rem;
+        margin-bottom: 0.62rem;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #7B2CBF, #2563EB);
+        box-shadow: 0 0 0 4px rgba(123, 44, 191, 0.10);
+    }
+
+    .auth-profile-action-title {
+        display: block;
+        margin: 0 0 0.38rem;
+        color: #0F172A !important;
+        font-size: 0.98rem;
+        font-weight: 840;
+        line-height: 1.22;
+    }
+
+    .auth-profile-action-description {
+        display: block;
+        margin: 0;
+        color: #64748B !important;
+        font-size: 0.86rem;
+        line-height: 1.42;
+    }
+
     .auth-profile-danger-section {
         margin-top: 1.15rem;
         padding: 1rem;
@@ -405,31 +444,41 @@ AUTH_MODAL_CSS = """
         line-height: 1.45;
     }
 
-    [data-testid="stDialog"] .auth-profile-actions [data-testid="stButton"] button,
-    .auth-profile-actions [data-testid="stButton"] button {
+    [data-testid="stDialog"] .st-key-auth-profile-change-name button,
+    [data-testid="stDialog"] .st-key-auth-profile-change-email button,
+    [data-testid="stDialog"] .st-key-auth-profile-change-password button,
+    .st-key-auth-profile-change-name button,
+    .st-key-auth-profile-change-email button,
+    .st-key-auth-profile-change-password button {
         width: 100% !important;
-        min-height: 6.2rem !important;
-        padding: 0.88rem 0.95rem 0.88rem 1.05rem !important;
-        border: 1px solid #E2E8F0 !important;
-        border-left: 4px solid #7B2CBF !important;
-        border-radius: 1rem !important;
-        background: #FFFFFF !important;
-        color: #0F172A !important;
-        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06) !important;
+        min-height: 2.55rem !important;
+        padding: 0 0.9rem !important;
+        border: 1px solid rgba(123, 44, 191, 0.34) !important;
+        border-radius: 0.78rem !important;
+        background: #F8FAFC !important;
+        color: #4C1D95 !important;
+        box-shadow: none !important;
         font-size: 0.92rem !important;
-        font-weight: 760 !important;
-        line-height: 1.35 !important;
-        text-align: left !important;
+        font-weight: 820 !important;
+        line-height: 1.2 !important;
+        text-align: center !important;
         white-space: pre-line !important;
     }
 
-    [data-testid="stDialog"] .auth-profile-actions [data-testid="stButton"] button:hover,
-    [data-testid="stDialog"] .auth-profile-actions [data-testid="stButton"] button:focus,
-    .auth-profile-actions [data-testid="stButton"] button:hover,
-    .auth-profile-actions [data-testid="stButton"] button:focus {
+    [data-testid="stDialog"] .st-key-auth-profile-change-name button:hover,
+    [data-testid="stDialog"] .st-key-auth-profile-change-name button:focus,
+    [data-testid="stDialog"] .st-key-auth-profile-change-email button:hover,
+    [data-testid="stDialog"] .st-key-auth-profile-change-email button:focus,
+    [data-testid="stDialog"] .st-key-auth-profile-change-password button:hover,
+    [data-testid="stDialog"] .st-key-auth-profile-change-password button:focus,
+    .st-key-auth-profile-change-name button:hover,
+    .st-key-auth-profile-change-name button:focus,
+    .st-key-auth-profile-change-email button:hover,
+    .st-key-auth-profile-change-email button:focus,
+    .st-key-auth-profile-change-password button:hover,
+    .st-key-auth-profile-change-password button:focus {
         border-color: rgba(37, 99, 235, 0.34) !important;
-        border-left-color: #2563EB !important;
-        background: #F8FAFC !important;
+        background: #FFFFFF !important;
         color: #4C1D95 !important;
         box-shadow: 0 0 0 3px rgba(123, 44, 191, 0.10), 0 12px 26px rgba(15, 23, 42, 0.08) !important;
     }
@@ -642,6 +691,28 @@ def _render_auth_footer(
     st.markdown("</section>", unsafe_allow_html=True)
 
 
+def _render_profile_action_card(
+    *,
+    title: str,
+    description: str,
+    button_label: str,
+    button_key: str,
+    target_panel: str,
+) -> None:
+    st.markdown(
+        f"""
+        <section class="auth-profile-action-card">
+            <span class="auth-profile-action-title">{_escape_text(title)}</span>
+            <span class="auth-profile-action-description">{_escape_text(description)}</span>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button(button_label, key=button_key, use_container_width=True):
+        set_auth_panel(target_panel)
+        st.rerun()
+
+
 def _render_login_panel() -> None:
     _render_auth_dialog_heading("Acesso ao Chat IA", "Entre para continuar usando o chat inteligente.")
     global_error_slot = st.empty()
@@ -786,10 +857,6 @@ def _render_profile_panel() -> None:
                         <span class="auth-profile-field-label">E-mail</span>
                         <span class="auth-profile-field-value">{_escape_text(user["email"])}</span>
                     </div>
-                    <div class="auth-profile-field">
-                        <span class="auth-profile-field-label">Perfil</span>
-                        <span class="auth-profile-field-value">{_escape_text(user.get("role", "user"))}</span>
-                    </div>
                 </div>
             </div>
             <h3 class="auth-profile-section-title">Gerenciar conta</h3>
@@ -798,37 +865,39 @@ def _render_profile_panel() -> None:
         unsafe_allow_html=True,
     )
 
-    st.markdown('<section class="auth-profile-actions">', unsafe_allow_html=True)
-    if st.button(
-        "Alterar nome\nAtualize o nome exibido na sua conta.",
-        key="auth-profile-change-name",
-        use_container_width=True,
-    ):
-        set_auth_panel("change_name")
-        st.rerun()
-    if st.button(
-        "Alterar e-mail\nSolicite a alteracao do e-mail usado no acesso.",
-        key="auth-profile-change-email",
-        use_container_width=True,
-    ):
-        set_auth_panel("change_email")
-        st.rerun()
-    if st.button(
-        "Alterar senha\nTroque sua senha de acesso com seguranca.",
-        key="auth-profile-change-password",
-        use_container_width=True,
-    ):
-        set_auth_panel("change_password")
-        st.rerun()
-    st.markdown("</section>", unsafe_allow_html=True)
+    action_columns = st.columns(3, gap="small")
+    with action_columns[0]:
+        _render_profile_action_card(
+            title="Alterar nome",
+            description="Atualize o nome exibido na sua conta.",
+            button_label="Alterar nome",
+            button_key="auth-profile-change-name",
+            target_panel="change_name",
+        )
+    with action_columns[1]:
+        _render_profile_action_card(
+            title="Alterar e-mail",
+            description="Atualize o e-mail usado para acessar sua conta.",
+            button_label="Alterar e-mail",
+            button_key="auth-profile-change-email",
+            target_panel="change_email",
+        )
+    with action_columns[2]:
+        _render_profile_action_card(
+            title="Alterar senha",
+            description="Troque sua senha de acesso com seguranca.",
+            button_label="Alterar senha",
+            button_key="auth-profile-change-password",
+            target_panel="change_password",
+        )
 
     st.markdown(
         """
         <section class="auth-profile-danger-section">
             <h3 class="auth-profile-danger-title">Zona de seguranca</h3>
             <p class="auth-profile-danger-copy">
-                Desative sua conta apenas se desejar encerrar o acesso ao Chat IA.
-                Esta acao bloqueia novos logins com este usuario.
+                Sua conta sera ocultada e voce nao podera mais acessar o Chat IA
+                com este login.
             </p>
         </section>
         """,
@@ -954,6 +1023,7 @@ def _render_change_email_panel() -> None:
             f"""
             <section class="auth-dialog-profile">
                 <p>E-mail atual: <strong>{_escape_text(user["email"])}</strong></p>
+                <p>A verificacao de e-mail ainda sera implementada em uma etapa futura.</p>
             </section>
             """,
             unsafe_allow_html=True,
@@ -978,12 +1048,9 @@ def _render_change_email_panel() -> None:
             return
 
         try:
-            if service.active_email_exists(clean_email):
-                _render_global_error(global_slot, "Já existe uma conta ativa com este e-mail.")
-                return
+            updated_user = service.update_email(int(user["id"]), clean_email)
         except AuthValidationError as exc:
             _render_global_error(global_slot, exc.public_message)
-            return
         except Exception as exc:
             logger.warning(
                 "Erro seguro alterar_email | causa=%s | tipo=%s",
@@ -991,12 +1058,11 @@ def _render_change_email_panel() -> None:
                 type(exc).__name__,
             )
             _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
-            return
-
-        _render_global_info(
-            global_slot,
-            "A verificação de e-mail ainda não foi ativada neste ambiente.",
-        )
+        else:
+            login_session(st.session_state, updated_user)
+            set_auth_panel("profile")
+            queue_toast(st.session_state, "E-mail atualizado com sucesso.")
+            st.rerun()
 
 
 def _render_deactivate_account_panel() -> None:

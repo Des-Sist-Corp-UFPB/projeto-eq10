@@ -281,6 +281,70 @@ class TestAuthUserService(unittest.TestCase):
 
         self.assertEqual(updated_user.nome, "Ana Maria")
 
+    def test_alterar_nome_rejeita_vazio(self):
+        user = self.service.create_user(
+            "Ana Silva",
+            "ana@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+
+        with self.assertRaises(AuthValidationError) as context:
+            self.service.update_name(user.id, "   ")
+
+        self.assertEqual(context.exception.public_message, "Informe seu nome.")
+
+    def test_alterar_email_atualiza_usuario(self):
+        user = self.service.create_user(
+            "Ana Silva",
+            "ana@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+
+        updated_user = self.service.update_email(user.id, "ana.nova@example.com")
+
+        self.assertEqual(updated_user.email, "ana.nova@example.com")
+        self.assertEqual(
+            self.service.authenticate("ana.nova@example.com", "senha-forte").id,
+            user.id,
+        )
+
+    def test_alterar_email_valida_formato(self):
+        user = self.service.create_user(
+            "Ana Silva",
+            "ana@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+
+        with self.assertRaises(AuthValidationError) as context:
+            self.service.update_email(user.id, "email-invalido")
+
+        self.assertEqual(context.exception.public_message, "Informe um e-mail válido.")
+
+    def test_alterar_email_bloqueia_email_ativo_duplicado(self):
+        self.service.create_user(
+            "Ana Silva",
+            "ana@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+        user = self.service.create_user(
+            "Bia Souza",
+            "bia@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+
+        with self.assertRaises(AuthValidationError) as context:
+            self.service.update_email(user.id, "ANA@example.com")
+
+        self.assertEqual(
+            context.exception.public_message,
+            "JÃ¡ existe uma conta ativa com este e-mail.",
+        )
+
     def test_alterar_senha_exige_senha_atual(self):
         user = self.service.create_user(
             "Ana Silva",
@@ -289,7 +353,7 @@ class TestAuthUserService(unittest.TestCase):
             "senha-forte",
         )
 
-        with self.assertRaises(AuthValidationError):
+        with self.assertRaises(AuthValidationError) as context:
             self.service.change_password(
                 user.id,
                 "senha-errada",
@@ -297,13 +361,18 @@ class TestAuthUserService(unittest.TestCase):
                 "nova-senha",
             )
 
+        self.assertEqual(context.exception.public_message, "Senha atual invalida.")
+
         self.service.change_password(
             user.id,
             "senha-forte",
             "nova-senha",
             "nova-senha",
         )
+        senha_hash = self._senha_hash()
 
+        self.assertNotEqual(senha_hash, "nova-senha")
+        self.assertTrue(verify_password("nova-senha", senha_hash))
         self.assertEqual(
             self.service.authenticate("ana@example.com", "nova-senha").id,
             user.id,

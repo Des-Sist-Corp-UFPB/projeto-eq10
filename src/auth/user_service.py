@@ -591,6 +591,68 @@ class UserService:
 
         return user
 
+    def update_email(self, user_id: int, email: str) -> UserProfile:
+        clean_email = _validate_email(email)
+        try:
+            with self.engine.begin() as conn:
+                columns = _get_usuario_columns(conn)
+                active_condition = _active_user_condition(columns)
+                active_user = conn.execute(
+                    text(
+                        f"""
+                        SELECT id
+                        FROM usuarios
+                        WHERE id = :id
+                          AND {active_condition}
+                        LIMIT 1
+                        """
+                    ),
+                    {"id": user_id},
+                ).mappings().first()
+
+                if not active_user:
+                    raise AuthValidationError("Usuario ativo nao encontrado.")
+
+                duplicate_user = conn.execute(
+                    text(
+                        f"""
+                        SELECT id
+                        FROM usuarios
+                        WHERE lower(email) = :email
+                          AND id <> :id
+                          AND {active_condition}
+                        LIMIT 1
+                        """
+                    ),
+                    {"id": user_id, "email": clean_email},
+                ).mappings().first()
+                if duplicate_user:
+                    raise AuthValidationError("JÃ¡ existe uma conta ativa com este e-mail.")
+
+                conn.execute(
+                    text(
+                        f"""
+                        UPDATE usuarios
+                        SET email = :email,
+                            atualizado_em = :atualizado_em
+                        WHERE id = :id
+                          AND {active_condition}
+                        """
+                    ),
+                    {"id": user_id, "email": clean_email, "atualizado_em": _now()},
+                )
+        except AuthValidationError:
+            raise
+        except SQLAlchemyError as exc:
+            _log_database_error("update_email", exc)
+            raise
+
+        user = self.get_user_by_id(user_id)
+        if user is None:
+            raise AuthValidationError("Usuario ativo nao encontrado.")
+
+        return user
+
     def change_password(
         self,
         user_id: int,
