@@ -86,6 +86,25 @@ _SPECIAL_CHAR_TRANSLATION = str.maketrans(
 _NUMBER_RE = re.compile(r"^\s*(?:R\$\s*)?-?\d{1,3}(?:\.\d{3})*(?:,\d+)?\s*$|^\s*-?\d+(?:[.,]\d+)?\s*$")
 _PAIR_LINE_RE = re.compile(r"^\s*(?:[-*]|\d+[.)])\s*(.+?):\s*(.+?)\s*$")
 _LIST_LINE_RE = re.compile(r"^\s*(?:[-*]|\d+[.)])\s+(.+?)\s*$")
+_UNSAFE_RESPONSE_PATTERNS = (
+    "traceback",
+    "postgresql://",
+    "postgresql+" + "psyco" + "pg2://",
+    "sqlite://",
+    "sql" + "alchemy",
+    "psyco" + "pg2",
+    "operationalerror",
+    "programmingerror",
+    "integrityerror",
+    "connection string",
+    "api key",
+    "apikey",
+    "token",
+    "client_secret",
+    "api_secret",
+    "secret_key",
+    ".env",
+)
 
 
 def _apply_style() -> None:
@@ -1229,6 +1248,10 @@ def _friendly_response(value: Any) -> str:
     if not text:
         return UNEXPECTED_FORMAT_ERROR_MESSAGE
 
+    if any(pattern in normalized for pattern in _UNSAFE_RESPONSE_PATTERNS):
+        logger.warning("Resposta tecnica da IA substituida por mensagem amigavel.")
+        return GENERIC_ERROR_MESSAGE
+
     if "não foi possível processar a pergunta" in normalized:
         return GENERIC_ERROR_MESSAGE
 
@@ -1590,7 +1613,10 @@ def _process_pending_prompt() -> bool:
         perguntar_datasus = _get_datasus_question_runner()
         resposta = perguntar_datasus(prompt)
     except Exception as exc:
-        logger.warning("Erro seguro app_ai_chat | tipo=%s", type(exc).__name__)
+        logger.warning(
+            "Erro seguro app_ai_chat | operacao=processar_prompt | tipo=%s | fallback=mensagem_amigavel",
+            type(exc).__name__,
+        )
         resposta = GENERIC_ERROR_MESSAGE
 
     st.session_state.messages.append({"role": "assistant", "content": resposta})

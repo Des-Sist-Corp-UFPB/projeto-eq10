@@ -143,18 +143,80 @@ def _media_idade(df: pd.DataFrame, data_inicio: Any, data_fim_exclusiva: Any) ->
     )
 
 
+def _total_numerico(
+    df: pd.DataFrame,
+    data_inicio: Any,
+    data_fim_exclusiva: Any,
+    column: str,
+    display_name: str,
+    *,
+    currency: bool = False,
+) -> str:
+    if column not in df.columns:
+        return SIMPLE_STATS_UNAVAILABLE_MESSAGE
+
+    total = float(_numeric_series(df, column).sum())
+    formatted_total = f"R$ {_format_number(total)}" if currency else _format_int(int(total))
+    return "\n".join(
+        [
+            f"Total geral de {display_name}: {formatted_total}.",
+            _period_text(data_inicio, data_fim_exclusiva),
+        ]
+    )
+
+
 def _total_geral_valor_aprovado(
     df: pd.DataFrame,
     data_inicio: Any,
     data_fim_exclusiva: Any,
 ) -> str:
-    if "valor_aprovado" not in df.columns:
+    return _total_numerico(
+        df,
+        data_inicio,
+        data_fim_exclusiva,
+        "valor_aprovado",
+        "valor aprovado",
+        currency=True,
+    )
+
+
+def _contagem_procedimentos(
+    df: pd.DataFrame,
+    data_inicio: Any,
+    data_fim_exclusiva: Any,
+) -> str:
+    if "procedimento" not in df.columns:
         return SIMPLE_STATS_UNAVAILABLE_MESSAGE
 
-    total = float(_numeric_series(df, "valor_aprovado").sum())
+    procedimentos = df["procedimento"].dropna().astype(str).str.strip()
+    procedimentos = procedimentos[procedimentos != ""]
+    total_distintos = int(procedimentos.nunique())
+
     return "\n".join(
         [
-            f"Total geral de valor aprovado: R$ {_format_number(total)}.",
+            f"Contagem de procedimentos distintos: {_format_int(total_distintos)}.",
+            _period_text(data_inicio, data_fim_exclusiva),
+        ]
+    )
+
+
+def _ultima_data_disponivel(
+    df: pd.DataFrame,
+    data_inicio: Any,
+    data_fim_exclusiva: Any,
+) -> str:
+    if "data" not in df.columns:
+        return SIMPLE_STATS_UNAVAILABLE_MESSAGE
+
+    datas = pd.to_datetime(df["data"], errors="coerce").dropna()
+    if datas.empty:
+        return SIMPLE_STATS_UNAVAILABLE_MESSAGE
+
+    ultima_data = datas.max()
+    return "\n".join(
+        [
+            f"Data mais recente disponivel: {ultima_data.strftime('%d/%m/%Y')}.",
+            f"Mes mais recente disponivel: {ultima_data.strftime('%m/%Y')}.",
             _period_text(data_inicio, data_fim_exclusiva),
         ]
     )
@@ -291,6 +353,23 @@ def executar_pergunta_estatistica_simples(
         return _media_idade(df, data_inicio, data_fim_exclusiva)
 
     if (
+        "ultima data" in prompt
+        or "data mais recente" in prompt
+        or "ultimo mes" in prompt
+        or "mes mais recente" in prompt
+    ):
+        return _ultima_data_disponivel(df, data_inicio, data_fim_exclusiva)
+
+    if "procedimento" in prompt and (
+        "contagem" in prompt
+        or "quantos" in prompt
+        or "quantidade de procedimentos" in prompt
+        or "numero de procedimentos" in prompt
+        or "total de procedimentos" in prompt
+    ):
+        return _contagem_procedimentos(df, data_inicio, data_fim_exclusiva)
+
+    if (
         dimension_column is not None
         and (
             "frequencia" in prompt
@@ -302,6 +381,34 @@ def executar_pergunta_estatistica_simples(
 
     if "valor aprovado" in prompt and ("total" in prompt or "soma" in prompt):
         return _total_geral_valor_aprovado(df, data_inicio, data_fim_exclusiva)
+
+    if "valor apresentado" in prompt and ("total" in prompt or "soma" in prompt):
+        return _total_numerico(
+            df,
+            data_inicio,
+            data_fim_exclusiva,
+            "valor_apresentado",
+            "valor apresentado",
+            currency=True,
+        )
+
+    if "quantidade apresentada" in prompt and ("total" in prompt or "soma" in prompt):
+        return _total_numerico(
+            df,
+            data_inicio,
+            data_fim_exclusiva,
+            "quantidade_apresentada",
+            "quantidade apresentada",
+        )
+
+    if "frequencia" in prompt and ("total" in prompt or "soma" in prompt):
+        return _total_numerico(
+            df,
+            data_inicio,
+            data_fim_exclusiva,
+            "frequencia",
+            "frequencia",
+        )
 
     if (
         "contagem" in prompt

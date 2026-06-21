@@ -12,6 +12,18 @@ class TestPromptGuard(unittest.TestCase):
         self.assertTrue(valido)
         self.assertEqual(mensagem, "")
 
+    def test_contagem_de_procedimentos_deve_passar(self):
+        valido, mensagem = validar_prompt("Qual a contagem de procedimentos distintos?")
+
+        self.assertTrue(valido)
+        self.assertEqual(mensagem, "")
+
+    def test_data_mais_recente_deve_passar(self):
+        valido, mensagem = validar_prompt("Qual a data mais recente dos atendimentos?")
+
+        self.assertTrue(valido)
+        self.assertEqual(mensagem, "")
+
     def test_prompt_vazio_deve_ser_bloqueado(self):
         valido, mensagem = validar_prompt("   ")
 

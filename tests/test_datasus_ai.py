@@ -154,8 +154,10 @@ class TestDatasusAiFlow(unittest.TestCase):
             pd.DataFrame(
                 [
                     {
+                        "data": date(2026, 1, 10),
                         "municipio_atendimento": "Cajazeiras",
                         "valor_aprovado": 10.0,
+                        "valor_apresentado": 11.0,
                         "frequencia": 2,
                         "sexo": "M",
                         "unidade": "Hospital Regional",
@@ -165,8 +167,10 @@ class TestDatasusAiFlow(unittest.TestCase):
                         "idade": 30,
                     },
                     {
+                        "data": date(2026, 3, 15),
                         "municipio_atendimento": "Sousa",
                         "valor_aprovado": 20.0,
+                        "valor_apresentado": 21.0,
                         "frequencia": 3,
                         "sexo": "F",
                         "unidade": "UPA Central",
@@ -196,6 +200,10 @@ class TestDatasusAiFlow(unittest.TestCase):
             "Procedimentos com maior valor aprovado": "Ranking por procedimento usando valor aprovado",
             "Valor aprovado por município de atendimento": "Total de valor aprovado por município de atendimento",
             "Valor aprovado por raça/cor": "Ranking por raça/cor usando valor aprovado",
+            "Total geral de valor apresentado": "Total geral de valor apresentado",
+            "Total de quantidade apresentada": "Total geral de quantidade apresentada",
+            "Contagem de procedimentos": "Contagem de procedimentos distintos",
+            "Data mais recente dos atendimentos": "Data mais recente disponivel",
         }
 
         with self._patch_ai_env(AI_USE_LLM="true"):

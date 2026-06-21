@@ -16,9 +16,11 @@ class TestSimpleStatsRunner(unittest.TestCase):
         self.df = pd.DataFrame(
             [
                 {
+                    "data": date(2026, 1, 10),
                     "municipio_atendimento": "Cajazeiras",
                     "municipio_residencia": "Sousa",
                     "valor_aprovado": 10.5,
+                    "valor_apresentado": 11.5,
                     "frequencia": 2,
                     "sexo": "M",
                     "unidade": "Hospital Regional",
@@ -29,9 +31,11 @@ class TestSimpleStatsRunner(unittest.TestCase):
                     "idade": 30,
                 },
                 {
+                    "data": date(2026, 2, 20),
                     "municipio_atendimento": "Cajazeiras",
                     "municipio_residencia": "Cajazeiras",
                     "valor_aprovado": 20,
+                    "valor_apresentado": 21,
                     "frequencia": 3,
                     "sexo": "F",
                     "unidade": "UPA Central",
@@ -42,9 +46,11 @@ class TestSimpleStatsRunner(unittest.TestCase):
                     "idade": 40,
                 },
                 {
+                    "data": date(2026, 3, 15),
                     "municipio_atendimento": "Sousa",
                     "municipio_residencia": "Sousa",
                     "valor_aprovado": 7,
+                    "valor_apresentado": 8,
                     "frequencia": 4,
                     "sexo": "F",
                     "unidade": "Hospital Regional",
@@ -140,6 +146,32 @@ class TestSimpleStatsRunner(unittest.TestCase):
         resposta = self._ask("total geral de valor aprovado")
 
         self.assertIn("Total geral de valor aprovado: R$ 37,50", resposta)
+
+    def test_total_geral_valor_apresentado(self):
+        resposta = self._ask("total geral de valor apresentado")
+
+        self.assertIn("Total geral de valor apresentado: R$ 40,50", resposta)
+
+    def test_total_geral_quantidade_apresentada(self):
+        resposta = self._ask("total de quantidade apresentada")
+
+        self.assertIn("Total geral de quantidade apresentada: 19", resposta)
+
+    def test_total_geral_frequencia(self):
+        resposta = self._ask("soma total de frequencia")
+
+        self.assertIn("Total geral de frequencia: 9", resposta)
+
+    def test_contagem_de_procedimentos_distintos(self):
+        resposta = self._ask("contagem de procedimentos")
+
+        self.assertIn("Contagem de procedimentos distintos: 2", resposta)
+
+    def test_ultima_data_disponivel(self):
+        resposta = self._ask("qual a data mais recente disponivel")
+
+        self.assertIn("Data mais recente disponivel: 15/03/2026", resposta)
+        self.assertIn("Mes mais recente disponivel: 03/2026", resposta)
 
     def test_contagem_de_registros(self):
         resposta = self._ask("contagem de registros")

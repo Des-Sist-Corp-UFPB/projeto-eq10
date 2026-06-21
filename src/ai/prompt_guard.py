@@ -49,6 +49,9 @@ DANGEROUS_TERMS = [
 
 STATISTICAL_TERMS = [
     "total",
+    "contagem",
+    "registro",
+    "registros",
     "media",
     "mediana",
     "maximo",
@@ -67,6 +70,9 @@ STATISTICAL_TERMS = [
     "municipio",
     "unidade",
     "procedimento",
+    "procedimentos",
+    "atendimento",
+    "atendimentos",
     "ocupacao",
     "raca",
     "cor",

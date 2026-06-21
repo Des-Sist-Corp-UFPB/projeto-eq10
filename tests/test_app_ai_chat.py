@@ -33,6 +33,32 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn("open_auth_modal(", source)
         self.assertIn("Tentativa bloqueada de chat sem usuario autenticado", source)
 
+    def test_chat_tem_fluxo_confiavel_de_mensagens_e_erros(self):
+        source = APP_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("_UNSAFE_RESPONSE_PATTERNS", source)
+        self.assertIn("Resposta tecnica da IA substituida por mensagem amigavel.", source)
+        self.assertIn("return GENERIC_ERROR_MESSAGE", source)
+        self.assertIn('logger.warning(\n            "Erro seguro app_ai_chat | operacao=processar_prompt', source)
+        self.assertIn('if st.session_state.get("pending_prompt") == clean_prompt:', source)
+        self.assertIn('st.session_state.pending_prompt = clean_prompt', source)
+        self.assertIn('_render_chat_history(show_processing=True)', source)
+        self.assertIn('_render_input_form(disabled=True)', source)
+        self.assertIn('st.session_state.messages.append({"role": "user", "content": prompt})', source)
+        self.assertIn('st.session_state.messages.append({"role": "assistant", "content": resposta})', source)
+        self.assertIn("if submitted and prompt:", source)
+
+        clear_index = source.index("st.session_state.pending_prompt = None", source.index("def _process_pending_prompt"))
+        user_append_index = source.index('st.session_state.messages.append({"role": "user", "content": prompt})')
+        loading_index = source.index("_render_chat_history(show_processing=True)")
+        disabled_input_index = source.index("_render_input_form(disabled=True)")
+        assistant_append_index = source.index('st.session_state.messages.append({"role": "assistant", "content": resposta})')
+
+        self.assertLess(clear_index, user_append_index)
+        self.assertLess(user_append_index, loading_index)
+        self.assertLess(loading_index, disabled_input_index)
+        self.assertLess(disabled_input_index, assistant_append_index)
+
     def test_estatisticas_permanece_publica_e_chat_fica_protegido(self):
         app_source = APP_PATH.read_text(encoding="utf-8")
         statistics_source = STATISTICS_PATH.read_text(encoding="utf-8")
