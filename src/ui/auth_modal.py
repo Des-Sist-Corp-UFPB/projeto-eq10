@@ -8,6 +8,10 @@ from typing import Any
 
 import streamlit as st
 
+from src.auth.email_verification_service import (
+    EMAIL_VERIFICATION_SEND_FAILED_MESSAGE,
+    EmailVerificationService,
+)
 from src.auth.session import login_session, logout_session
 from src.auth.security import MIN_PASSWORD_LENGTH
 from src.auth.user_service import AuthValidationError, UserService, safe_auth_exception_summary
@@ -403,6 +407,65 @@ AUTH_MODAL_CSS = """
         line-height: 1.35;
     }
 
+    .auth-profile-email-status {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        max-width: 100%;
+        padding: 0.18rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 820;
+        line-height: 1.25;
+    }
+
+    .auth-profile-email-status.is-verified {
+        border: 1px solid #BBF7D0;
+        background: #ECFDF3;
+        color: #166534 !important;
+    }
+
+    .auth-profile-email-status.is-pending {
+        border: 1px solid #FED7AA;
+        background: #FFF7ED;
+        color: #9A3412 !important;
+    }
+
+    .auth-profile-verification-note {
+        margin: -0.55rem 0 1.05rem;
+        padding: 0.82rem 0.9rem;
+        border: 1px solid rgba(251, 146, 60, 0.34);
+        border-radius: 0.9rem;
+        background: #FFF7ED;
+        color: #9A3412 !important;
+        font-size: 0.9rem;
+        line-height: 1.45;
+    }
+
+    [data-testid="stDialog"] .st-key-auth-profile-resend-verification button,
+    .st-key-auth-profile-resend-verification button {
+        width: auto !important;
+        min-height: 2.35rem !important;
+        margin: -0.55rem 0 1.05rem !important;
+        padding: 0 0.9rem !important;
+        border: 1px solid rgba(234, 88, 12, 0.28) !important;
+        border-radius: 0.78rem !important;
+        background: #FFFFFF !important;
+        color: #9A3412 !important;
+        box-shadow: none !important;
+        font-size: 0.9rem !important;
+        font-weight: 820 !important;
+    }
+
+    [data-testid="stDialog"] .st-key-auth-profile-resend-verification button:hover,
+    [data-testid="stDialog"] .st-key-auth-profile-resend-verification button:focus,
+    .st-key-auth-profile-resend-verification button:hover,
+    .st-key-auth-profile-resend-verification button:focus {
+        background: #FFEDD5 !important;
+        color: #7C2D12 !important;
+        box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.10) !important;
+    }
+
     .auth-profile-section-title {
         margin: 0.2rem 0 0.75rem;
         color: #0F172A !important;
@@ -586,6 +649,11 @@ def _get_auth_service() -> UserService:
     return UserService.from_environment()
 
 
+@st.cache_resource(show_spinner=False)
+def _get_email_verification_service() -> EmailVerificationService:
+    return EmailVerificationService.from_environment()
+
+
 def open_auth_modal(
     mode: str = "login",
     *,
@@ -673,6 +741,18 @@ def _get_auth_service_or_none() -> UserService | None:
     except Exception as exc:
         logger.warning(
             "Erro seguro auth_service | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
+        return None
+
+
+def _get_email_verification_service_or_none() -> EmailVerificationService | None:
+    try:
+        return _get_email_verification_service()
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro email_verification_service | causa=%s | tipo=%s",
             safe_auth_exception_summary(exc),
             type(exc).__name__,
         )
@@ -861,9 +941,23 @@ def _render_signup_panel() -> None:
             )
             _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
         else:
+            verification_message = "Conta criada com sucesso."
+            verification_service = _get_email_verification_service_or_none()
+            if verification_service is not None:
+                try:
+                    verification_result = verification_service.send_verification_email(user.id)
+                    verification_message = verification_result.message
+                except Exception as exc:
+                    logger.warning(
+                        "Erro seguro cadastro_verificacao_email | causa=%s | tipo=%s",
+                        safe_auth_exception_summary(exc),
+                        type(exc).__name__,
+                    )
+                    verification_message = EMAIL_VERIFICATION_SEND_FAILED_MESSAGE
+
             login_session(st.session_state, user)
             _finish_auth_success()
-            queue_toast(st.session_state, "Conta criada com sucesso.")
+            queue_toast(st.session_state, verification_message)
             st.rerun()
 
 
@@ -894,6 +988,23 @@ def _render_profile_panel() -> None:
         set_auth_panel("login")
         return
 
+    verification_service = _get_email_verification_service_or_none()
+    email_verified = False
+    email_status_label = "E-mail nao verificado"
+    email_status_class = "is-pending"
+    if verification_service is not None:
+        try:
+            email_verified = verification_service.is_email_verified(int(user["id"]))
+            if email_verified:
+                email_status_label = "E-mail verificado"
+                email_status_class = "is-verified"
+        except Exception as exc:
+            logger.warning(
+                "Erro seguro status_verificacao_email | causa=%s | tipo=%s",
+                safe_auth_exception_summary(exc),
+                type(exc).__name__,
+            )
+
     _render_auth_dialog_heading("Meu perfil", "Gerencie seus dados de acesso ao Chat IA.")
     st.markdown(
         f"""
@@ -908,6 +1019,12 @@ def _render_profile_panel() -> None:
                         <span class="auth-profile-field-label">E-mail</span>
                         <span class="auth-profile-field-value">{_escape_text(user["email"])}</span>
                     </div>
+                    <div class="auth-profile-field">
+                        <span class="auth-profile-field-label">Status do e-mail</span>
+                        <span class="auth-profile-email-status {email_status_class}">
+                            {_escape_text(email_status_label)}
+                        </span>
+                    </div>
                 </div>
             </div>
             <h3 class="auth-profile-section-title">Gerenciar conta</h3>
@@ -915,6 +1032,31 @@ def _render_profile_panel() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+    if not email_verified:
+        st.markdown(
+            """
+            <section class="auth-profile-verification-note">
+                A verificacao de e-mail ainda nao e obrigatoria neste ambiente.
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("Reenviar verificacao", key="auth-profile-resend-verification"):
+            if verification_service is None:
+                queue_toast(st.session_state, EMAIL_VERIFICATION_SEND_FAILED_MESSAGE)
+            else:
+                try:
+                    verification_result = verification_service.resend_verification_email(int(user["id"]))
+                    queue_toast(st.session_state, verification_result.message)
+                except Exception as exc:
+                    logger.warning(
+                        "Erro seguro reenviar_verificacao_email | causa=%s | tipo=%s",
+                        safe_auth_exception_summary(exc),
+                        type(exc).__name__,
+                    )
+                    queue_toast(st.session_state, EMAIL_VERIFICATION_SEND_FAILED_MESSAGE)
+            st.rerun()
 
     action_columns = st.columns(3, gap="small")
     with action_columns[0]:

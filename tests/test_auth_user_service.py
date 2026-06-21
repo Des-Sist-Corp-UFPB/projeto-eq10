@@ -49,6 +49,8 @@ class TestAuthUserService(unittest.TestCase):
         self.assertIn("criado_em", columns)
         self.assertIn("atualizado_em", columns)
         self.assertIn("ultimo_login_em", columns)
+        self.assertIn("email_verificado", columns)
+        self.assertIn("email_verificado_em", columns)
         self.assertIn("deleted_at", columns)
         self.assertIn("deletado", columns)
         self.assertIn("deletado_em", columns)
@@ -128,6 +130,29 @@ class TestAuthUserService(unittest.TestCase):
 
         self.assertFalse(row["deletado"])
         self.assertIsNone(row["deletado_em"])
+
+    def test_cadastro_cria_email_nao_verificado_por_padrao(self):
+        self.service.create_user(
+            "Ana Silva",
+            "ana@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT email_verificado, email_verificado_em
+                    FROM usuarios
+                    WHERE email = :email
+                    """
+                ),
+                {"email": "ana@example.com"},
+            ).mappings().first()
+
+        self.assertFalse(row["email_verificado"])
+        self.assertIsNone(row["email_verificado_em"])
 
     def test_senha_nao_e_salva_em_texto_puro(self):
         self.service.create_user(
@@ -309,6 +334,43 @@ class TestAuthUserService(unittest.TestCase):
             self.service.authenticate("ana.nova@example.com", "senha-forte").id,
             user.id,
         )
+
+    def test_alterar_email_redefine_verificacao(self):
+        user = self.service.create_user(
+            "Ana Silva",
+            "ana@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    UPDATE usuarios
+                    SET email_verificado = true,
+                        email_verificado_em = atualizado_em
+                    WHERE id = :id
+                    """
+                ),
+                {"id": user.id},
+            )
+
+        self.service.update_email(user.id, "ana.nova@example.com")
+
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT email_verificado, email_verificado_em
+                    FROM usuarios
+                    WHERE id = :id
+                    """
+                ),
+                {"id": user.id},
+            ).mappings().first()
+
+        self.assertFalse(row["email_verificado"])
+        self.assertIsNone(row["email_verificado_em"])
 
     def test_alterar_email_valida_formato(self):
         user = self.service.create_user(

@@ -11,11 +11,13 @@ from typing import Any
 
 import streamlit as st
 
-from src.auth.session import can_access_chat
+from src.auth.email_verification_service import EmailVerificationService, is_email_verification_required
+from src.auth.session import can_access_chat, get_authenticated_user
+from src.auth.user_service import safe_auth_exception_summary
 from src.ui.auth_modal import open_auth_modal, render_auth_panel
 from src.ui.header import render_auth_header
 from src.ui.notifications import render_pending_toast
-from src.ui.protected_chat import render_chat_auth_gate
+from src.ui.protected_chat import render_chat_auth_gate, render_chat_email_verification_gate
 from src.ui.sidebar import CHAT_PAGE, DEFAULT_PAGE, get_current_page, render_sidebar
 from src.ui.statistics_page import render_statistics_page
 
@@ -61,6 +63,30 @@ def _get_datasus_question_runner() -> Any:
     from src.ai.datasus_ai import perguntar_datasus
 
     return perguntar_datasus
+
+
+@st.cache_resource(show_spinner=False)
+def _get_email_verification_service() -> EmailVerificationService:
+    return EmailVerificationService.from_environment()
+
+
+def _can_use_chat_with_email_verification() -> bool:
+    if not is_email_verification_required():
+        return True
+
+    user = get_authenticated_user(st.session_state)
+    if not user:
+        return False
+
+    try:
+        return _get_email_verification_service().is_email_verified(int(user["id"]))
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro verificacao_email_chat | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
+        return False
 
 _SPECIAL_CHAR_TRANSLATION = str.maketrans(
     {
@@ -1583,6 +1609,9 @@ def _queue_prompt(prompt: str) -> None:
         )
         return
 
+    if not _can_use_chat_with_email_verification():
+        return
+
     if st.session_state.get("pending_prompt") == clean_prompt:
         return
 
@@ -1602,6 +1631,11 @@ def _process_pending_prompt() -> bool:
             target_page_on_success=CHAT_PAGE,
         )
         logger.warning("Tentativa bloqueada de chat sem usuario autenticado.")
+        return False
+
+    if not _can_use_chat_with_email_verification():
+        st.session_state.pending_prompt = None
+        logger.warning("Tentativa bloqueada de chat com e-mail nao verificado.")
         return False
 
     st.session_state.pending_prompt = None
@@ -1635,6 +1669,11 @@ def _render_chat_page() -> None:
     if not can_access_chat(st.session_state):
         st.session_state.pending_prompt = None
         render_chat_auth_gate(open_login=True)
+        return
+
+    if not _can_use_chat_with_email_verification():
+        st.session_state.pending_prompt = None
+        render_chat_email_verification_gate()
         return
 
     _render_intro_card()

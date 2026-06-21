@@ -33,6 +33,19 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn("open_auth_modal(", source)
         self.assertIn("Tentativa bloqueada de chat sem usuario autenticado", source)
 
+    def test_chat_respeita_verificacao_de_email_quando_exigida(self):
+        app_source = APP_PATH.read_text(encoding="utf-8")
+        protected_source = PROTECTED_CHAT_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("is_email_verification_required", app_source)
+        self.assertIn("def _can_use_chat_with_email_verification", app_source)
+        self.assertIn("_get_email_verification_service().is_email_verified", app_source)
+        self.assertIn("render_chat_email_verification_gate", app_source)
+        self.assertIn("Tentativa bloqueada de chat com e-mail nao verificado.", app_source)
+        self.assertIn("EMAIL_VERIFICATION_REQUIRED_MESSAGE", protected_source)
+        self.assertIn("E-mail pendente de verificacao", protected_source)
+        self.assertIn('st.button("Abrir meu perfil"', protected_source)
+
     def test_chat_tem_fluxo_confiavel_de_mensagens_e_erros(self):
         source = APP_PATH.read_text(encoding="utf-8")
 
@@ -300,6 +313,11 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn("auth-profile-info-card", auth_source)
         self.assertIn("auth-profile-info-grid", auth_source)
         self.assertNotIn('<span class="auth-profile-field-label">Perfil</span>', auth_source)
+        self.assertIn("Status do e-mail", auth_source)
+        self.assertIn("E-mail verificado", auth_source)
+        self.assertIn("E-mail nao verificado", auth_source)
+        self.assertIn("auth-profile-resend-verification", auth_source)
+        self.assertIn("verification_service.resend_verification_email(int(user[\"id\"]))", auth_source)
         self.assertIn("Gerenciar conta", auth_source)
         self.assertIn("A verificacao de e-mail ainda sera implementada em uma etapa futura.", auth_source)
         self.assertIn("service.update_email(int(user[\"id\"]), clean_email)", auth_source)

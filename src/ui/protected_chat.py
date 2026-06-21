@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import streamlit as st
 
-from src.ui.auth_modal import open_auth_modal
+from src.ui.auth_modal import open_auth_modal, set_auth_panel
 from src.ui.sidebar import CHAT_PAGE, DEFAULT_PAGE
 
 AUTH_REQUIRED_MESSAGE = (
     "Para acessar o Chat IA e fazer perguntas sobre a base SIA/DATASUS, "
     "faça login ou crie uma conta."
+)
+
+EMAIL_VERIFICATION_REQUIRED_MESSAGE = (
+    "Verifique seu e-mail para continuar usando o Chat IA. "
+    "Voce pode reenviar a verificacao em Meu perfil."
 )
 
 
@@ -53,3 +58,19 @@ def render_chat_auth_gate(open_login: bool = False) -> None:
                     target_page_on_success=CHAT_PAGE,
                 )
                 st.rerun()
+
+
+def render_chat_email_verification_gate() -> None:
+    with _centered_column():
+        st.markdown(
+            f"""
+            <section class="auth-gate">
+                <h2>E-mail pendente de verificacao</h2>
+                <p>{EMAIL_VERIFICATION_REQUIRED_MESSAGE}</p>
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("Abrir meu perfil", key="chat-gate-open-profile", use_container_width=True):
+            set_auth_panel("profile")
+            st.rerun()

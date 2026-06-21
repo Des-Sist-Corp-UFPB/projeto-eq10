@@ -349,6 +349,8 @@ class UserService:
                 criado_em TIMESTAMP NOT NULL,
                 atualizado_em TIMESTAMP NOT NULL,
                 ultimo_login_em TIMESTAMP NULL,
+                email_verificado BOOLEAN NOT NULL DEFAULT false,
+                email_verificado_em TIMESTAMP NULL,
                 deleted_at TIMESTAMP NULL,
                 deletado BOOLEAN NOT NULL DEFAULT false,
                 deletado_em TIMESTAMP NULL
@@ -358,8 +360,11 @@ class UserService:
             with self.engine.begin() as conn:
                 conn.execute(text(create_table_sql))
                 columns = _get_usuario_columns(conn)
+                _add_usuario_column_if_missing(conn, columns, "email_verificado", "BOOLEAN NOT NULL DEFAULT false")
+                _add_usuario_column_if_missing(conn, columns, "email_verificado_em", "TIMESTAMP NULL")
                 _add_usuario_column_if_missing(conn, columns, "deletado", "BOOLEAN NOT NULL DEFAULT false")
                 _add_usuario_column_if_missing(conn, columns, "deletado_em", "TIMESTAMP NULL")
+                conn.execute(text("UPDATE usuarios SET email_verificado = false WHERE email_verificado IS NULL"))
                 conn.execute(text("UPDATE usuarios SET deletado = false WHERE deletado IS NULL"))
                 columns = _get_usuario_columns(conn)
                 active_condition = _active_user_condition(columns)
@@ -629,17 +634,29 @@ class UserService:
                 if duplicate_user:
                     raise AuthValidationError("JÃ¡ existe uma conta ativa com este e-mail.")
 
+                assignments = ["email = :email", "atualizado_em = :atualizado_em"]
+                params: dict[str, Any] = {
+                    "id": user_id,
+                    "email": clean_email,
+                    "atualizado_em": _now(),
+                }
+                if "email_verificado" in columns:
+                    assignments.append("email_verificado = :email_verificado")
+                    params["email_verificado"] = False
+                if "email_verificado_em" in columns:
+                    assignments.append("email_verificado_em = :email_verificado_em")
+                    params["email_verificado_em"] = None
+
                 conn.execute(
                     text(
                         f"""
                         UPDATE usuarios
-                        SET email = :email,
-                            atualizado_em = :atualizado_em
+                        SET {", ".join(assignments)}
                         WHERE id = :id
                           AND {active_condition}
                         """
                     ),
-                    {"id": user_id, "email": clean_email, "atualizado_em": _now()},
+                    params,
                 )
         except AuthValidationError:
             raise

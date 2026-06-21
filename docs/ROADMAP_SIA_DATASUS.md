@@ -179,7 +179,11 @@ Criterios de aceite:
 
 Objetivo: confirmar que o usuario controla o e-mail informado, sem tentar descobrir silenciosamente se o e-mail existe.
 
+Nota: a estrategia de envio e provedores esta documentada em `docs/EMAIL_SERVICE_PLAN.md`.
+
 Importante: o sistema nao deve tentar verificar se um e-mail existe por consulta externa ou comportamento invisivel. A verificacao deve provar controle do endereco por link ou codigo enviado ao usuario.
+
+Implementacao inicial: a fundacao de verificacao foi adicionada com campos em `usuarios`, tabela `email_verification_tokens`, hash de token, expiracao, uso unico e modo fake/local. `EMAIL_VERIFICATION_REQUIRED=false` deve permanecer como padrao enquanto o envio real nao estiver configurado. Se o flag for ativado, o login continua permitido, mas o Chat IA fica bloqueado ate a verificacao para que o usuario ainda consiga acessar o perfil e reenviar a verificacao.
 
 Campos/tabelas sugeridos:
 
@@ -224,6 +228,8 @@ Criterios de aceite:
 ### Phase 7 - P2 - Recuperacao de Senha por E-mail
 
 Objetivo: permitir redefinicao segura de senha sem revelar se o e-mail existe.
+
+Nota: a estrategia de envio e provedores esta documentada em `docs/EMAIL_SERVICE_PLAN.md`.
 
 Fluxo recomendado:
 
