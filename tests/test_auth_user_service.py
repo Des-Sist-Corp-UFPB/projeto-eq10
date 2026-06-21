@@ -1,6 +1,7 @@
 import unittest
 import os
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 from sqlalchemy import create_engine, text
@@ -49,6 +50,8 @@ class TestAuthUserService(unittest.TestCase):
         self.assertIn("atualizado_em", columns)
         self.assertIn("ultimo_login_em", columns)
         self.assertIn("deleted_at", columns)
+        self.assertIn("deletado", columns)
+        self.assertIn("deletado_em", columns)
         self.assertIn("ux_usuarios_email_ativo", indexes)
 
     def test_get_auth_engine_nao_usa_ai_db_readonly_como_fallback(self):
@@ -108,6 +111,23 @@ class TestAuthUserService(unittest.TestCase):
         self.assertEqual(user.nome, "Ana Silva")
         self.assertEqual(user.email, "ana@example.com")
         self.assertEqual(user.role, "user")
+
+    def test_cadastro_cria_usuario_ativo_por_padrao(self):
+        self.service.create_user(
+            "Ana Silva",
+            "ana@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT deletado, deletado_em FROM usuarios WHERE email = :email"),
+                {"email": "ana@example.com"},
+            ).mappings().first()
+
+        self.assertFalse(row["deletado"])
+        self.assertIsNone(row["deletado_em"])
 
     def test_senha_nao_e_salva_em_texto_puro(self):
         self.service.create_user(
@@ -182,7 +202,7 @@ class TestAuthUserService(unittest.TestCase):
         with self.assertRaises(AuthValidationError) as context:
             self.service.authenticate("ana@example.com", "senha-forte")
 
-        self.assertEqual(context.exception.public_message, "Esta conta não está ativa.")
+        self.assertEqual(context.exception.public_message, "E-mail ou senha inválidos.")
 
     def test_login_bloqueia_usuario_com_deletado_boolean(self):
         engine = create_engine("sqlite+pysqlite:///:memory:")
@@ -217,7 +237,7 @@ class TestAuthUserService(unittest.TestCase):
         with self.assertRaises(AuthValidationError) as context:
             service.authenticate("ana@example.com", "senha-forte")
 
-        self.assertEqual(context.exception.public_message, "Esta conta não está ativa.")
+        self.assertEqual(context.exception.public_message, "E-mail ou senha inválidos.")
         self.assertFalse(service.active_email_exists("ana@example.com"))
 
     def test_soft_delete_remove_usuario_dos_ativos(self):
@@ -230,8 +250,24 @@ class TestAuthUserService(unittest.TestCase):
 
         self.service.soft_delete_user(user.id)
 
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT deletado, deletado_em FROM usuarios WHERE id = :id"),
+                {"id": user.id},
+            ).mappings().first()
+
+        self.assertTrue(row["deletado"])
+        self.assertIsNotNone(row["deletado_em"])
         self.assertIsNone(self.service.get_user_by_id(user.id))
         self.assertFalse(self.service.active_email_exists("ana@example.com"))
+
+    def test_desativacao_nao_usa_delete_fisico_nem_tabelas_datasus(self):
+        source = Path("src/auth/user_service.py").read_text(encoding="utf-8").upper()
+
+        self.assertNotIn("DELETE FROM USUARIOS", source)
+        self.assertIn("UPDATE USUARIOS", source)
+        for fragment in ["DATA_SUS", "VW_DATA_SUS_IA", "DIM_"]:
+            self.assertNotIn(fragment, source)
 
     def test_alterar_nome(self):
         user = self.service.create_user(

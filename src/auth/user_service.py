@@ -226,12 +226,31 @@ def _get_usuario_columns(conn: Any) -> set[str]:
     }
 
 
+def _add_usuario_column_if_missing(
+    conn: Any,
+    columns: set[str],
+    column_name: str,
+    definition: str,
+) -> None:
+    if column_name in columns:
+        return
+
+    if conn.dialect.name == "postgresql":
+        conn.execute(text(f"ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS {column_name} {definition}"))
+    else:
+        conn.execute(text(f"ALTER TABLE usuarios ADD COLUMN {column_name} {definition}"))
+
+    columns.add(column_name)
+
+
 def _active_user_condition(columns: set[str]) -> str:
     conditions: list[str] = []
     if "deleted_at" in columns:
         conditions.append("deleted_at IS NULL")
     if "deletado" in columns:
         conditions.append("deletado IS NOT TRUE")
+    if "deletado_em" in columns:
+        conditions.append("deletado_em IS NULL")
 
     return " AND ".join(conditions) if conditions else "1 = 1"
 
@@ -243,11 +262,12 @@ def _active_user_sort_expression(columns: set[str]) -> str:
 def _soft_delete_select_columns(columns: set[str]) -> str:
     deleted_at_column = "deleted_at" if "deleted_at" in columns else "NULL AS deleted_at"
     deletado_column = "deletado" if "deletado" in columns else "FALSE AS deletado"
-    return f"{deleted_at_column}, {deletado_column}"
+    deletado_em_column = "deletado_em" if "deletado_em" in columns else "NULL AS deletado_em"
+    return f"{deleted_at_column}, {deletado_column}, {deletado_em_column}"
 
 
 def _is_soft_deleted(row: Any) -> bool:
-    return row["deleted_at"] is not None or bool(row["deletado"])
+    return row["deleted_at"] is not None or bool(row["deletado"]) or row["deletado_em"] is not None
 
 
 def _safe_database_error_reason(exc: BaseException) -> str:
@@ -329,12 +349,18 @@ class UserService:
                 criado_em TIMESTAMP NOT NULL,
                 atualizado_em TIMESTAMP NOT NULL,
                 ultimo_login_em TIMESTAMP NULL,
-                deleted_at TIMESTAMP NULL
+                deleted_at TIMESTAMP NULL,
+                deletado BOOLEAN NOT NULL DEFAULT false,
+                deletado_em TIMESTAMP NULL
             )
         """
         try:
             with self.engine.begin() as conn:
                 conn.execute(text(create_table_sql))
+                columns = _get_usuario_columns(conn)
+                _add_usuario_column_if_missing(conn, columns, "deletado", "BOOLEAN NOT NULL DEFAULT false")
+                _add_usuario_column_if_missing(conn, columns, "deletado_em", "TIMESTAMP NULL")
+                conn.execute(text("UPDATE usuarios SET deletado = false WHERE deletado IS NULL"))
                 columns = _get_usuario_columns(conn)
                 active_condition = _active_user_condition(columns)
                 create_index_sql = f"""
@@ -480,7 +506,7 @@ class UserService:
                 if not row:
                     raise AuthValidationError("E-mail ou senha inválidos.")
                 if _is_soft_deleted(row):
-                    raise AuthValidationError("Esta conta não está ativa.")
+                    raise AuthValidationError("E-mail ou senha inválidos.")
                 if not verify_password(senha, row["senha_hash"]):
                     raise AuthValidationError("E-mail ou senha inválidos.")
 
@@ -629,10 +655,12 @@ class UserService:
                 if "deletado" in columns:
                     assignments.insert(0, "deletado = :deletado")
                     params["deletado"] = True
+                if "deletado_em" in columns:
+                    assignments.insert(0, "deletado_em = :deletado_em")
+                    params["deletado_em"] = params["atualizado_em"]
                 if len(assignments) == 1:
                     raise AuthValidationError("Tabela de usuarios nao possui soft delete configurado.")
 
-                now = _now()
                 conn.execute(
                     text(
                         f"""

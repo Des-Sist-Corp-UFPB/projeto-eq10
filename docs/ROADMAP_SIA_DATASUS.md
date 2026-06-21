@@ -74,14 +74,34 @@ deletado_em TIMESTAMP NULL
 
 - [ ] Nunca remover usuarios fisicamente em fluxos normais da aplicacao.
 - [ ] Ao desativar conta, definir `deletado = true`.
+- [ ] Ao desativar conta, limpar a sessao do usuario autenticado.
 - [ ] Login deve permitir apenas usuarios com `deletado = false`.
 - [ ] Listagens normais devem ocultar usuarios com `deletado = true`.
+- [ ] Documentar que a acao visivel para o usuario deve ser `Desativar conta`, nao exclusao fisica.
+- [ ] Reservar `Exclusao definitiva administrativa` ou `expurgo` para uma politica futura explicita, com trilha de auditoria, autorizacao e confirmacao.
+
+Comportamento recomendado para `Desativar conta`:
+
+- Definir `deletado = true`.
+- Opcionalmente definir `deletado_em = current timestamp`.
+- Encerrar a sessao do usuario.
+- Bloquear logins futuros.
+- Ocultar o usuario em listagens comuns.
+- Nunca executar `DELETE` fisico no fluxo normal do usuario.
+
+Por que usar soft delete:
+
+- Preserva auditabilidade.
+- Evita perda acidental de dados.
+- Segue a sugestao do professor de usar um booleano para ocultar registros removidos.
+- Permite investigar eventos de seguranca sem depender de backups.
 
 Criterios de aceite:
 
 - [ ] Senha em texto puro nunca aparece na tabela `usuarios`.
 - [ ] Usuario desativado nao consegue fazer login.
 - [ ] Nenhum `DELETE` fisico e usado para remocao/desativacao de conta.
+- [ ] Usuario e marcado com `deletado = true` ao desativar a conta.
 - [ ] Dados DATASUS nao sao alterados por operacoes de usuario.
 
 ### Phase 3 - P1 - Perfil e Gerenciamento de Conta
@@ -103,6 +123,7 @@ Tarefas:
 - [ ] Exigir confirmacao antes de desativar conta.
 - [ ] Alteracao de senha deve exigir senha atual.
 - [ ] Alteracao de e-mail deve documentar verificacao como pendente se nao houver servico de e-mail.
+- [ ] Adicionar `Desativar conta` como acao de conta quando o soft delete estiver padronizado.
 
 Criterios de aceite:
 
@@ -154,7 +175,102 @@ Criterios de aceite:
 - [ ] Loading aparece como balao da assistente.
 - [ ] Falha tecnica gera mensagem amigavel na UI e log seguro no backend.
 
-### Phase 6 - P2 - Historico de Chat e Auditoria
+### Phase 6 - P2 - Verificacao de E-mail
+
+Objetivo: confirmar que o usuario controla o e-mail informado, sem tentar descobrir silenciosamente se o e-mail existe.
+
+Importante: o sistema nao deve tentar verificar se um e-mail existe por consulta externa ou comportamento invisivel. A verificacao deve provar controle do endereco por link ou codigo enviado ao usuario.
+
+Campos/tabelas sugeridos:
+
+```sql
+usuarios.email_verificado BOOLEAN DEFAULT false
+usuarios.email_verificado_em TIMESTAMP NULL
+```
+
+Tabela opcional:
+
+```sql
+email_verification_tokens
+```
+
+Fluxo recomendado:
+
+- Usuario se cadastra.
+- Sistema cria um token de verificacao.
+- Sistema envia e-mail com link ou codigo.
+- Usuario clica no link ou informa o codigo.
+- Sistema define `email_verificado = true`.
+- Sistema preenche `email_verificado_em`.
+- Token expira em tempo limitado.
+- Token so pode ser usado uma vez.
+
+Requisitos de seguranca:
+
+- Armazenar hash do token, nao o token puro, sempre que possivel.
+- Token deve expirar.
+- Token nao pode ser reutilizado.
+- Nao revelar em mensagens publicas se um e-mail pertence a uma conta existente.
+- Nao registrar tokens em logs.
+
+Criterios de aceite:
+
+- [ ] Usuario pode se cadastrar com `email_verificado = false`.
+- [ ] E-mail de verificacao pode ser enviado.
+- [ ] Token expira apos tempo limitado.
+- [ ] Token nao pode ser reutilizado.
+- [ ] Usuario verificado fica com `email_verificado = true`.
+
+### Phase 7 - P2 - Recuperacao de Senha por E-mail
+
+Objetivo: permitir redefinicao segura de senha sem revelar se o e-mail existe.
+
+Fluxo recomendado:
+
+- Usuario clica em `Esqueci minha senha`.
+- Usuario informa o e-mail.
+- UI sempre exibe mensagem neutra:
+
+> Se houver uma conta com este e-mail, enviaremos instrucoes de recuperacao.
+
+- Sistema cria token de redefinicao.
+- Sistema envia e-mail de recuperacao.
+- Usuario abre o link.
+- Usuario define nova senha.
+- Token expira em tempo limitado.
+- Token so pode ser usado uma vez.
+
+Tabela sugerida:
+
+```sql
+password_reset_tokens (
+    id,
+    user_id,
+    token_hash,
+    criado_em,
+    expira_em,
+    usado_em
+)
+```
+
+Requisitos de seguranca:
+
+- Nunca revelar se o e-mail existe.
+- Nunca armazenar token puro.
+- Nunca registrar token em log.
+- Exigir senha nova forte o suficiente.
+- Invalidar token apos uso.
+- Salvar a nova senha apenas como hash.
+
+Criterios de aceite:
+
+- [ ] Mensagem neutra aparece mesmo se o e-mail nao existir.
+- [ ] Token de redefinicao expira.
+- [ ] Token de redefinicao nao pode ser reutilizado.
+- [ ] Nova senha e salva como hash.
+- [ ] Senha antiga deixa de funcionar apos redefinicao.
+
+### Phase 8 - P2/P3 - Historico de Chat e Auditoria
 
 Objetivo: permitir rastreabilidade de interacoes sem armazenar dados sensiveis desnecessarios.
 
@@ -181,7 +297,7 @@ Criterios de aceite:
 - [ ] Logs/historico nao armazenam senhas, tokens ou chaves.
 - [ ] Falhas de IA podem ser auditadas por status e timestamp.
 
-### Phase 7 - P2 - Health Checks e Diagnosticos
+### Phase 9 - P2 - Health Checks e Diagnosticos
 
 Objetivo: facilitar suporte local e em servidor sem expor segredos.
 
@@ -202,7 +318,7 @@ Criterios de aceite:
 - [ ] Acesso a `vw_data_sus_ia` pode ser testado com consulta somente leitura.
 - [ ] Checks sensiveis sao admin-only ou internos.
 
-### Phase 8 - P2 - Revisao LGPD e Seguranca
+### Phase 10 - P2 - Revisao LGPD e Seguranca
 
 Objetivo: documentar responsabilidades e reduzir risco juridico/operacional.
 
@@ -223,14 +339,63 @@ Criterios de aceite:
 - [ ] Logs nao contem senha, hash, token ou chave.
 - [ ] Usuario do banco para IA continua somente leitura.
 
-### Phase 9 - P3 - Melhorias Futuras Opcionais
+### Phase 11 - P3 - Entrar com Google / OAuth
+
+Objetivo: permitir login federado com Google sem quebrar o login por e-mail e senha.
+
+Esta e uma funcionalidade maior e nao deve ser implementada antes de estabilizar cadastro, login, logout, sessoes, soft delete e configuracao segura de ambiente.
+
+Comportamento recomendado:
+
+- Adicionar botao `Entrar com Google`.
+- Usar Google OAuth/OpenID Connect.
+- Exigir variaveis de ambiente para client id e client secret.
+- Criar ou vincular usuario local por e-mail Google verificado.
+- Armazenar dados do provedor separadamente quando possivel.
+- Manter login tradicional por e-mail/senha funcionando.
+
+Campos opcionais em `usuarios`:
+
+- `auth_provider`
+- `google_sub`
+- `email_verificado`
+
+Tabela alternativa recomendada para multiplos provedores:
+
+```sql
+user_identities (
+    id,
+    user_id,
+    provider,
+    provider_user_id,
+    email,
+    criado_em
+)
+```
+
+Requisitos de seguranca:
+
+- Nao armazenar access tokens do Google se nao for necessario.
+- Proteger client secret por variaveis de ambiente.
+- Validar parametro OAuth `state`.
+- Validar redirect URI.
+- Nao quebrar login existente por e-mail/senha.
+- Nao versionar credenciais OAuth.
+
+Criterios de aceite:
+
+- [ ] Usuario consegue entrar com Google.
+- [ ] Conta local e criada ou vinculada com seguranca.
+- [ ] Segredos OAuth nao sao commitados.
+- [ ] Login existente por e-mail/senha continua funcionando.
+- [ ] E-mail retornado pelo Google e tratado como verificado apenas quando o provedor indicar essa informacao.
+
+### Phase 12 - P3 - Melhorias Futuras Opcionais
 
 Objetivo: registrar ideias sem transformar tudo em prioridade imediata.
 
 Ideias:
 
-- [ ] Recuperacao de senha com servico real de e-mail.
-- [ ] Verificacao de e-mail para troca de e-mail.
 - [ ] MinIO para arquivos/exportacoes se o app passar a gerar ou armazenar arquivos.
 - [ ] Reconhecimento de intencao multilingue.
 - [ ] Function calling/tools para consultas controladas.
@@ -264,12 +429,74 @@ Campos recomendados:
 - `ultimo_login_em`
 - `deletado BOOLEAN DEFAULT false`
 - `deletado_em TIMESTAMP NULL`
+- `email_verificado BOOLEAN DEFAULT false`
+- `email_verificado_em TIMESTAMP NULL`
+- `auth_provider` Opcional
+- `google_sub` Opcional
 
 Observacoes:
 
 - Senha deve ser sempre hash.
 - E-mail ativo deve ser unico.
 - Desativacao deve usar soft delete.
+- `auth_provider` e `google_sub` devem ser usados apenas se a estrategia escolhida nao usar tabela separada de identidades.
+
+#### `email_verification_tokens` Opcional
+
+Uso: verificar controle do e-mail informado pelo usuario.
+
+Campos sugeridos:
+
+- `id`
+- `user_id`
+- `token_hash`
+- `criado_em`
+- `expira_em`
+- `usado_em`
+
+Observacoes:
+
+- Nao armazenar token puro.
+- Nao registrar token em logs.
+- Token deve expirar e ser de uso unico.
+
+#### `password_reset_tokens` Opcional
+
+Uso: redefinicao segura de senha por e-mail.
+
+Campos sugeridos:
+
+- `id`
+- `user_id`
+- `token_hash`
+- `criado_em`
+- `expira_em`
+- `usado_em`
+
+Observacoes:
+
+- Mensagens publicas devem ser neutras.
+- Nao revelar se o e-mail existe.
+- Nova senha deve ser salva apenas como hash.
+
+#### `user_identities` Opcional
+
+Uso: vincular usuarios locais a provedores externos como Google.
+
+Campos sugeridos:
+
+- `id`
+- `user_id`
+- `provider`
+- `provider_user_id`
+- `email`
+- `criado_em`
+
+Observacoes:
+
+- Evita sobrecarregar a tabela `usuarios` com campos especificos de cada provedor.
+- Facilita adicionar outros provedores no futuro.
+- Nao armazenar access tokens se nao for necessario.
 
 #### `chat_sessions`
 
@@ -337,6 +564,13 @@ Regra: autenticacao, perfil e historico de chat nao devem ser armazenados dentro
 - Health checks devem ser publicos, admin-only ou apenas internos?
 - O usuario de banco da IA esta limitado a SELECT na view `vw_data_sus_ia`?
 - Quem sera responsavel por operacoes administrativas de usuario, como reativacao?
+- Qual servico de e-mail sera usado: SMTP proprio, SendGrid, Gmail app password ou outro provedor?
+- A verificacao de e-mail sera obrigatoria antes de usar o Chat IA?
+- Usuarios nao verificados devem ser bloqueados ou apenas avisados?
+- Quem pode reativar uma conta desativada?
+- Exclusao fisica sera exigida por alguma politica ou soft delete sera suficiente?
+- Onde as credenciais do Google OAuth serao configuradas em ambientes local e servidor?
+- Google login deve ser permitido para qualquer dominio de e-mail ou apenas dominios autorizados?
 
 ## 6. Recomendacoes Imediatas
 
@@ -344,7 +578,7 @@ Proximas 3 tarefas recomendadas, em ordem:
 
 1. Finalizar estabilizacao da autenticacao e validar o fluxo completo em ambiente local, Docker e servidor.
 2. Padronizar soft delete de usuarios com `deletado BOOLEAN DEFAULT false` e, se aprovado, `deletado_em TIMESTAMP NULL`.
-3. Implementar historico basico de chat com `chat_sessions` e `chat_messages`, ja planejando auditoria e soft delete.
+3. Planejar o servico de e-mail antes de implementar verificacao de e-mail ou recuperacao de senha.
 
 ## 7. Definicao de Pronto Geral
 

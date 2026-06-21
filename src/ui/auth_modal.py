@@ -8,11 +8,11 @@ from typing import Any
 
 import streamlit as st
 
-from src.auth.session import login_session
+from src.auth.session import login_session, logout_session
 from src.auth.user_service import AuthValidationError, UserService, safe_auth_exception_summary
 from src.auth.validation import validate_login_fields, validate_register_fields
 from src.ui.notifications import queue_toast
-from src.ui.sidebar import set_current_page
+from src.ui.sidebar import DEFAULT_PAGE, set_current_page
 
 AUTH_UNAVAILABLE_MESSAGE = (
     "Não foi possível acessar a autenticação agora. Tente novamente em alguns instantes."
@@ -383,6 +383,28 @@ AUTH_MODAL_CSS = """
         gap: 0.75rem;
     }
 
+    .auth-profile-danger-section {
+        margin-top: 1.15rem;
+        padding: 1rem;
+        border: 1px solid #FECACA;
+        border-radius: 1rem;
+        background: #FEF2F2;
+    }
+
+    .auth-profile-danger-title {
+        margin: 0;
+        color: #991B1B !important;
+        font-size: 1rem;
+        font-weight: 840;
+    }
+
+    .auth-profile-danger-copy {
+        margin: 0.3rem 0 0.8rem;
+        color: #B42318 !important;
+        font-size: 0.9rem;
+        line-height: 1.45;
+    }
+
     [data-testid="stDialog"] .auth-profile-actions [data-testid="stButton"] button,
     .auth-profile-actions [data-testid="stButton"] button {
         width: 100% !important;
@@ -412,9 +434,36 @@ AUTH_MODAL_CSS = """
         box-shadow: 0 0 0 3px rgba(123, 44, 191, 0.10), 0 12px 26px rgba(15, 23, 42, 0.08) !important;
     }
 
+    [data-testid="stDialog"] .st-key-auth-profile-deactivate button,
+    .st-key-auth-profile-deactivate button {
+        width: 100% !important;
+        min-height: 2.75rem !important;
+        border: 1px solid #FECACA !important;
+        border-radius: 0.82rem !important;
+        background: #FFFFFF !important;
+        color: #991B1B !important;
+        box-shadow: none !important;
+        font-weight: 820 !important;
+    }
+
+    [data-testid="stDialog"] .st-key-auth-profile-deactivate button:hover,
+    [data-testid="stDialog"] .st-key-auth-profile-deactivate button:focus,
+    .st-key-auth-profile-deactivate button:hover,
+    .st-key-auth-profile-deactivate button:focus {
+        background: #FEE2E2 !important;
+        color: #7F1D1D !important;
+        box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.10) !important;
+    }
+
+    [data-testid="stDialog"]:has(.auth-deactivate-panel) [data-testid="stFormSubmitButton"] button {
+        background: #B42318 !important;
+        box-shadow: 0 12px 22px rgba(153, 27, 27, 0.16) !important;
+    }
+
     .st-key-auth-name-back button,
     .st-key-auth-password-back button,
-    .st-key-auth-email-back button {
+    .st-key-auth-email-back button,
+    .st-key-auth-deactivate-back button {
         margin-top: 0.55rem !important;
         width: 100% !important;
         min-height: 2.7rem !important;
@@ -773,6 +822,22 @@ def _render_profile_panel() -> None:
         st.rerun()
     st.markdown("</section>", unsafe_allow_html=True)
 
+    st.markdown(
+        """
+        <section class="auth-profile-danger-section">
+            <h3 class="auth-profile-danger-title">Zona de seguranca</h3>
+            <p class="auth-profile-danger-copy">
+                Desative sua conta apenas se desejar encerrar o acesso ao Chat IA.
+                Esta acao bloqueia novos logins com este usuario.
+            </p>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button("Desativar conta", key="auth-profile-deactivate", use_container_width=True):
+        set_auth_panel("deactivate_account")
+        st.rerun()
+
 
 def _render_change_name_panel() -> None:
     user = st.session_state.get("auth_user")
@@ -934,6 +999,70 @@ def _render_change_email_panel() -> None:
         )
 
 
+def _render_deactivate_account_panel() -> None:
+    user = st.session_state.get("auth_user")
+    if not isinstance(user, dict) or not user.get("id"):
+        set_auth_panel("login")
+        return
+
+    st.markdown('<section class="auth-profile-form-panel auth-deactivate-panel"></section>', unsafe_allow_html=True)
+    _render_auth_dialog_heading(
+        "Desativar conta",
+        "Confirme a desativacao para encerrar seu acesso a esta conta.",
+    )
+    st.markdown(
+        f"""
+        <section class="auth-dialog-profile">
+            <p>
+                Para confirmar, digite seu e-mail:
+                <strong>{_escape_text(user["email"])}</strong>
+            </p>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    global_slot = st.empty()
+    service = _get_auth_service_or_none()
+    if service is None:
+        _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+        return
+
+    with st.form("auth-deactivate-account-form", clear_on_submit=False):
+        confirmar_email = st.text_input("Confirme seu e-mail", placeholder=user["email"])
+        field_error_slots = {"email": st.empty()}
+        submitted = st.form_submit_button("Desativar conta", use_container_width=True)
+
+    if st.button("Voltar ao perfil", key="auth-deactivate-back", use_container_width=True):
+        set_auth_panel("profile")
+        st.rerun()
+
+    if submitted:
+        expected_email = str(user["email"]).strip().casefold()
+        typed_email = confirmar_email.strip().casefold()
+        if typed_email != expected_email:
+            _render_field_errors(field_error_slots, {"email": "Digite seu e-mail para confirmar a desativacao."})
+            return
+
+        try:
+            service.soft_delete_user(int(user["id"]))
+        except AuthValidationError as exc:
+            _render_global_error(global_slot, exc.public_message)
+        except Exception as exc:
+            logger.warning(
+                "Erro seguro desativar_conta | causa=%s | tipo=%s",
+                safe_auth_exception_summary(exc),
+                type(exc).__name__,
+            )
+            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+        else:
+            close_auth_panel(redirect=False)
+            logout_session(st.session_state)
+            set_current_page(DEFAULT_PAGE)
+            queue_toast(st.session_state, "Conta desativada com sucesso.")
+            st.rerun()
+
+
 @st.dialog("Acesso ao Chat IA", width="small", on_dismiss=_clear_auth_panel)
 def _render_auth_dialog() -> None:
     mode = st.session_state.get("auth_modal_mode", "login")
@@ -968,6 +1097,11 @@ def _render_forgot_password_dialog() -> None:
     _render_forgot_password_panel()
 
 
+@st.dialog("Desativar conta", width="large", on_dismiss=_clear_auth_panel)
+def _render_deactivate_account_dialog() -> None:
+    _render_deactivate_account_panel()
+
+
 def render_auth_panel() -> None:
     panel = st.session_state.get("auth_panel")
     if not panel:
@@ -987,3 +1121,5 @@ def render_auth_panel() -> None:
         _render_change_email_dialog()
     elif panel == "forgot_password":
         _render_forgot_password_dialog()
+    elif panel == "deactivate_account":
+        _render_deactivate_account_dialog()
