@@ -2,7 +2,7 @@
 
 Atualizado em: 2026-06-21
 
-Este documento planeja a estrategia de envio de e-mails para funcionalidades futuras de autenticacao. A fundacao interna de e-mail e a fundacao de verificacao de e-mail ja existem em modo seguro/fake por padrao. Recuperacao de senha, Google login, historico de chat, health checks e envio real por SMTP/API continuam fora do escopo atual.
+Este documento planeja a estrategia de envio de e-mails para funcionalidades futuras de autenticacao. A fundacao interna de e-mail, a fundacao de verificacao de e-mail e a fundacao de recuperacao de senha ja existem em modo seguro/fake por padrao. Google login, historico de chat, health checks e envio real por SMTP/API continuam fora do escopo atual.
 
 ## Objetivo
 
@@ -101,11 +101,14 @@ Implementacao inicial disponivel:
 - Campos de usuario: `email_verificado` e `email_verificado_em`.
 - Controle de exigencia: `EMAIL_VERIFICATION_REQUIRED=false` por padrao, para nao bloquear login ou Chat IA enquanto o envio real nao estiver configurado.
 - Se `EMAIL_VERIFICATION_REQUIRED=true`, o usuario ainda pode fazer login e acessar o perfil, mas o Chat IA fica bloqueado ate a verificacao do e-mail.
+- Fundacao de recuperacao de senha: `src/auth/password_reset_service.py`.
+- Tabela de tokens: `password_reset_tokens`, armazenando somente `token_hash`.
+- Mensagem publica neutra: `Se houver uma conta com este e-mail, enviaremos instrucoes de recuperacao.`
 
 Exemplo de comportamento seguro em modo fake/local:
 
 - Verificacao de e-mail: informar que a verificacao por e-mail ainda nao esta ativa neste ambiente.
-- Recuperacao de senha: informar que a recuperacao por e-mail ainda nao esta disponivel ou usar mensagem neutra sem prometer envio real.
+- Recuperacao de senha: usar mensagem neutra sem prometer envio real quando o ambiente estiver em modo fake/local.
 
 ## Variaveis de Ambiente Sugeridas
 
@@ -196,9 +199,21 @@ Fluxo completo planejado para ambiente com envio real:
 
 O envio real ainda depende de configuracao de provedor, `APP_PUBLIC_URL` e decisao da equipe sobre obrigatoriedade da verificacao.
 
-## Integracao Futura com Recuperacao de Senha
+## Integracao com Recuperacao de Senha
 
-Fluxo planejado:
+Fundacao implementada:
+
+- Solicitar recuperacao sem revelar se o e-mail existe.
+- Criar token somente para usuario ativo e nao deletado.
+- Armazenar apenas o hash SHA-256 do token.
+- Definir expiracao curta.
+- Bloquear token expirado ou ja usado.
+- Marcar token usado com `usado_em` depois da redefinicao.
+- Salvar nova senha apenas como hash.
+- Remover o token da URL quando o app recebe `reset_password_token`.
+- Usar o `EmailService` em modo fake/local por padrao sem prometer envio real.
+
+Fluxo completo em ambiente com envio real:
 
 1. Usuario clica em `Esqueci minha senha`.
 2. Usuario informa o e-mail.

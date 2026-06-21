@@ -46,6 +46,29 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn("E-mail pendente de verificacao", protected_source)
         self.assertIn('st.button("Abrir meu perfil"', protected_source)
 
+    def test_app_trata_link_de_recuperacao_de_senha(self):
+        app_source = APP_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("def _handle_password_reset_query_param", app_source)
+        self.assertIn('st.query_params.get("reset_password_token")', app_source)
+        self.assertIn("st.session_state.password_reset_token = clean_token", app_source)
+        self.assertIn('set_auth_panel("reset_password", redirect_on_close=DEFAULT_PAGE)', app_source)
+        self.assertIn('del st.query_params["reset_password_token"]', app_source)
+        self.assertIn("_handle_password_reset_query_param()", app_source)
+
+    def test_app_trata_link_de_verificacao_de_email(self):
+        app_source = APP_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("def _handle_email_verification_query_param", app_source)
+        self.assertIn('st.query_params.get("verify_email_token")', app_source)
+        self.assertIn("_get_email_verification_service().verify_email_token(clean_token)", app_source)
+        self.assertIn("email_verification_feedback", app_source)
+        self.assertIn('del st.query_params["verify_email_token"]', app_source)
+        self.assertIn("_handle_email_verification_query_param()", app_source)
+        self.assertIn("def _render_email_verification_feedback", app_source)
+        self.assertIn("st.success(message)", app_source)
+        self.assertIn("st.error(message)", app_source)
+
     def test_chat_tem_fluxo_confiavel_de_mensagens_e_erros(self):
         source = APP_PATH.read_text(encoding="utf-8")
 
@@ -248,7 +271,13 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn("_render_field_errors(field_error_slots, field_errors)", auth_source)
         self.assertIn("Não foi possível acessar a autenticação agora.", auth_source)
         self.assertIn("auth-login-forgot-password", auth_source)
-        self.assertIn("A recuperação de senha por e-mail ainda não está disponível.", auth_source)
+        self.assertIn("auth-password-reset-request-form", auth_source)
+        self.assertIn("auth-password-reset-confirm-form", auth_source)
+        self.assertIn("PASSWORD_RESET_NEUTRAL_MESSAGE", auth_source)
+        self.assertIn("service.request_password_reset(email)", auth_source)
+        self.assertIn("service.reset_password_with_token(reset_token, nova_senha, confirmar_senha)", auth_source)
+        self.assertIn("password_reset_token", auth_source)
+        self.assertIn('@st.dialog("Redefinir senha"', auth_source)
         self.assertIn("def _render_auth_footer", auth_source)
         self.assertIn('switch_key="auth-login-go-signup"', auth_source)
         self.assertIn('switch_key="auth-signup-go-login"', auth_source)

@@ -12,6 +12,11 @@ from src.auth.email_verification_service import (
     EMAIL_VERIFICATION_SEND_FAILED_MESSAGE,
     EmailVerificationService,
 )
+from src.auth.password_reset_service import (
+    PASSWORD_RESET_INVALID_MESSAGE,
+    PASSWORD_RESET_NEUTRAL_MESSAGE,
+    PasswordResetService,
+)
 from src.auth.session import login_session, logout_session
 from src.auth.security import MIN_PASSWORD_LENGTH
 from src.auth.user_service import AuthValidationError, UserService, safe_auth_exception_summary
@@ -32,6 +37,9 @@ PROFILE_WIDGET_KEYS = (
     "auth-new-password-input",
     "auth-confirm-password-input",
     "auth-deactivate-email-input",
+    "auth-reset-request-email-input",
+    "auth-reset-new-password-input",
+    "auth-reset-confirm-password-input",
 )
 
 AUTH_MODAL_CSS = """
@@ -654,6 +662,11 @@ def _get_email_verification_service() -> EmailVerificationService:
     return EmailVerificationService.from_environment()
 
 
+@st.cache_resource(show_spinner=False)
+def _get_password_reset_service() -> PasswordResetService:
+    return PasswordResetService.from_environment()
+
+
 def open_auth_modal(
     mode: str = "login",
     *,
@@ -681,6 +694,7 @@ def close_auth_modal(*, redirect: bool = True) -> None:
     st.session_state.auth_modal_mode = None
     st.session_state.auth_redirect_on_close = None
     st.session_state.auth_target_page_on_success = None
+    st.session_state.pop("password_reset_token", None)
 
     if redirect_page:
         set_current_page(str(redirect_page))
@@ -753,6 +767,18 @@ def _get_email_verification_service_or_none() -> EmailVerificationService | None
     except Exception as exc:
         logger.warning(
             "Erro seguro email_verification_service | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
+        return None
+
+
+def _get_password_reset_service_or_none() -> PasswordResetService | None:
+    try:
+        return _get_password_reset_service()
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro password_reset_service | causa=%s | tipo=%s",
             safe_auth_exception_summary(exc),
             type(exc).__name__,
         )
@@ -964,22 +990,124 @@ def _render_signup_panel() -> None:
 def _render_forgot_password_panel() -> None:
     _render_auth_dialog_heading(
         "Recuperar senha",
-        "A recuperação de senha por e-mail ainda não está disponível.",
+        "Informe seu e-mail para solicitar instrucoes de recuperacao.",
     )
-    st.markdown(
-        """
-        <section class="auth-dialog-profile">
-            <p>
-                Entre em contato com a equipe responsável para solicitar a recuperação
-                de acesso. Nenhum e-mail foi enviado automaticamente.
-            </p>
-        </section>
-        """,
-        unsafe_allow_html=True,
-    )
+
+    global_info_slot = st.empty()
+    global_error_slot = st.empty()
+
+    with st.form("auth-password-reset-request-form", clear_on_submit=False):
+        email = st.text_input(
+            "E-mail",
+            placeholder="seu.email@exemplo.com",
+            key="auth-reset-request-email-input",
+        )
+        field_error_slots = {"email": st.empty()}
+        submitted = st.form_submit_button("Enviar instrucoes", use_container_width=True)
+
     if st.button("Voltar para entrar", key="auth-forgot-back-login", use_container_width=True):
-        switch_profile_panel("login")
+        set_auth_panel("login")
         st.rerun()
+
+    if submitted:
+        field_errors = validate_login_fields(email, "senha-temporaria")
+        if field_errors.get("email"):
+            _render_field_errors(field_error_slots, {"email": field_errors["email"]})
+            return
+
+        service = _get_password_reset_service_or_none()
+        if service is None:
+            _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+            return
+
+        try:
+            result = service.request_password_reset(email)
+        except Exception as exc:
+            logger.warning(
+                "Erro seguro solicitar_recuperacao_senha | causa=%s | tipo=%s",
+                safe_auth_exception_summary(exc),
+                type(exc).__name__,
+            )
+            _render_global_info(global_info_slot, PASSWORD_RESET_NEUTRAL_MESSAGE)
+        else:
+            _render_global_info(global_info_slot, result.message)
+
+
+def _render_reset_password_panel() -> None:
+    _render_auth_dialog_heading(
+        "Redefinir senha",
+        "Defina uma nova senha para acessar sua conta.",
+    )
+
+    reset_token = str(st.session_state.get("password_reset_token") or "").strip()
+    global_error_slot = st.empty()
+
+    if not reset_token:
+        _render_global_error(global_error_slot, PASSWORD_RESET_INVALID_MESSAGE)
+        if st.button("Voltar para entrar", key="auth-reset-back-login-missing", use_container_width=True):
+            st.session_state.pop("password_reset_token", None)
+            set_auth_panel("login")
+            st.rerun()
+        return
+
+    with st.form("auth-password-reset-confirm-form", clear_on_submit=True):
+        nova_senha = st.text_input(
+            "Nova senha",
+            type="password",
+            placeholder="No minimo 8 caracteres",
+            key="auth-reset-new-password-input",
+        )
+        field_error_slots = {"nova_senha": st.empty()}
+        confirmar_senha = st.text_input(
+            "Confirmar nova senha",
+            type="password",
+            placeholder="Repita sua nova senha",
+            key="auth-reset-confirm-password-input",
+        )
+        field_error_slots["confirmar_senha"] = st.empty()
+        submitted = st.form_submit_button("Redefinir senha", use_container_width=True)
+
+    if st.button("Voltar para entrar", key="auth-reset-back-login", use_container_width=True):
+        st.session_state.pop("password_reset_token", None)
+        set_auth_panel("login")
+        st.rerun()
+
+    if submitted:
+        field_errors: dict[str, str] = {}
+        if not nova_senha:
+            field_errors["nova_senha"] = "Informe a nova senha."
+        elif len(nova_senha) < MIN_PASSWORD_LENGTH:
+            field_errors["nova_senha"] = f"A senha deve ter pelo menos {MIN_PASSWORD_LENGTH} caracteres."
+        if not confirmar_senha or nova_senha != confirmar_senha:
+            field_errors["confirmar_senha"] = "As senhas nao coincidem."
+        if field_errors:
+            _render_field_errors(field_error_slots, field_errors)
+            return
+
+        service = _get_password_reset_service_or_none()
+        if service is None:
+            _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+            return
+
+        try:
+            result = service.reset_password_with_token(reset_token, nova_senha, confirmar_senha)
+        except AuthValidationError as exc:
+            _render_global_error(global_error_slot, exc.public_message)
+        except Exception as exc:
+            logger.warning(
+                "Erro seguro redefinir_senha | causa=%s | tipo=%s",
+                safe_auth_exception_summary(exc),
+                type(exc).__name__,
+            )
+            _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+        else:
+            if not result.success:
+                _render_global_error(global_error_slot, result.message)
+                return
+            st.session_state.pop("password_reset_token", None)
+            set_auth_panel("login")
+            queue_toast(st.session_state, result.message)
+            st.rerun()
 
 
 def _render_profile_panel() -> None:
@@ -1405,6 +1533,11 @@ def _render_forgot_password_dialog() -> None:
     _render_forgot_password_panel()
 
 
+@st.dialog("Redefinir senha", width="small", on_dismiss=_clear_auth_panel)
+def _render_reset_password_dialog() -> None:
+    _render_reset_password_panel()
+
+
 @st.dialog("Desativar conta", width="large", on_dismiss=_clear_auth_panel)
 def _render_deactivate_account_dialog() -> None:
     _render_deactivate_account_panel()
@@ -1429,5 +1562,7 @@ def render_auth_panel() -> None:
         _render_change_email_dialog()
     elif panel == "forgot_password":
         _render_forgot_password_dialog()
+    elif panel == "reset_password":
+        _render_reset_password_dialog()
     elif panel == "deactivate_account":
         _render_deactivate_account_dialog()

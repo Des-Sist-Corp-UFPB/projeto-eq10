@@ -231,6 +231,8 @@ Objetivo: permitir redefinicao segura de senha sem revelar se o e-mail existe.
 
 Nota: a estrategia de envio e provedores esta documentada em `docs/EMAIL_SERVICE_PLAN.md`.
 
+Implementacao inicial: a fundacao de recuperacao de senha foi adicionada com tabela `password_reset_tokens`, hash de token, expiracao, uso unico, mensagem publica neutra e integracao com `EmailService` em modo fake/local. O envio real por SMTP/API continua desativado por padrao.
+
 Fluxo recomendado:
 
 - Usuario clica em `Esqueci minha senha`.

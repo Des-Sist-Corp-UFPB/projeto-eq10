@@ -14,7 +14,7 @@ import streamlit as st
 from src.auth.email_verification_service import EmailVerificationService, is_email_verification_required
 from src.auth.session import can_access_chat, get_authenticated_user
 from src.auth.user_service import safe_auth_exception_summary
-from src.ui.auth_modal import open_auth_modal, render_auth_panel
+from src.ui.auth_modal import open_auth_modal, render_auth_panel, set_auth_panel
 from src.ui.header import render_auth_header
 from src.ui.notifications import render_pending_toast
 from src.ui.protected_chat import render_chat_auth_gate, render_chat_email_verification_gate
@@ -32,6 +32,10 @@ GENERIC_ERROR_MESSAGE = (
 )
 DATA_ACCESS_ERROR_MESSAGE = (
     "Não consegui acessar os dados no momento. "
+    "Tente novamente em alguns instantes."
+)
+EMAIL_VERIFICATION_QUERY_ERROR_MESSAGE = (
+    "Nao foi possivel validar o link de verificacao agora. "
     "Tente novamente em alguns instantes."
 )
 UNEXPECTED_FORMAT_ERROR_MESSAGE = (
@@ -87,6 +91,74 @@ def _can_use_chat_with_email_verification() -> bool:
             type(exc).__name__,
         )
         return False
+
+
+def _handle_password_reset_query_param() -> None:
+    raw_token = st.query_params.get("reset_password_token")
+    if isinstance(raw_token, list):
+        raw_token = raw_token[0] if raw_token else None
+    clean_token = str(raw_token or "").strip()
+    if not clean_token:
+        return
+
+    st.session_state.password_reset_token = clean_token
+    set_auth_panel("reset_password", redirect_on_close=DEFAULT_PAGE)
+    try:
+        del st.query_params["reset_password_token"]
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro limpar_reset_password_token_query | tipo=%s",
+            type(exc).__name__,
+        )
+
+def _handle_email_verification_query_param() -> None:
+    raw_token = st.query_params.get("verify_email_token")
+    if isinstance(raw_token, list):
+        raw_token = raw_token[0] if raw_token else None
+    clean_token = str(raw_token or "").strip()
+    if not clean_token:
+        return
+
+    try:
+        result = _get_email_verification_service().verify_email_token(clean_token)
+        st.session_state.email_verification_feedback = {
+            "message": result.message,
+            "success": result.success,
+        }
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro validar_verify_email_token | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
+        st.session_state.email_verification_feedback = {
+            "message": EMAIL_VERIFICATION_QUERY_ERROR_MESSAGE,
+            "success": False,
+        }
+
+    try:
+        del st.query_params["verify_email_token"]
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro limpar_verify_email_token_query | tipo=%s",
+            type(exc).__name__,
+        )
+
+
+def _render_email_verification_feedback() -> None:
+    feedback = st.session_state.pop("email_verification_feedback", None)
+    if not isinstance(feedback, dict):
+        return
+
+    message = str(feedback.get("message") or "").strip()
+    if not message:
+        return
+
+    if bool(feedback.get("success")):
+        st.success(message)
+    else:
+        st.error(message)
+
 
 _SPECIAL_CHAR_TRANSLATION = str.maketrans(
     {
@@ -1698,6 +1770,8 @@ def main() -> None:
     _apply_style()
     _init_messages()
     render_pending_toast()
+    _handle_password_reset_query_param()
+    _handle_email_verification_query_param()
     current_page = get_current_page()
     if (
         current_page == CHAT_PAGE
@@ -1708,9 +1782,10 @@ def main() -> None:
             mode="login",
             redirect_on_close=DEFAULT_PAGE,
             target_page_on_success=CHAT_PAGE,
-        )
+    )
     render_auth_header()
     render_auth_panel()
+    _render_email_verification_feedback()
     render_sidebar(current_page)
 
     if current_page == CHAT_PAGE:

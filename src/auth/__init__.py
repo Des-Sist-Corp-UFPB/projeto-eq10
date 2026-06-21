@@ -14,6 +14,7 @@ from src.auth.email_verification_service import (
     EmailVerificationToken,
     is_email_verification_required,
 )
+from src.auth.password_reset_service import PasswordResetResult, PasswordResetService, PasswordResetToken
 from src.auth.user_service import AuthValidationError, UserProfile, UserService
 
 __all__ = [
@@ -25,6 +26,9 @@ __all__ = [
     "EmailVerificationService",
     "EmailVerificationToken",
     "EmailService",
+    "PasswordResetResult",
+    "PasswordResetService",
+    "PasswordResetToken",
     "UserProfile",
     "UserService",
     "can_access_chat",
