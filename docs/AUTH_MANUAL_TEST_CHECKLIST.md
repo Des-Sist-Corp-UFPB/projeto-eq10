@@ -100,6 +100,19 @@ e seguranca de mensagens.
 - [ ] Enviar pergunta fora do escopo.
 - [ ] Confirmar mensagem amigavel, sem traceback.
 
+## Historico do Chat IA
+
+- [ ] Enviar uma pergunta autenticada.
+- [ ] Confirmar no banco de aplicacao que existe uma linha em `chat_sessions` para o `user_id`.
+- [ ] Confirmar que a pergunta foi salva em `chat_messages` com `role = user`.
+- [ ] Confirmar que a resposta foi salva em `chat_messages` com `role = assistant`.
+- [ ] Confirmar que falhas da IA salvam mensagem segura/status, sem traceback bruto.
+- [ ] Confirmar que outro usuario nao lista mensagens dessa sessao.
+- [ ] Executar soft delete de uma sessao em ambiente de teste.
+- [ ] Confirmar que `deletado = true` e `deletado_em` foi preenchido.
+- [ ] Confirmar que consultas normais nao retornam sessao/mensagens deletadas.
+- [ ] Confirmar que nenhuma tabela DATASUS foi alterada.
+
 ## Seguranca Visual e Logs
 
 - [ ] Confirmar que a UI nao mostra traceback Python.

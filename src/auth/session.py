@@ -42,6 +42,7 @@ def logout_session(session_state: MutableMapping[str, Any]) -> None:
     session_state.pop("auth_user_email", None)
     session_state["is_authenticated"] = False
     session_state.pop("pending_prompt", None)
+    session_state.pop("chat_history_session_id", None)
     session_state["messages"] = []
 
 

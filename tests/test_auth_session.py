@@ -19,6 +19,7 @@ class TestAuthSession(unittest.TestCase):
                 "role": "user",
             },
             "pending_prompt": "Média de idade",
+            "chat_history_session_id": 42,
             "messages": [{"role": "user", "content": "oi"}],
             "current_page": "Chat IA",
         }
@@ -31,6 +32,7 @@ class TestAuthSession(unittest.TestCase):
         self.assertNotIn("auth_user_email", session_state)
         self.assertFalse(session_state["is_authenticated"])
         self.assertNotIn("pending_prompt", session_state)
+        self.assertNotIn("chat_history_session_id", session_state)
         self.assertEqual(session_state["messages"], [])
         self.assertEqual(session_state["current_page"], "Chat IA")
 

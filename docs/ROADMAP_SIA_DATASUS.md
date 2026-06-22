@@ -282,6 +282,8 @@ Criterios de aceite:
 
 Objetivo: permitir rastreabilidade de interacoes sem armazenar dados sensiveis desnecessarios.
 
+Implementacao inicial: foram adicionadas as tabelas de aplicacao `chat_sessions` e `chat_messages`, com associacao por `user_id`, status por mensagem, timestamps e soft delete por `deletado`/`deletado_em`. A tabela `ai_interactions` fica pendente para uma etapa futura de auditoria de provedor/modelo/duracao.
+
 Tarefas:
 
 - [ ] Criar tabela `chat_sessions`.

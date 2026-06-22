@@ -95,6 +95,18 @@ class TestAppAiChat(unittest.TestCase):
         self.assertLess(loading_index, disabled_input_index)
         self.assertLess(disabled_input_index, assistant_append_index)
 
+    def test_chat_persiste_historico_para_usuario_autenticado(self):
+        source = APP_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("from src.chat.chat_history_service import ChatHistoryService", source)
+        self.assertIn("def _get_chat_history_service", source)
+        self.assertIn("def _persist_chat_history_message", source)
+        self.assertIn("st.session_state.chat_history_session_id = session.id", source)
+        self.assertIn('_persist_chat_history_message(\n            user_id=user_id,\n            role="user"', source)
+        self.assertIn('_persist_chat_history_message(\n            user_id=user_id,\n            role="assistant"', source)
+        self.assertIn('assistant_status = "error"', source)
+        self.assertIn("Erro seguro historico_chat", source)
+
     def test_estatisticas_permanece_publica_e_chat_fica_protegido(self):
         app_source = APP_PATH.read_text(encoding="utf-8")
         statistics_source = STATISTICS_PATH.read_text(encoding="utf-8")

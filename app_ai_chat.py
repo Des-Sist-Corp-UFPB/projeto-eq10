@@ -14,6 +14,7 @@ import streamlit as st
 from src.auth.email_verification_service import EmailVerificationService, is_email_verification_required
 from src.auth.session import can_access_chat, get_authenticated_user
 from src.auth.user_service import safe_auth_exception_summary
+from src.chat.chat_history_service import ChatHistoryService
 from src.ui.auth_modal import open_auth_modal, render_auth_panel, set_auth_panel
 from src.ui.header import render_auth_header
 from src.ui.notifications import render_pending_toast
@@ -74,6 +75,11 @@ def _get_email_verification_service() -> EmailVerificationService:
     return EmailVerificationService.from_environment()
 
 
+@st.cache_resource(show_spinner=False)
+def _get_chat_history_service() -> ChatHistoryService:
+    return ChatHistoryService.from_environment()
+
+
 def _can_use_chat_with_email_verification() -> bool:
     if not is_email_verification_required():
         return True
@@ -91,6 +97,62 @@ def _can_use_chat_with_email_verification() -> bool:
             type(exc).__name__,
         )
         return False
+
+
+def _chat_history_title_from_prompt(prompt: str) -> str:
+    clean_prompt = _sanitize_text(prompt)
+    return clean_prompt[:90] if clean_prompt else "Conversa do Chat IA"
+
+
+def _get_or_create_chat_history_session_id(user_id: int, prompt: str) -> int | None:
+    try:
+        service = _get_chat_history_service()
+        current_session_id = st.session_state.get("chat_history_session_id")
+        if current_session_id:
+            session = service.get_chat_session(int(current_session_id), user_id)
+            if session is not None:
+                return session.id
+
+        session = service.get_or_create_active_chat_session(
+            user_id,
+            title=_chat_history_title_from_prompt(prompt),
+        )
+        st.session_state.chat_history_session_id = session.id
+        return session.id
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro historico_chat | acao=obter_sessao | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
+        return None
+
+
+def _persist_chat_history_message(
+    *,
+    user_id: int,
+    role: str,
+    content: str,
+    status: str = "ok",
+    prompt_for_title: str = "",
+) -> None:
+    try:
+        session_id = _get_or_create_chat_history_session_id(user_id, prompt_for_title or content)
+        if not session_id:
+            return
+        _get_chat_history_service().add_chat_message(
+            session_id,
+            user_id,
+            role,
+            content,
+            status=status,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro historico_chat | acao=salvar_mensagem | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
 
 
 def _handle_password_reset_query_param() -> None:
@@ -1710,11 +1772,22 @@ def _process_pending_prompt() -> bool:
         logger.warning("Tentativa bloqueada de chat com e-mail nao verificado.")
         return False
 
+    user = get_authenticated_user(st.session_state)
+    user_id = int(user["id"]) if user else 0
     st.session_state.pending_prompt = None
+    if user_id:
+        _persist_chat_history_message(
+            user_id=user_id,
+            role="user",
+            content=prompt,
+            status="ok",
+            prompt_for_title=prompt,
+        )
     st.session_state.messages.append({"role": "user", "content": prompt})
     _render_chat_history(show_processing=True)
     _render_input_form(disabled=True)
 
+    assistant_status = "ok"
     try:
         perguntar_datasus = _get_datasus_question_runner()
         resposta = perguntar_datasus(prompt)
@@ -1724,7 +1797,16 @@ def _process_pending_prompt() -> bool:
             type(exc).__name__,
         )
         resposta = GENERIC_ERROR_MESSAGE
+        assistant_status = "error"
 
+    if user_id:
+        _persist_chat_history_message(
+            user_id=user_id,
+            role="assistant",
+            content=resposta,
+            status=assistant_status,
+            prompt_for_title=prompt,
+        )
     st.session_state.messages.append({"role": "assistant", "content": resposta})
     st.rerun()
     return True
