@@ -13,6 +13,12 @@ import streamlit as st
 from src.auth.account_reactivation_service import (
     AccountReactivationService,
 )
+from src.auth.email_change_service import (
+    EMAIL_CHANGE_DUPLICATE_MESSAGE,
+    EMAIL_CHANGE_EMAIL_DISABLED_MESSAGE,
+    EMAIL_CHANGE_SEND_FAILED_MESSAGE,
+    EmailChangeService,
+)
 from src.auth.email_verification_service import (
     EMAIL_VERIFICATION_SEND_FAILED_MESSAGE,
     EmailVerificationService,
@@ -444,6 +450,7 @@ def handle_email_code_confirmation(
 PROFILE_WIDGET_KEYS = (
     "auth-change-name-input",
     "auth-change-email-input",
+    "auth-change-email-password-input",
     "auth-current-password-input",
     "auth-new-password-input",
     "auth-confirm-password-input",
@@ -1183,6 +1190,61 @@ AUTH_MODAL_CSS = """
         font-weight: 780 !important;
     }
 
+    [data-testid="stDialog"]:has(.auth-password-form-panel) [data-testid="stForm"] {
+        max-width: 30rem !important;
+        margin: 0 auto !important;
+        padding: 0.35rem 0 0.55rem !important;
+    }
+
+    [data-testid="stDialog"]:has(.auth-password-form-panel) [data-testid="stTextInput"] {
+        margin-bottom: 0.68rem !important;
+    }
+
+    [data-testid="stDialog"]:has(.auth-password-form-panel) input[type="password"] {
+        min-height: 2.95rem !important;
+        border-radius: 0.92rem !important;
+        padding-left: 0.95rem !important;
+        padding-right: 0.95rem !important;
+        background: #FFFFFF !important;
+        border-color: rgba(100, 116, 139, 0.26) !important;
+    }
+
+    [data-testid="stDialog"]:has(.auth-password-form-panel) [data-testid="stFormSubmitButton"] {
+        margin-top: 0.62rem !important;
+    }
+
+    [data-testid="stDialog"] .st-key-auth-password-back,
+    .st-key-auth-password-back {
+        display: flex !important;
+        justify-content: center !important;
+        margin-top: 0.78rem !important;
+    }
+
+    [data-testid="stDialog"] .st-key-auth-password-back button,
+    .st-key-auth-password-back button {
+        width: auto !important;
+        min-width: 11rem !important;
+        min-height: 2.45rem !important;
+        padding: 0 1.05rem !important;
+        border: 1px solid rgba(123, 44, 191, 0.28) !important;
+        border-radius: 999px !important;
+        background: #FFFFFF !important;
+        color: #5B21B6 !important;
+        box-shadow: 0 8px 18px rgba(76, 29, 149, 0.07) !important;
+        font-size: 0.9rem !important;
+        font-weight: 780 !important;
+    }
+
+    [data-testid="stDialog"] .st-key-auth-password-back button:hover,
+    [data-testid="stDialog"] .st-key-auth-password-back button:focus,
+    .st-key-auth-password-back button:hover,
+    .st-key-auth-password-back button:focus {
+        background: #F8FAFC !important;
+        border-color: rgba(37, 99, 235, 0.42) !important;
+        color: #4C1D95 !important;
+        box-shadow: 0 0 0 3px rgba(123, 44, 191, 0.10) !important;
+    }
+
     @media (max-width: 720px) {
         .auth-profile-info-grid,
         .auth-profile-actions {
@@ -1209,6 +1271,11 @@ def _get_auth_service() -> UserService:
 @st.cache_resource(show_spinner=False)
 def _get_email_verification_service() -> EmailVerificationService:
     return EmailVerificationService.from_environment()
+
+
+@st.cache_resource(show_spinner=False)
+def _get_email_change_service() -> EmailChangeService:
+    return EmailChangeService.from_environment()
 
 
 @st.cache_resource(show_spinner=False)
@@ -1240,6 +1307,7 @@ def open_auth_modal(
 
 def switch_auth_modal_mode(mode: str) -> None:
     _clear_modal_feedback(st.session_state)
+    _clear_modal_processing()
     open_auth_modal(
         mode,
         redirect_on_close=st.session_state.get("auth_redirect_on_close"),
@@ -1255,6 +1323,7 @@ def close_auth_modal(*, redirect: bool = True) -> None:
     st.session_state.auth_redirect_on_close = None
     st.session_state.auth_target_page_on_success = None
     _clear_modal_feedback(st.session_state)
+    _clear_modal_processing()
     st.session_state.pop("password_reset_token", None)
     st.session_state.pop("pending_registration_id", None)
     st.session_state.pop("pending_registration_email", None)
@@ -1300,6 +1369,7 @@ def switch_profile_panel(panel: str) -> None:
     # Profile action clicks only change panels; persistence runs in form submits.
     _clear_profile_form_state()
     _clear_modal_feedback(st.session_state)
+    _clear_modal_processing()
     set_auth_panel(panel)
 
 
@@ -1344,6 +1414,18 @@ def _get_email_verification_service_or_none() -> EmailVerificationService | None
     except Exception as exc:
         logger.warning(
             "Erro seguro email_verification_service | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
+        return None
+
+
+def _get_email_change_service_or_none() -> EmailChangeService | None:
+    try:
+        return _get_email_change_service()
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro email_change_service | causa=%s | tipo=%s",
             safe_auth_exception_summary(exc),
             type(exc).__name__,
         )
@@ -1430,14 +1512,37 @@ def set_modal_feedback(session_state: Any, message: str, kind: str = "success") 
     session_state[AUTH_MODAL_FEEDBACK_KIND_KEY] = kind if kind in {"success", "error", "info"} else "success"
 
 
+def _start_modal_processing(message: str) -> None:
+    st.session_state[AUTH_MODAL_PROCESSING_KEY] = message
+
+
+def _clear_modal_processing() -> None:
+    st.session_state.pop(AUTH_MODAL_PROCESSING_KEY, None)
+
+
+def _is_modal_processing(message: str | None = None) -> bool:
+    current_message = st.session_state.get(AUTH_MODAL_PROCESSING_KEY)
+    if message is None:
+        return bool(current_message)
+    return current_message == message
+
+
+def _processing_label(default_label: str, processing_label: str) -> str:
+    return processing_label if _is_modal_processing(processing_label) else default_label
+
+
+def _should_process(submitted: bool, processing_label: str) -> bool:
+    return bool(submitted or _is_modal_processing(processing_label))
+
+
 @contextmanager
 def modal_action_processing(message: str):
-    st.session_state[AUTH_MODAL_PROCESSING_KEY] = message
+    _start_modal_processing(message)
     try:
         with st.spinner(message):
             yield
     finally:
-        st.session_state.pop(AUTH_MODAL_PROCESSING_KEY, None)
+        _clear_modal_processing()
 
 
 def _render_modal_feedback() -> None:
@@ -1490,7 +1595,7 @@ def _render_auth_footer(
     switch_key: str,
 ) -> None:
     st.markdown('<section class="auth-dialog-footer">', unsafe_allow_html=True)
-    if st.button(action_label, key=switch_key, use_container_width=True):
+    if st.button(action_label, key=switch_key, use_container_width=True, disabled=_is_modal_processing()):
         switch_auth_modal_mode(switch_mode)
         st.rerun()
     st.markdown("</section>", unsafe_allow_html=True)
@@ -1513,7 +1618,7 @@ def _render_profile_action_card(
         """,
         unsafe_allow_html=True,
     )
-    if st.button(button_label, key=button_key, use_container_width=True):
+    if st.button(button_label, key=button_key, use_container_width=True, disabled=_is_modal_processing()):
         switch_profile_panel(target_panel)
         st.rerun()
 
@@ -1522,22 +1627,41 @@ def _render_login_panel() -> None:
     _render_auth_dialog_heading("Acesso ao Chat IA", "Entre para continuar usando o chat inteligente.")
     global_error_slot = st.empty()
     global_info_slot = st.empty()
+    login_processing_label = "Entrando..."
+    is_processing = _is_modal_processing()
 
     email = st.text_input("E-mail", placeholder="seu.email@exemplo.com")
     field_error_slots = {"email": st.empty()}
     senha = st.text_input("Senha", type="password", placeholder="Sua senha")
     field_error_slots["senha"] = st.empty()
 
-    if st.button("Esqueci minha senha", key="auth-login-forgot-password", use_container_width=False):
+    if st.button(
+        "Esqueci minha senha",
+        key="auth-login-forgot-password",
+        use_container_width=False,
+        disabled=is_processing,
+    ):
         set_auth_panel("forgot_password")
         st.rerun()
 
-    submitted = st.button("Entrar", key="auth-login-submit", use_container_width=True)
+    submitted = st.button(
+        _processing_label("Entrar", login_processing_label),
+        key="auth-login-submit",
+        use_container_width=True,
+        disabled=is_processing,
+        on_click=_start_modal_processing,
+        args=(login_processing_label,),
+    )
 
     st.markdown('<div class="auth-login-divider">ou</div>', unsafe_allow_html=True)
 
     # Placeholder seguro: Google OAuth sera implementado em fase futura.
-    if st.button("G  Entrar com Google", key="auth-login-google-placeholder", use_container_width=True):
+    if st.button(
+        "G  Entrar com Google",
+        key="auth-login-google-placeholder",
+        use_container_width=True,
+        disabled=is_processing,
+    ):
         _render_global_info(global_info_slot, GOOGLE_SIGN_IN_UNAVAILABLE_MESSAGE)
 
     _render_auth_footer(
@@ -1546,39 +1670,44 @@ def _render_login_panel() -> None:
         switch_key="auth-login-go-signup",
     )
 
-    if submitted:
-        field_errors = validate_login_fields(email, senha)
-        if field_errors:
-            _render_field_errors(field_error_slots, field_errors)
-            return
-
-        service = _get_auth_service_or_none()
-        if service is None:
-            _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
-            return
-
+    if _should_process(submitted, login_processing_label):
         try:
-            with modal_action_processing("Entrando..."):
-                user = service.authenticate(email, senha)
-        except AuthValidationError as exc:
-            _render_global_error(global_error_slot, exc.public_message)
-        except Exception as exc:
-            logger.warning(
-                "Erro seguro login | causa=%s | tipo=%s",
-                safe_auth_exception_summary(exc),
-                type(exc).__name__,
-            )
-            _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
-        else:
-            login_session(st.session_state, user)
-            _finish_auth_success()
-            queue_toast(st.session_state, "Login realizado com sucesso.")
-            st.rerun()
+            field_errors = validate_login_fields(email, senha)
+            if field_errors:
+                _render_field_errors(field_error_slots, field_errors)
+                return
+
+            service = _get_auth_service_or_none()
+            if service is None:
+                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+                return
+
+            try:
+                with modal_action_processing(login_processing_label):
+                    user = service.authenticate(email, senha)
+            except AuthValidationError as exc:
+                _render_global_error(global_error_slot, exc.public_message)
+            except Exception as exc:
+                logger.warning(
+                    "Erro seguro login | causa=%s | tipo=%s",
+                    safe_auth_exception_summary(exc),
+                    type(exc).__name__,
+                )
+                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+            else:
+                login_session(st.session_state, user)
+                _finish_auth_success()
+                queue_toast(st.session_state, "Login realizado com sucesso.")
+                st.rerun()
+        finally:
+            _clear_modal_processing()
 
 
 def _render_signup_panel() -> None:
     _render_auth_dialog_heading("Criar conta", "Preencha seus dados para acessar o Chat IA.")
     global_error_slot = st.empty()
+    signup_processing_label = "Enviando codigo..."
+    is_processing = _is_modal_processing()
 
     with st.form("auth-signup-form", clear_on_submit=False):
         nome = st.text_input("Nome", placeholder="Seu nome")
@@ -1593,7 +1722,13 @@ def _render_signup_panel() -> None:
             placeholder="Repita sua senha",
         )
         field_error_slots["confirmar_senha"] = st.empty()
-        submitted = st.form_submit_button("Criar conta", use_container_width=True)
+        submitted = st.form_submit_button(
+            _processing_label("Criar conta", signup_processing_label),
+            use_container_width=True,
+            disabled=is_processing,
+            on_click=_start_modal_processing,
+            args=(signup_processing_label,),
+        )
 
     _render_auth_footer(
         action_label="Entrar",
@@ -1601,37 +1736,40 @@ def _render_signup_panel() -> None:
         switch_key="auth-signup-go-login",
     )
 
-    if submitted:
-        field_errors = validate_register_fields(nome, email, senha, confirmar_senha)
-        if field_errors:
-            _render_field_errors(field_error_slots, field_errors)
-            return
+    if _should_process(submitted, signup_processing_label):
+        try:
+            field_errors = validate_register_fields(nome, email, senha, confirmar_senha)
+            if field_errors:
+                _render_field_errors(field_error_slots, field_errors)
+                return
 
-        service = _get_pending_registration_service_or_none()
-        if service is None:
-            _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
-            return
-        reactivation_service = _get_account_reactivation_service_or_none()
-        if reactivation_service is None:
-            _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
-            return
+            service = _get_pending_registration_service_or_none()
+            if service is None:
+                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+                return
+            reactivation_service = _get_account_reactivation_service_or_none()
+            if reactivation_service is None:
+                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+                return
 
-        with modal_action_processing("Enviando codigo..."):
-            next_step = handle_register_submit(
-                st.session_state,
-                service,
-                reactivation_service,
-                nome=nome,
-                email=email,
-                senha=senha,
-                confirmar_senha=confirmar_senha,
-            )
-        if next_step.panel == "confirm_email":
-            set_auth_panel("confirm_email")
-            st.rerun()
-            return
+            with modal_action_processing(signup_processing_label):
+                next_step = handle_register_submit(
+                    st.session_state,
+                    service,
+                    reactivation_service,
+                    nome=nome,
+                    email=email,
+                    senha=senha,
+                    confirmar_senha=confirmar_senha,
+                )
+            if next_step.panel == "confirm_email":
+                set_auth_panel("confirm_email")
+                st.rerun()
+                return
 
-        _render_global_error(global_error_slot, next_step.message)
+            _render_global_error(global_error_slot, next_step.message)
+        finally:
+            _clear_modal_processing()
 
 
 def _render_confirm_email_panel() -> None:
@@ -1640,6 +1778,8 @@ def _render_confirm_email_panel() -> None:
         CONFIRM_EMAIL_DESCRIPTION,
     )
     global_error_slot = st.empty()
+    confirm_processing_label = "Verificando codigo..."
+    is_processing = _is_modal_processing()
     flow_kind = st.session_state.get("registration_flow_kind")
     pending_id = st.session_state.get("pending_registration_id")
     pending_email = st.session_state.get("pending_registration_email")
@@ -1658,50 +1798,64 @@ def _render_confirm_email_panel() -> None:
             key="auth-registration-code-input",
         )
         field_error_slots = {"codigo": st.empty()}
-        submitted = st.form_submit_button("Confirmar e-mail", use_container_width=True)
-
-    if st.button("Voltar para entrar", key="auth-confirm-registration-go-login", use_container_width=True):
-        set_auth_panel("login")
-        st.rerun()
-
-    if not submitted:
-        return
-
-    if not (codigo or "").strip():
-        _render_field_errors(field_error_slots, {"codigo": "Informe o codigo enviado por e-mail."})
-        return
-
-    pending_service = _get_pending_registration_service_or_none()
-    reactivation_service = _get_account_reactivation_service_or_none()
-    if pending_service is None or reactivation_service is None:
-        _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
-        return
-
-    with modal_action_processing("Verificando codigo..."):
-        result = handle_email_code_confirmation(
-            st.session_state,
-            pending_service,
-            reactivation_service,
-            code=codigo,
+        submitted = st.form_submit_button(
+            _processing_label("Confirmar e-mail", confirm_processing_label),
+            use_container_width=True,
+            disabled=is_processing,
+            on_click=_start_modal_processing,
+            args=(confirm_processing_label,),
         )
-    if not result.success:
-        _render_global_error(global_error_slot, result.message)
-        return
 
-    if result.flow_kind == "pending_registration":
-        login_session(st.session_state, result.user)
-        _finish_auth_success()
-        queue_toast(st.session_state, result.message)
-        st.rerun()
-        return
-
-    if result.flow_kind == "reactivation":
+    if st.button(
+        "Voltar para entrar",
+        key="auth-confirm-registration-go-login",
+        use_container_width=True,
+        disabled=is_processing,
+    ):
         set_auth_panel("login")
-        set_modal_feedback(st.session_state, result.message)
         st.rerun()
+
+    if not _should_process(submitted, confirm_processing_label):
         return
 
-    _render_global_error(global_error_slot, CONFIRM_EMAIL_STALE_MESSAGE)
+    try:
+        if not (codigo or "").strip():
+            _render_field_errors(field_error_slots, {"codigo": "Informe o codigo enviado por e-mail."})
+            return
+
+        pending_service = _get_pending_registration_service_or_none()
+        reactivation_service = _get_account_reactivation_service_or_none()
+        if pending_service is None or reactivation_service is None:
+            _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+            return
+
+        with modal_action_processing(confirm_processing_label):
+            result = handle_email_code_confirmation(
+                st.session_state,
+                pending_service,
+                reactivation_service,
+                code=codigo,
+            )
+        if not result.success:
+            _render_global_error(global_error_slot, result.message)
+            return
+
+        if result.flow_kind == "pending_registration":
+            login_session(st.session_state, result.user)
+            _finish_auth_success()
+            queue_toast(st.session_state, result.message)
+            st.rerun()
+            return
+
+        if result.flow_kind == "reactivation":
+            set_auth_panel("login")
+            set_modal_feedback(st.session_state, result.message)
+            st.rerun()
+            return
+
+        _render_global_error(global_error_slot, CONFIRM_EMAIL_STALE_MESSAGE)
+    finally:
+        _clear_modal_processing()
 
 
 def _render_confirm_registration_panel() -> None:
@@ -1720,6 +1874,8 @@ def _render_forgot_password_panel() -> None:
 
     global_info_slot = st.empty()
     global_error_slot = st.empty()
+    reset_request_processing_label = "Enviando instrucoes..."
+    is_processing = _is_modal_processing()
 
     with st.form("auth-password-reset-request-form", clear_on_submit=False):
         email = st.text_input(
@@ -1728,35 +1884,44 @@ def _render_forgot_password_panel() -> None:
             key="auth-reset-request-email-input",
         )
         field_error_slots = {"email": st.empty()}
-        submitted = st.form_submit_button("Enviar instrucoes", use_container_width=True)
+        submitted = st.form_submit_button(
+            _processing_label("Enviar instrucoes", reset_request_processing_label),
+            use_container_width=True,
+            disabled=is_processing,
+            on_click=_start_modal_processing,
+            args=(reset_request_processing_label,),
+        )
 
-    if st.button("Voltar para entrar", key="auth-forgot-back-login", use_container_width=True):
+    if st.button("Voltar para entrar", key="auth-forgot-back-login", use_container_width=True, disabled=is_processing):
         set_auth_panel("login")
         st.rerun()
 
-    if submitted:
-        field_errors = validate_login_fields(email, "senha-temporaria")
-        if field_errors.get("email"):
-            _render_field_errors(field_error_slots, {"email": field_errors["email"]})
-            return
-
-        service = _get_password_reset_service_or_none()
-        if service is None:
-            _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
-            return
-
+    if _should_process(submitted, reset_request_processing_label):
         try:
-            with modal_action_processing("Enviando instrucoes..."):
-                result = service.request_password_reset(email)
-        except Exception as exc:
-            logger.warning(
-                "Erro seguro solicitar_recuperacao_senha | causa=%s | tipo=%s",
-                safe_auth_exception_summary(exc),
-                type(exc).__name__,
-            )
-            _render_global_info(global_info_slot, PASSWORD_RESET_NEUTRAL_MESSAGE)
-        else:
-            _render_global_info(global_info_slot, result.message)
+            field_errors = validate_login_fields(email, "senha-temporaria")
+            if field_errors.get("email"):
+                _render_field_errors(field_error_slots, {"email": field_errors["email"]})
+                return
+
+            service = _get_password_reset_service_or_none()
+            if service is None:
+                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+                return
+
+            try:
+                with modal_action_processing(reset_request_processing_label):
+                    result = service.request_password_reset(email)
+            except Exception as exc:
+                logger.warning(
+                    "Erro seguro solicitar_recuperacao_senha | causa=%s | tipo=%s",
+                    safe_auth_exception_summary(exc),
+                    type(exc).__name__,
+                )
+                _render_global_info(global_info_slot, PASSWORD_RESET_NEUTRAL_MESSAGE)
+            else:
+                _render_global_info(global_info_slot, result.message)
+        finally:
+            _clear_modal_processing()
 
 
 def _render_reset_password_panel() -> None:
@@ -1767,6 +1932,8 @@ def _render_reset_password_panel() -> None:
 
     reset_token = str(st.session_state.get("password_reset_token") or "").strip()
     global_error_slot = st.empty()
+    reset_password_processing_label = "Redefinindo senha..."
+    is_processing = _is_modal_processing()
 
     if not reset_token:
         _render_global_error(global_error_slot, PASSWORD_RESET_INVALID_MESSAGE)
@@ -1791,50 +1958,59 @@ def _render_reset_password_panel() -> None:
             key="auth-reset-confirm-password-input",
         )
         field_error_slots["confirmar_senha"] = st.empty()
-        submitted = st.form_submit_button("Redefinir senha", use_container_width=True)
+        submitted = st.form_submit_button(
+            _processing_label("Redefinir senha", reset_password_processing_label),
+            use_container_width=True,
+            disabled=is_processing,
+            on_click=_start_modal_processing,
+            args=(reset_password_processing_label,),
+        )
 
-    if st.button("Voltar para entrar", key="auth-reset-back-login", use_container_width=True):
+    if st.button("Voltar para entrar", key="auth-reset-back-login", use_container_width=True, disabled=is_processing):
         st.session_state.pop("password_reset_token", None)
         set_auth_panel("login")
         st.rerun()
 
-    if submitted:
-        field_errors: dict[str, str] = {}
-        if not nova_senha:
-            field_errors["nova_senha"] = "Informe a nova senha."
-        elif len(nova_senha) < MIN_PASSWORD_LENGTH:
-            field_errors["nova_senha"] = f"A senha deve ter pelo menos {MIN_PASSWORD_LENGTH} caracteres."
-        if not confirmar_senha or nova_senha != confirmar_senha:
-            field_errors["confirmar_senha"] = "As senhas nao coincidem."
-        if field_errors:
-            _render_field_errors(field_error_slots, field_errors)
-            return
-
-        service = _get_password_reset_service_or_none()
-        if service is None:
-            _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
-            return
-
+    if _should_process(submitted, reset_password_processing_label):
         try:
-            with modal_action_processing("Salvando nova senha..."):
-                result = service.reset_password_with_token(reset_token, nova_senha, confirmar_senha)
-        except AuthValidationError as exc:
-            _render_global_error(global_error_slot, exc.public_message)
-        except Exception as exc:
-            logger.warning(
-                "Erro seguro redefinir_senha | causa=%s | tipo=%s",
-                safe_auth_exception_summary(exc),
-                type(exc).__name__,
-            )
-            _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
-        else:
-            if not result.success:
-                _render_global_error(global_error_slot, result.message)
+            field_errors: dict[str, str] = {}
+            if not nova_senha:
+                field_errors["nova_senha"] = "Informe a nova senha."
+            elif len(nova_senha) < MIN_PASSWORD_LENGTH:
+                field_errors["nova_senha"] = f"A senha deve ter pelo menos {MIN_PASSWORD_LENGTH} caracteres."
+            if not confirmar_senha or nova_senha != confirmar_senha:
+                field_errors["confirmar_senha"] = "As senhas nao coincidem."
+            if field_errors:
+                _render_field_errors(field_error_slots, field_errors)
                 return
-            st.session_state.pop("password_reset_token", None)
-            set_auth_panel("login")
-            set_modal_feedback(st.session_state, result.message)
-            st.rerun()
+
+            service = _get_password_reset_service_or_none()
+            if service is None:
+                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+                return
+
+            try:
+                with modal_action_processing(reset_password_processing_label):
+                    result = service.reset_password_with_token(reset_token, nova_senha, confirmar_senha)
+            except AuthValidationError as exc:
+                _render_global_error(global_error_slot, exc.public_message)
+            except Exception as exc:
+                logger.warning(
+                    "Erro seguro redefinir_senha | causa=%s | tipo=%s",
+                    safe_auth_exception_summary(exc),
+                    type(exc).__name__,
+                )
+                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+            else:
+                if not result.success:
+                    _render_global_error(global_error_slot, result.message)
+                    return
+                st.session_state.pop("password_reset_token", None)
+                set_auth_panel("login")
+                set_modal_feedback(st.session_state, result.message)
+                st.rerun()
+        finally:
+            _clear_modal_processing()
 
 
 def _render_profile_panel() -> None:
@@ -1889,6 +2065,8 @@ def _render_profile_panel() -> None:
     )
 
     if not email_verified:
+        resend_processing_label = "Enviando verificacao..."
+        is_processing = _is_modal_processing()
         st.markdown(
             """
             <section class="auth-profile-verification-note">
@@ -1897,22 +2075,32 @@ def _render_profile_panel() -> None:
             """,
             unsafe_allow_html=True,
         )
-        if st.button("Reenviar verificacao", key="auth-profile-resend-verification"):
-            if verification_service is None:
-                set_modal_feedback(st.session_state, EMAIL_VERIFICATION_SEND_FAILED_MESSAGE, "error")
-            else:
-                try:
-                    with modal_action_processing("Enviando verificacao..."):
-                        verification_result = verification_service.resend_verification_email(int(user["id"]))
-                    set_modal_feedback(st.session_state, verification_result.message)
-                except Exception as exc:
-                    logger.warning(
-                        "Erro seguro reenviar_verificacao_email | causa=%s | tipo=%s",
-                        safe_auth_exception_summary(exc),
-                        type(exc).__name__,
-                    )
+        submitted_resend = st.button(
+            _processing_label("Reenviar verificacao", resend_processing_label),
+            key="auth-profile-resend-verification",
+            disabled=is_processing,
+            on_click=_start_modal_processing,
+            args=(resend_processing_label,),
+        )
+        if _should_process(submitted_resend, resend_processing_label):
+            try:
+                if verification_service is None:
                     set_modal_feedback(st.session_state, EMAIL_VERIFICATION_SEND_FAILED_MESSAGE, "error")
-            st.rerun()
+                else:
+                    try:
+                        with modal_action_processing(resend_processing_label):
+                            verification_result = verification_service.resend_verification_email(int(user["id"]))
+                        set_modal_feedback(st.session_state, verification_result.message)
+                    except Exception as exc:
+                        logger.warning(
+                            "Erro seguro reenviar_verificacao_email | causa=%s | tipo=%s",
+                            safe_auth_exception_summary(exc),
+                            type(exc).__name__,
+                        )
+                        set_modal_feedback(st.session_state, EMAIL_VERIFICATION_SEND_FAILED_MESSAGE, "error")
+                st.rerun()
+            finally:
+                _clear_modal_processing()
 
     action_columns = st.columns(3, gap="small")
     with action_columns[0]:
@@ -1967,43 +2155,54 @@ def _render_change_name_panel() -> None:
     _render_auth_dialog_heading("Alterar nome", "Atualize o nome exibido na sua conta.")
 
     global_slot = st.empty()
+    save_name_processing_label = "Salvando..."
+    is_processing = _is_modal_processing()
 
     with st.form("auth-change-name-form", clear_on_submit=False):
         nome = st.text_input("Nome", value=user["nome"], key="auth-change-name-input")
         field_error_slots = {"nome": st.empty()}
-        submitted = st.form_submit_button("Salvar nome", use_container_width=True)
+        submitted = st.form_submit_button(
+            _processing_label("Salvar nome", save_name_processing_label),
+            use_container_width=True,
+            disabled=is_processing,
+            on_click=_start_modal_processing,
+            args=(save_name_processing_label,),
+        )
 
-    if st.button("Voltar ao perfil", key="auth-name-back", use_container_width=True):
+    if st.button("Voltar ao perfil", key="auth-name-back", use_container_width=True, disabled=is_processing):
         switch_profile_panel("profile")
         st.rerun()
 
-    if submitted:
-        if not (nome or "").strip():
-            _render_field_errors(field_error_slots, {"nome": "Informe o novo nome."})
-            return
-
-        service = _get_auth_service_or_none()
-        if service is None:
-            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
-            return
-
+    if _should_process(submitted, save_name_processing_label):
         try:
-            with modal_action_processing("Salvando alteracao..."):
-                updated_user = service.update_name(int(user["id"]), nome)
-        except AuthValidationError as exc:
-            _render_global_error(global_slot, exc.public_message)
-        except Exception as exc:
-            logger.warning(
-                "Erro seguro alterar_nome | causa=%s | tipo=%s",
-                safe_auth_exception_summary(exc),
-                type(exc).__name__,
-            )
-            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
-        else:
-            login_session(st.session_state, updated_user)
-            switch_profile_panel("profile")
-            set_modal_feedback(st.session_state, "Nome atualizado com sucesso.")
-            st.rerun()
+            if not (nome or "").strip():
+                _render_field_errors(field_error_slots, {"nome": "Informe o novo nome."})
+                return
+
+            service = _get_auth_service_or_none()
+            if service is None:
+                _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+                return
+
+            try:
+                with modal_action_processing(save_name_processing_label):
+                    updated_user = service.update_name(int(user["id"]), nome)
+            except AuthValidationError as exc:
+                _render_global_error(global_slot, exc.public_message)
+            except Exception as exc:
+                logger.warning(
+                    "Erro seguro alterar_nome | causa=%s | tipo=%s",
+                    safe_auth_exception_summary(exc),
+                    type(exc).__name__,
+                )
+                _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+            else:
+                login_session(st.session_state, updated_user)
+                switch_profile_panel("profile")
+                set_modal_feedback(st.session_state, "Nome atualizado com sucesso.")
+                st.rerun()
+        finally:
+            _clear_modal_processing()
 
 
 def _render_change_password_panel() -> None:
@@ -2012,13 +2211,15 @@ def _render_change_password_panel() -> None:
         set_auth_panel("login")
         return
 
-    st.markdown('<section class="auth-profile-form-panel"></section>', unsafe_allow_html=True)
+    st.markdown('<section class="auth-profile-form-panel auth-password-form-panel"></section>', unsafe_allow_html=True)
     _render_auth_dialog_heading(
         "Alterar senha",
         "Informe a senha atual antes de definir uma nova senha.",
     )
 
     global_slot = st.empty()
+    save_password_processing_label = "Alterando senha..."
+    is_processing = _is_modal_processing()
 
     with st.form("auth-change-password-form", clear_on_submit=True):
         senha_atual = st.text_input("Senha atual", type="password", key="auth-current-password-input")
@@ -2036,13 +2237,19 @@ def _render_change_password_panel() -> None:
             key="auth-confirm-password-input",
         )
         field_error_slots["confirmar_senha"] = st.empty()
-        submitted = st.form_submit_button("Salvar senha", use_container_width=True)
+        submitted = st.form_submit_button(
+            _processing_label("Salvar senha", save_password_processing_label),
+            use_container_width=True,
+            disabled=is_processing,
+            on_click=_start_modal_processing,
+            args=(save_password_processing_label,),
+        )
 
-    if st.button("Voltar ao perfil", key="auth-password-back", use_container_width=True):
+    if st.button("Voltar ao perfil", key="auth-password-back", use_container_width=False, disabled=is_processing):
         switch_profile_panel("profile")
         st.rerun()
 
-    if submitted:
+    if _should_process(submitted, save_password_processing_label):
         field_errors: dict[str, str] = {}
         if not senha_atual:
             field_errors["senha_atual"] = "Informe sua senha atual."
@@ -2056,15 +2263,17 @@ def _render_change_password_panel() -> None:
             field_errors["confirmar_senha"] = "As senhas não coincidem."
         if field_errors:
             _render_field_errors(field_error_slots, field_errors)
+            _clear_modal_processing()
             return
 
         service = _get_auth_service_or_none()
         if service is None:
             _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+            _clear_modal_processing()
             return
 
         try:
-            with modal_action_processing("Salvando senha..."):
+            with modal_action_processing(save_password_processing_label):
                 service.change_password(
                     int(user["id"]),
                     senha_atual,
@@ -2095,17 +2304,19 @@ def _render_change_email_panel() -> None:
     st.markdown('<section class="auth-profile-form-panel"></section>', unsafe_allow_html=True)
     _render_auth_dialog_heading(
         "Alterar e-mail",
-        "Informe o novo e-mail para iniciar a alteracao.",
+        "Confirme o novo e-mail antes de atualizar sua conta.",
     )
 
     global_slot = st.empty()
+    save_email_processing_label = "Enviando confirmacao..."
+    is_processing = _is_modal_processing()
 
     with st.form("auth-change-email-form", clear_on_submit=False):
         st.markdown(
             f"""
             <section class="auth-dialog-profile">
                 <p>E-mail atual: <strong>{_escape_text(user["email"])}</strong></p>
-                <p>A verificacao de e-mail ainda sera implementada em uma etapa futura.</p>
+                <p>O e-mail da conta so sera alterado depois que voce confirmar o link enviado ao novo endereco.</p>
             </section>
             """,
             unsafe_allow_html=True,
@@ -2116,36 +2327,56 @@ def _render_change_email_panel() -> None:
             key="auth-change-email-input",
         )
         field_error_slots = {"email": st.empty()}
-        submitted = st.form_submit_button("Continuar", use_container_width=True)
+        senha_atual = st.text_input(
+            "Senha atual",
+            type="password",
+            placeholder="Confirme sua senha",
+            key="auth-change-email-password-input",
+        )
+        field_error_slots["senha_atual"] = st.empty()
+        submitted = st.form_submit_button(
+            _processing_label("Enviar confirmacao", save_email_processing_label),
+            use_container_width=True,
+            disabled=is_processing,
+            on_click=_start_modal_processing,
+            args=(save_email_processing_label,),
+        )
 
-    if st.button("Voltar ao perfil", key="auth-email-back", use_container_width=True):
+    if st.button("Voltar ao perfil", key="auth-email-back", use_container_width=True, disabled=is_processing):
         switch_profile_panel("profile")
         st.rerun()
 
-    if submitted:
+    if _should_process(submitted, save_email_processing_label):
         field_errors = validate_login_fields(novo_email, "senha-temporaria")
         if field_errors.get("email"):
             _render_field_errors(field_error_slots, {"email": field_errors["email"]})
+            _clear_modal_processing()
+            return
+        if not senha_atual:
+            _render_field_errors(field_error_slots, {"senha_atual": "Informe sua senha atual."})
+            _clear_modal_processing()
             return
 
         clean_email = novo_email.strip().casefold()
         if clean_email == str(user["email"]).strip().casefold():
             _render_field_errors(field_error_slots, {"email": "Informe um e-mail diferente do atual."})
+            _clear_modal_processing()
             return
 
-        service = _get_auth_service_or_none()
+        service = _get_email_change_service_or_none()
         if service is None:
             _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+            _clear_modal_processing()
             return
 
         try:
-            with modal_action_processing("Salvando alteracao..."):
-                updated_user = service.update_email(int(user["id"]), clean_email)
+            with modal_action_processing(save_email_processing_label):
+                result = service.request_email_change(int(user["id"]), clean_email, senha_atual)
         except AuthValidationError as exc:
             public_message = exc.public_message
             normalized_message = public_message.casefold()
             if "existe" in normalized_message and "e-mail" in normalized_message:
-                public_message = "Este e-mail já está em uso."
+                public_message = EMAIL_CHANGE_DUPLICATE_MESSAGE
             _render_global_error(global_slot, public_message)
         except Exception as exc:
             logger.warning(
@@ -2155,10 +2386,16 @@ def _render_change_email_panel() -> None:
             )
             _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
         else:
-            login_session(st.session_state, updated_user)
-            switch_profile_panel("profile")
-            set_modal_feedback(st.session_state, "E-mail atualizado com sucesso.")
-            st.rerun()
+            if result.success:
+                _render_global_info(global_slot, result.message)
+            elif result.status == "duplicate_email":
+                _render_global_error(global_slot, EMAIL_CHANGE_DUPLICATE_MESSAGE)
+            elif result.status == "email_disabled":
+                _render_global_error(global_slot, EMAIL_CHANGE_EMAIL_DISABLED_MESSAGE)
+            elif result.status == "send_failed":
+                _render_global_error(global_slot, EMAIL_CHANGE_SEND_FAILED_MESSAGE)
+            else:
+                _render_global_error(global_slot, result.message)
 
 
 def _render_deactivate_account_panel() -> None:
@@ -2185,6 +2422,8 @@ def _render_deactivate_account_panel() -> None:
     )
 
     global_slot = st.empty()
+    deactivate_processing_label = "Desativando..."
+    is_processing = _is_modal_processing()
 
     with st.form("auth-deactivate-account-form", clear_on_submit=False):
         confirmar_email = st.text_input(
@@ -2193,26 +2432,34 @@ def _render_deactivate_account_panel() -> None:
             key="auth-deactivate-email-input",
         )
         field_error_slots = {"email": st.empty()}
-        submitted = st.form_submit_button("Desativar conta", use_container_width=True)
+        submitted = st.form_submit_button(
+            _processing_label("Desativar conta", deactivate_processing_label),
+            use_container_width=True,
+            disabled=is_processing,
+            on_click=_start_modal_processing,
+            args=(deactivate_processing_label,),
+        )
 
-    if st.button("Voltar ao perfil", key="auth-deactivate-back", use_container_width=True):
+    if st.button("Voltar ao perfil", key="auth-deactivate-back", use_container_width=True, disabled=is_processing):
         switch_profile_panel("profile")
         st.rerun()
 
-    if submitted:
+    if _should_process(submitted, deactivate_processing_label):
         expected_email = str(user["email"]).strip().casefold()
         typed_email = confirmar_email.strip().casefold()
         if typed_email != expected_email:
             _render_field_errors(field_error_slots, {"email": "Digite seu e-mail para confirmar a desativacao."})
+            _clear_modal_processing()
             return
 
         service = _get_auth_service_or_none()
         if service is None:
             _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+            _clear_modal_processing()
             return
 
         try:
-            with modal_action_processing("Desativando conta..."):
+            with modal_action_processing(deactivate_processing_label):
                 service.soft_delete_user(int(user["id"]))
         except AuthValidationError as exc:
             _render_global_error(global_slot, exc.public_message)

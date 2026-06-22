@@ -56,6 +56,19 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn('del st.query_params["reset_password_token"]', app_source)
         self.assertIn("_handle_password_reset_query_param()", app_source)
 
+    def test_app_trata_link_de_alteracao_de_email(self):
+        app_source = APP_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("def _handle_email_change_query_param", app_source)
+        self.assertIn('st.query_params.get("confirm_email_change_token")', app_source)
+        self.assertIn("_get_email_change_service().confirm_email_change_token(clean_token)", app_source)
+        self.assertIn("email_change_feedback", app_source)
+        self.assertIn("get_authenticated_user(st.session_state)", app_source)
+        self.assertIn("login_session(st.session_state, result.user)", app_source)
+        self.assertIn('del st.query_params["confirm_email_change_token"]', app_source)
+        self.assertIn("_handle_email_change_query_param()", app_source)
+        self.assertIn("def _render_email_change_feedback", app_source)
+
     def test_app_trata_link_de_verificacao_de_email(self):
         app_source = APP_PATH.read_text(encoding="utf-8")
 
@@ -290,11 +303,19 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn("AUTH_MODAL_PROCESSING_KEY", auth_source)
         self.assertIn("def set_modal_feedback", auth_source)
         self.assertIn("def _clear_modal_feedback", auth_source)
+        self.assertIn("def _start_modal_processing", auth_source)
+        self.assertIn("def _is_modal_processing", auth_source)
+        self.assertIn("def _processing_label", auth_source)
+        self.assertIn("def _should_process", auth_source)
         self.assertIn("def modal_action_processing", auth_source)
         self.assertIn("def _render_modal_feedback", auth_source)
         self.assertIn("_render_modal_feedback()", auth_source)
         self.assertIn("st.session_state[AUTH_MODAL_PROCESSING_KEY] = message", auth_source)
         self.assertIn("st.session_state.pop(AUTH_MODAL_PROCESSING_KEY, None)", auth_source)
+        self.assertIn("on_click=_start_modal_processing", auth_source)
+        self.assertIn("disabled=is_processing", auth_source)
+        self.assertIn("_processing_label(", auth_source)
+        self.assertIn("_should_process(submitted", auth_source)
         self.assertIn("with st.spinner(message):", auth_source)
         self.assertIn("finally:", auth_source)
         self.assertIn("_render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)", auth_source)
@@ -306,7 +327,11 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn("Entrando...", auth_source)
         self.assertIn("Enviando codigo...", auth_source)
         self.assertIn("Verificando codigo...", auth_source)
-        self.assertIn("Salvando alteracao...", auth_source)
+        self.assertIn("Enviando instrucoes...", auth_source)
+        self.assertIn("Redefinindo senha...", auth_source)
+        self.assertIn("Salvando...", auth_source)
+        self.assertIn("Alterando senha...", auth_source)
+        self.assertIn("Desativando...", auth_source)
         self.assertIn("auth-login-forgot-password", auth_source)
         self.assertIn("auth-login-google-placeholder", auth_source)
         self.assertIn("Entrar com Google", auth_source)
@@ -430,11 +455,26 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn("auth-profile-resend-verification", auth_source)
         self.assertIn("verification_service.resend_verification_email(int(user[\"id\"]))", auth_source)
         self.assertIn("Gerenciar conta", auth_source)
-        self.assertIn("A verificacao de e-mail ainda sera implementada em uma etapa futura.", auth_source)
-        self.assertIn("service.update_email(int(user[\"id\"]), clean_email)", auth_source)
+        self.assertIn("O e-mail da conta so sera alterado depois que voce confirmar o link enviado ao novo endereco.", auth_source)
+        self.assertIn("auth-change-email-password-input", auth_source)
+        self.assertIn("service.request_email_change(int(user[\"id\"]), clean_email, senha_atual)", auth_source)
+        self.assertIn("EMAIL_CHANGE_DUPLICATE_MESSAGE", auth_source)
+        self.assertIn("EMAIL_CHANGE_EMAIL_DISABLED_MESSAGE", auth_source)
+        self.assertIn("EMAIL_CHANGE_SEND_FAILED_MESSAGE", auth_source)
+        self.assertNotIn("service.update_email(int(user[\"id\"]), clean_email)", auth_source)
         self.assertIn('set_modal_feedback(st.session_state, "Nome atualizado com sucesso.")', auth_source)
         self.assertIn('set_modal_feedback(st.session_state, "Senha alterada com sucesso.")', auth_source)
-        self.assertIn('set_modal_feedback(st.session_state, "E-mail atualizado com sucesso.")', auth_source)
+        self.assertIn("auth-profile-form-panel auth-password-form-panel", auth_source)
+        self.assertIn(':has(.auth-password-form-panel) [data-testid="stForm"]', auth_source)
+        self.assertIn(':has(.auth-password-form-panel) input[type="password"]', auth_source)
+        self.assertIn(".st-key-auth-password-back", auth_source)
+        self.assertIn("justify-content: center !important", auth_source)
+        self.assertIn("border-radius: 999px", auth_source)
+        self.assertIn(
+            'st.button("Voltar ao perfil", key="auth-password-back", use_container_width=False',
+            auth_source,
+        )
+        self.assertIn("disabled=is_processing", auth_source)
         self.assertIn('@st.dialog("Meu perfil", width="large"', auth_source)
         self.assertIn(".st-key-auth-menu-logout button", app_source)
         self.assertIn("#FEF2F2", app_source)
@@ -455,6 +495,7 @@ class TestAppAiChat(unittest.TestCase):
         for key in [
             "auth-change-name-input",
             "auth-change-email-input",
+            "auth-change-email-password-input",
             "auth-current-password-input",
             "auth-new-password-input",
             "auth-confirm-password-input",
@@ -471,15 +512,18 @@ class TestAppAiChat(unittest.TestCase):
             start = auth_source.index(f"def {function_name}")
             next_def = auth_source.find("\ndef ", start + 1)
             panel_source = auth_source[start:next_def if next_def != -1 else len(auth_source)]
-            submit_index = panel_source.index("if submitted:")
-            service_index = panel_source.index("service = _get_auth_service_or_none()")
+            submit_index = panel_source.index("if _should_process(submitted")
+            if function_name == "_render_change_email_panel":
+                service_index = panel_source.index("service = _get_email_change_service_or_none()")
+            else:
+                service_index = panel_source.index("service = _get_auth_service_or_none()")
 
-            self.assertGreater(service_index, submit_index)
+        self.assertGreater(service_index, submit_index)
 
         self.assertIn("Informe o novo nome.", auth_source)
         self.assertIn("Informe sua senha atual.", auth_source)
-        self.assertIn("Este e-mail", auth_source)
-        self.assertIn("em uso.", auth_source)
+        self.assertIn("Informe um e-mail diferente do atual.", auth_source)
+        self.assertIn("EMAIL_CHANGE_DUPLICATE_MESSAGE", auth_source)
 
     def test_app_ui_foi_separada_em_componentes(self):
         source = APP_PATH.read_text(encoding="utf-8")

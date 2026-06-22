@@ -11,8 +11,9 @@ from typing import Any
 
 import streamlit as st
 
+from src.auth.email_change_service import EmailChangeService
 from src.auth.email_verification_service import EmailVerificationService, is_email_verification_required
-from src.auth.session import can_access_chat, get_authenticated_user
+from src.auth.session import can_access_chat, get_authenticated_user, login_session
 from src.auth.user_service import safe_auth_exception_summary
 from src.chat.chat_history_service import ChatHistoryService
 from src.ui.auth_modal import open_auth_modal, render_auth_panel, set_auth_panel
@@ -37,6 +38,10 @@ DATA_ACCESS_ERROR_MESSAGE = (
 )
 EMAIL_VERIFICATION_QUERY_ERROR_MESSAGE = (
     "Nao foi possivel validar o link de verificacao agora. "
+    "Tente novamente em alguns instantes."
+)
+EMAIL_CHANGE_QUERY_ERROR_MESSAGE = (
+    "Nao foi possivel confirmar a alteracao de e-mail agora. "
     "Tente novamente em alguns instantes."
 )
 UNEXPECTED_FORMAT_ERROR_MESSAGE = (
@@ -73,6 +78,11 @@ def _get_datasus_question_runner() -> Any:
 @st.cache_resource(show_spinner=False)
 def _get_email_verification_service() -> EmailVerificationService:
     return EmailVerificationService.from_environment()
+
+
+@st.cache_resource(show_spinner=False)
+def _get_email_change_service() -> EmailChangeService:
+    return EmailChangeService.from_environment()
 
 
 @st.cache_resource(show_spinner=False)
@@ -207,8 +217,61 @@ def _handle_email_verification_query_param() -> None:
         )
 
 
+def _handle_email_change_query_param() -> None:
+    raw_token = st.query_params.get("confirm_email_change_token")
+    if isinstance(raw_token, list):
+        raw_token = raw_token[0] if raw_token else None
+    clean_token = str(raw_token or "").strip()
+    if not clean_token:
+        return
+
+    try:
+        result = _get_email_change_service().confirm_email_change_token(clean_token)
+        if result.success and result.user is not None:
+            current_user = get_authenticated_user(st.session_state)
+            if current_user and int(current_user["id"]) == int(result.user.id):
+                login_session(st.session_state, result.user)
+        st.session_state.email_change_feedback = {
+            "message": result.message,
+            "success": result.success,
+        }
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro confirmar_alteracao_email | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
+        st.session_state.email_change_feedback = {
+            "message": EMAIL_CHANGE_QUERY_ERROR_MESSAGE,
+            "success": False,
+        }
+
+    try:
+        del st.query_params["confirm_email_change_token"]
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro limpar_confirm_email_change_token_query | tipo=%s",
+            type(exc).__name__,
+        )
+
+
 def _render_email_verification_feedback() -> None:
     feedback = st.session_state.pop("email_verification_feedback", None)
+    if not isinstance(feedback, dict):
+        return
+
+    message = str(feedback.get("message") or "").strip()
+    if not message:
+        return
+
+    if bool(feedback.get("success")):
+        st.success(message)
+    else:
+        st.error(message)
+
+
+def _render_email_change_feedback() -> None:
+    feedback = st.session_state.pop("email_change_feedback", None)
     if not isinstance(feedback, dict):
         return
 
@@ -1871,6 +1934,7 @@ def main() -> None:
     render_pending_toast()
     _handle_password_reset_query_param()
     _handle_email_verification_query_param()
+    _handle_email_change_query_param()
     current_page = get_current_page()
     if (
         current_page == CHAT_PAGE
@@ -1885,6 +1949,7 @@ def main() -> None:
     render_auth_header()
     render_auth_panel()
     _render_email_verification_feedback()
+    _render_email_change_feedback()
     render_sidebar(current_page)
 
     if current_page == CHAT_PAGE:

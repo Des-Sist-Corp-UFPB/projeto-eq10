@@ -217,9 +217,9 @@ class TestPasswordResetService(unittest.TestCase):
         self.assertNotIn("reset_password_token", result.message)
         self.assertEqual(result.message, PASSWORD_RESET_NEUTRAL_MESSAGE)
 
-    def test_usa_email_public_base_url_para_link_de_reset(self):
+    def test_usa_app_public_base_url_para_link_de_reset(self):
         recording_service = RecordingEmailService()
-        with patch.dict(os.environ, {"EMAIL_PUBLIC_BASE_URL": "https://app.example.com/chat"}, clear=True):
+        with patch.dict(os.environ, {"APP_PUBLIC_BASE_URL": "https://app.example.com"}, clear=True):
             reset_service = PasswordResetService(
                 self.engine,
                 email_service=recording_service,
@@ -228,9 +228,22 @@ class TestPasswordResetService(unittest.TestCase):
             result = reset_service.request_password_reset("ana@example.com")
 
         self.assertEqual(result.status, "fake")
-        self.assertIn("https://app.example.com/chat?reset_password_token=", recording_service.reset_target)
+        self.assertIn("https://app.example.com?reset_password_token=", recording_service.reset_target)
         self.assertNotIn(recording_service.reset_target, result.message)
         self.assertNotIn(recording_service.reset_target, str(result.send_result.as_dict()))
+
+    def test_link_de_reset_remove_query_do_base_url(self):
+        recording_service = RecordingEmailService()
+        with patch.dict(os.environ, {"APP_PUBLIC_BASE_URL": "https://app.example.com/?page=estatisticas"}, clear=True):
+            reset_service = PasswordResetService(
+                self.engine,
+                email_service=recording_service,
+                initialize_schema=False,
+            )
+            reset_service.request_password_reset("ana@example.com")
+
+        self.assertIn("https://app.example.com?reset_password_token=", recording_service.reset_target)
+        self.assertNotIn("page=estatisticas", recording_service.reset_target)
 
     def test_recuperacao_nao_toca_tabelas_datasus(self):
         source = Path("src/auth/password_reset_service.py").read_text(encoding="utf-8").upper()

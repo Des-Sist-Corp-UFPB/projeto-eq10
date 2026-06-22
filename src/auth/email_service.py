@@ -259,6 +259,26 @@ class EmailService:
             message_type="password_reset",
         )
 
+    def send_email_change_confirmation_email(self, to: str, confirmation_url: str) -> EmailSendResult:
+        safe_confirmation_url = escape(confirmation_url, quote=True)
+        body_text = (
+            "Use o link abaixo para confirmar a alteracao de e-mail no SIA/DATASUS:\n\n"
+            f"{confirmation_url}\n\n"
+            "Se voce nao solicitou esta acao, ignore esta mensagem."
+        )
+        body_html = (
+            "<p>Use o link abaixo para confirmar a alteracao de e-mail no SIA/DATASUS:</p>"
+            f"<p><a href=\"{safe_confirmation_url}\">Confirmar novo e-mail</a></p>"
+            "<p>Se voce nao solicitou esta acao, ignore esta mensagem.</p>"
+        )
+        return self.send_email(
+            to,
+            "Confirmacao de alteracao de e-mail",
+            body_text,
+            body_html,
+            message_type="email_change",
+        )
+
     def _config_error_code(self) -> str | None:
         provider = self.config.provider
         if provider == SMTP_PROVIDER:

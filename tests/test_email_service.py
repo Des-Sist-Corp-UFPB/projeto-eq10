@@ -88,6 +88,20 @@ class TestEmailService(unittest.TestCase):
         self.assertNotIn(reset_url, log_output)
         self.assertNotIn("RESET_TOKEN", str(result.as_dict()))
 
+    def test_nao_loga_link_de_alteracao_email_no_modo_fake(self):
+        service = EmailService(EmailConfig(enabled=False, provider="fake"))
+        confirmation_url = "https://app.example.com/?confirm_email_change_token=EMAIL_CHANGE_TOKEN"
+
+        with self.assertLogs("src.auth.email_service", level="INFO") as captured:
+            result = service.send_email_change_confirmation_email("ana@example.com", confirmation_url)
+
+        log_output = "\n".join(captured.output)
+
+        self.assertEqual(result.message_type, "email_change")
+        self.assertNotIn("EMAIL_CHANGE_TOKEN", log_output)
+        self.assertNotIn(confirmation_url, log_output)
+        self.assertNotIn("EMAIL_CHANGE_TOKEN", str(result.as_dict()))
+
     def test_config_smtp_incompleta_falha_com_erro_seguro(self):
         env = {
             "EMAIL_ENABLED": "true",

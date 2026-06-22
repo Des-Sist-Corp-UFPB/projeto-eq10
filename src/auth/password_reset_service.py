@@ -9,7 +9,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -100,13 +100,17 @@ def _validate_reset_password(new_password: str, confirmation: str) -> str:
 
 
 def _resolve_public_base_url(explicit_url: str | None = None) -> str:
-    return (
+    raw_url = (
         explicit_url
-        or os.getenv("EMAIL_PUBLIC_BASE_URL")
         or os.getenv("APP_PUBLIC_BASE_URL")
+        or os.getenv("EMAIL_PUBLIC_BASE_URL")
         or os.getenv("APP_PUBLIC_URL")
         or DEFAULT_PUBLIC_BASE_URL
-    ).strip().rstrip("/")
+    ).strip()
+    parsed = urlsplit(raw_url)
+    if parsed.scheme and parsed.netloc:
+        raw_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
+    return raw_url.rstrip("/")
 
 
 class PasswordResetService:
