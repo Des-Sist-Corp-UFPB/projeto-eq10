@@ -113,6 +113,17 @@ e seguranca de mensagens.
 - [ ] Confirmar que consultas normais nao retornam sessao/mensagens deletadas.
 - [ ] Confirmar que nenhuma tabela DATASUS foi alterada.
 
+## Diagnosticos Internos
+
+- [ ] Executar `HealthService().run_all_checks()` em ambiente interno ou de teste.
+- [ ] Confirmar que o check `app` retorna `ok`.
+- [ ] Confirmar que o banco de aplicacao responde a `SELECT 1`.
+- [ ] Confirmar que `usuarios`, `chat_sessions` e `chat_messages` aparecem como tabelas de aplicacao.
+- [ ] Confirmar que a view `vw_data_sus_ia` e validada apenas com consulta `SELECT`.
+- [ ] Confirmar que status de IA mostra provedor/modelo/chave configurada apenas como booleano.
+- [ ] Confirmar que status de e-mail mostra modo fake/local ou configuracao incompleta sem exibir segredos.
+- [ ] Confirmar que nenhum diagnostico mostra senha, token, API key, SMTP password ou string de conexao completa.
+
 ## Seguranca Visual e Logs
 
 - [ ] Confirmar que a UI nao mostra traceback Python.

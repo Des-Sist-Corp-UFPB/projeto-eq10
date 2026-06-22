@@ -311,6 +311,8 @@ Criterios de aceite:
 
 Objetivo: facilitar suporte local e em servidor sem expor segredos.
 
+Implementacao inicial: foi adicionado o modulo interno `src/diagnostics/health_service.py` com resultados estruturados e seguros para app, banco de aplicacao, tabelas de aplicacao, view `vw_data_sus_ia`, configuracao de IA e configuracao de e-mail. A implementacao nao cria rota publica nem pagina aberta de diagnostico; os checks ficam prontos para uso interno ou futura area administrativa. A validacao da view analitica usa apenas consulta `SELECT` pela conexao readonly da IA.
+
 Tarefas:
 
 - [ ] Adicionar diagnostico de app vivo.
