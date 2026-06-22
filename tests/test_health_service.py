@@ -163,6 +163,25 @@ class TestHealthService(unittest.TestCase):
         self.assertEqual(result.status, "error")
         self.assertNotIn("api-secret", payload)
 
+    def test_email_smtp_completo_e_reportado_sem_senha(self):
+        env = {
+            "EMAIL_ENABLED": "true",
+            "EMAIL_PROVIDER": "smtp",
+            "EMAIL_FROM": "SIA DATASUS <noreply@example.com>",
+            "EMAIL_SMTP_HOST": "smtp.example.com",
+            "EMAIL_SMTP_PORT": "587",
+            "EMAIL_SMTP_USERNAME": "noreply@example.com",
+            "EMAIL_SMTP_PASSWORD": "smtp-secret",
+            "ENVIRONMENT": "test",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            result = self.service.check_email_configuration()
+
+        payload = _flatten(result.as_dict())
+        self.assertEqual(result.status, "ok")
+        self.assertTrue(result.details["smtp_password_configured"])
+        self.assertNotIn("smtp-secret", payload)
+
     def test_resultado_sanitiza_mensagem_e_detalhes(self):
         result = HealthCheckResult(
             name="teste",

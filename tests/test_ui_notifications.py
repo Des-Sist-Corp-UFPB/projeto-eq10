@@ -45,6 +45,7 @@ class TestUiNotifications(unittest.TestCase):
         self.assertIn("#bbf7d0", SUCCESS_FEEDBACK_CSS)
         self.assertIn("#166534", SUCCESS_FEEDBACK_CSS)
         self.assertIn("#22c55e", SUCCESS_FEEDBACK_CSS)
+        self.assertIn("z-index:2147483000", SUCCESS_FEEDBACK_CSS)
         self.assertNotIn("app-toast", html)
 
 

@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 EMAIL_VERIFICATION_REQUIRED_ENV = "EMAIL_VERIFICATION_REQUIRED"
 DEFAULT_VERIFICATION_TOKEN_TTL_HOURS = 24
+DEFAULT_PUBLIC_BASE_URL = "http://localhost:8501"
 
 EMAIL_VERIFICATION_FAKE_MESSAGE = (
     "Conta criada. A verificacao de e-mail sera enviada quando o servico de e-mail estiver configurado."
@@ -108,6 +109,16 @@ def _coerce_datetime(value: Any) -> datetime:
     return parsed.replace(tzinfo=None)
 
 
+def _resolve_public_base_url(explicit_url: str | None = None) -> str:
+    return (
+        explicit_url
+        or os.getenv("EMAIL_PUBLIC_BASE_URL")
+        or os.getenv("APP_PUBLIC_BASE_URL")
+        or os.getenv("APP_PUBLIC_URL")
+        or DEFAULT_PUBLIC_BASE_URL
+    ).strip().rstrip("/")
+
+
 class EmailVerificationService:
     """Casos de uso para verificacao de e-mail.
 
@@ -126,7 +137,7 @@ class EmailVerificationService:
     ):
         self.engine = engine
         self.email_service = email_service or EmailService.from_environment()
-        self.app_public_url = (app_public_url or os.getenv("APP_PUBLIC_URL", "")).strip()
+        self.app_public_url = _resolve_public_base_url(app_public_url)
         self.token_ttl_hours = token_ttl_hours
         if initialize_schema:
             self.ensure_schema()

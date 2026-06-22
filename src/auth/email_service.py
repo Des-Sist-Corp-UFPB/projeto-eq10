@@ -1,16 +1,19 @@
-"""Servico interno de e-mail para fluxos futuros de autenticacao.
+"""Servico interno de e-mail para fluxos de autenticacao.
 
-Esta fundacao nao implementa envio real ainda. O modo padrao e fake/local para
-permitir que verificacao de e-mail e recuperacao de senha sejam integradas no
-futuro sem prometer envio real antes da configuracao do provedor.
+O modo padrao e fake/local. Envio real por SMTP so ocorre quando explicitamente
+habilitado por variaveis de ambiente.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import smtplib
+import ssl
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from email.message import EmailMessage
+from html import escape
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -23,6 +26,9 @@ SUPPORTED_PROVIDERS = FAKE_PROVIDERS | API_PROVIDERS | {SMTP_PROVIDER}
 EMAIL_DISABLED_MESSAGE = "Envio real de e-mail desativado; nenhum e-mail foi enviado."
 EMAIL_CONFIG_INCOMPLETE_MESSAGE = "Configuracao do provedor de e-mail incompleta."
 EMAIL_UNSUPPORTED_PROVIDER_MESSAGE = "Provedor de e-mail nao suportado."
+EMAIL_SMTP_SENT_MESSAGE = "E-mail enviado com sucesso."
+EMAIL_SMTP_SEND_FAILED_MESSAGE = "Nao foi possivel enviar o e-mail agora."
+EMAIL_SMTP_AUTH_FAILED_MESSAGE = "Falha de autenticacao no provedor SMTP."
 EMAIL_PROVIDER_NOT_IMPLEMENTED_MESSAGE = (
     "Envio real por este provedor ainda nao foi implementado."
 )
@@ -128,8 +134,8 @@ class EmailSendResult:
 class EmailService:
     """Abstracao segura de envio de e-mails.
 
-    Por enquanto, apenas fake/local e totalmente funcional. Provedores reais
-    sao validados e retornam erro seguro ate que a integracao seja implementada.
+    Fake/local continua sendo o padrao. SMTP envia e-mails reais somente quando
+    EMAIL_ENABLED=true e EMAIL_PROVIDER=smtp.
     """
 
     def __init__(self, config: EmailConfig | None = None):
@@ -148,8 +154,6 @@ class EmailService:
         *,
         message_type: str = "generic",
     ) -> EmailSendResult:
-        del body_text, body_html
-
         recipient = mask_email(to)
         provider = self.config.provider
 
@@ -197,6 +201,16 @@ class EmailService:
                 recipient=recipient,
             )
 
+        if provider == SMTP_PROVIDER:
+            return self._send_smtp_email(
+                to=to,
+                subject=subject,
+                body_text=body_text,
+                body_html=body_html,
+                message_type=message_type,
+                recipient=recipient,
+            )
+
         return self._failure_result(
             mode="not_implemented",
             message=EMAIL_PROVIDER_NOT_IMPLEMENTED_MESSAGE,
@@ -206,15 +220,17 @@ class EmailService:
         )
 
     def send_verification_email(self, to: str, verification_url_or_code: str) -> EmailSendResult:
+        safe_target = escape(verification_url_or_code, quote=True)
         body_text = (
-            "Use o link ou codigo de verificacao enviado para confirmar seu e-mail. "
+            "Use o link abaixo para confirmar seu e-mail no SIA/DATASUS:\n\n"
+            f"{verification_url_or_code}\n\n"
             "Se voce nao solicitou esta acao, ignore esta mensagem."
         )
         body_html = (
-            "<p>Use o link ou codigo de verificacao enviado para confirmar seu e-mail.</p>"
+            "<p>Use o link abaixo para confirmar seu e-mail no SIA/DATASUS:</p>"
+            f"<p><a href=\"{safe_target}\">Verificar e-mail</a></p>"
             "<p>Se voce nao solicitou esta acao, ignore esta mensagem.</p>"
         )
-        del verification_url_or_code
         return self.send_email(
             to,
             "Verificacao de e-mail",
@@ -224,15 +240,17 @@ class EmailService:
         )
 
     def send_password_reset_email(self, to: str, reset_url: str) -> EmailSendResult:
+        safe_reset_url = escape(reset_url, quote=True)
         body_text = (
-            "Use o link de recuperacao enviado para definir uma nova senha. "
+            "Use o link abaixo para definir uma nova senha no SIA/DATASUS:\n\n"
+            f"{reset_url}\n\n"
             "Se voce nao solicitou esta acao, ignore esta mensagem."
         )
         body_html = (
-            "<p>Use o link de recuperacao enviado para definir uma nova senha.</p>"
+            "<p>Use o link abaixo para definir uma nova senha no SIA/DATASUS:</p>"
+            f"<p><a href=\"{safe_reset_url}\">Redefinir senha</a></p>"
             "<p>Se voce nao solicitou esta acao, ignore esta mensagem.</p>"
         )
-        del reset_url
         return self.send_email(
             to,
             "Recuperacao de senha",
@@ -264,6 +282,71 @@ class EmailService:
             return None
 
         return None
+
+    def _send_smtp_email(
+        self,
+        *,
+        to: str,
+        subject: str,
+        body_text: str,
+        body_html: str | None,
+        message_type: str,
+        recipient: str,
+    ) -> EmailSendResult:
+        message = EmailMessage()
+        message["From"] = self.config.from_email
+        message["To"] = to
+        message["Subject"] = subject
+        message.set_content(body_text)
+        if body_html:
+            message.add_alternative(body_html, subtype="html")
+
+        try:
+            with smtplib.SMTP(self.config.smtp_host, self.config.smtp_port, timeout=15) as smtp:
+                smtp.ehlo()
+                if self.config.smtp_use_tls:
+                    smtp.starttls(context=ssl.create_default_context())
+                    smtp.ehlo()
+                smtp.login(self.config.smtp_username, self.config.smtp_password)
+                smtp.send_message(message)
+        except smtplib.SMTPAuthenticationError as exc:
+            logger.warning(
+                "Email service SMTP auth failed | provider=%s | type=%s | recipient=%s",
+                self.config.provider,
+                type(exc).__name__,
+                recipient,
+            )
+            return self._failure_result(
+                mode="smtp",
+                message=EMAIL_SMTP_AUTH_FAILED_MESSAGE,
+                error_code="smtp_auth_failed",
+                message_type=message_type,
+                recipient=recipient,
+            )
+        except (smtplib.SMTPException, OSError) as exc:
+            logger.warning(
+                "Email service SMTP send failed | provider=%s | type=%s | recipient=%s",
+                self.config.provider,
+                type(exc).__name__,
+                recipient,
+            )
+            return self._failure_result(
+                mode="smtp",
+                message=EMAIL_SMTP_SEND_FAILED_MESSAGE,
+                error_code="smtp_send_failed",
+                message_type=message_type,
+                recipient=recipient,
+            )
+
+        return self._result(
+            success=True,
+            sent=True,
+            mode="smtp",
+            message=EMAIL_SMTP_SENT_MESSAGE,
+            error_code=None,
+            message_type=message_type,
+            recipient=recipient,
+        )
 
     def _fake_result(self, message_type: str, recipient: str) -> EmailSendResult:
         return self._result(

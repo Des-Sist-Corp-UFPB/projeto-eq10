@@ -1,4 +1,5 @@
 import os
+import smtplib
 import unittest
 from unittest.mock import patch
 
@@ -6,6 +7,9 @@ from src.auth.email_service import (
     EMAIL_CONFIG_INCOMPLETE_MESSAGE,
     EMAIL_DISABLED_MESSAGE,
     EMAIL_PROVIDER_NOT_IMPLEMENTED_MESSAGE,
+    EMAIL_SMTP_AUTH_FAILED_MESSAGE,
+    EMAIL_SMTP_SEND_FAILED_MESSAGE,
+    EMAIL_SMTP_SENT_MESSAGE,
     EMAIL_UNSUPPORTED_PROVIDER_MESSAGE,
     EmailConfig,
     EmailService,
@@ -126,28 +130,101 @@ class TestEmailService(unittest.TestCase):
         self.assertEqual(result.message, EMAIL_UNSUPPORTED_PROVIDER_MESSAGE)
         self.assertNotIn("api-secret", result.message)
 
-    def test_smtp_configurado_nao_expoe_segredo_e_ainda_nao_envia(self):
+    def test_smtp_configurado_envia_email_real_por_mock(self):
         env = {
             "EMAIL_ENABLED": "true",
             "EMAIL_PROVIDER": "smtp",
-            "EMAIL_FROM": "noreply@example.com",
+            "EMAIL_FROM": "SIA DATASUS <noreply@example.com>",
             "EMAIL_SMTP_HOST": "smtp.example.com",
             "EMAIL_SMTP_PORT": "587",
             "EMAIL_SMTP_USERNAME": "noreply@example.com",
             "EMAIL_SMTP_PASSWORD": "smtp-secret",
+            "EMAIL_USE_TLS": "true",
         }
 
-        with patch.dict(os.environ, env, clear=True):
+        with patch.dict(os.environ, env, clear=True), patch("src.auth.email_service.smtplib.SMTP") as mock_smtp:
+            smtp_client = mock_smtp.return_value.__enter__.return_value
             result = EmailService.from_environment().send_email(
                 "ana@example.com",
                 "Assunto",
                 "Mensagem",
+                "<p>Mensagem</p>",
             )
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.sent)
+        self.assertEqual(result.mode, "smtp")
+        self.assertIsNone(result.error_code)
+        self.assertEqual(result.message, EMAIL_SMTP_SENT_MESSAGE)
+        mock_smtp.assert_called_once_with("smtp.example.com", 587, timeout=15)
+        smtp_client.starttls.assert_called_once()
+        smtp_client.login.assert_called_once_with("noreply@example.com", "smtp-secret")
+        smtp_client.send_message.assert_called_once()
+        self.assertNotIn("smtp-secret", str(result.as_dict()))
+
+    def test_smtp_sem_tls_nao_chama_starttls(self):
+        config = EmailConfig(
+            enabled=True,
+            provider="smtp",
+            from_email="noreply@example.com",
+            smtp_host="smtp.example.com",
+            smtp_port=25,
+            smtp_username="noreply@example.com",
+            smtp_password="smtp-secret",
+            smtp_use_tls=False,
+        )
+
+        with patch("src.auth.email_service.smtplib.SMTP") as mock_smtp:
+            smtp_client = mock_smtp.return_value.__enter__.return_value
+            result = EmailService(config).send_email("ana@example.com", "Assunto", "Mensagem")
+
+        self.assertTrue(result.sent)
+        smtp_client.starttls.assert_not_called()
+        smtp_client.login.assert_called_once_with("noreply@example.com", "smtp-secret")
+
+    def test_smtp_auth_failure_retorna_erro_seguro(self):
+        config = EmailConfig(
+            enabled=True,
+            provider="smtp",
+            from_email="noreply@example.com",
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            smtp_username="noreply@example.com",
+            smtp_password="smtp-secret",
+        )
+
+        with patch("src.auth.email_service.smtplib.SMTP") as mock_smtp:
+            smtp_client = mock_smtp.return_value.__enter__.return_value
+            smtp_client.login.side_effect = smtplib.SMTPAuthenticationError(535, b"auth failed")
+            result = EmailService(config).send_email("ana@example.com", "Assunto", "Mensagem")
 
         self.assertFalse(result.success)
         self.assertFalse(result.sent)
-        self.assertEqual(result.error_code, "provider_not_implemented")
-        self.assertEqual(result.message, EMAIL_PROVIDER_NOT_IMPLEMENTED_MESSAGE)
+        self.assertEqual(result.mode, "smtp")
+        self.assertEqual(result.error_code, "smtp_auth_failed")
+        self.assertEqual(result.message, EMAIL_SMTP_AUTH_FAILED_MESSAGE)
+        self.assertNotIn("smtp-secret", str(result.as_dict()))
+
+    def test_smtp_send_failure_retorna_erro_seguro(self):
+        config = EmailConfig(
+            enabled=True,
+            provider="smtp",
+            from_email="noreply@example.com",
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            smtp_username="noreply@example.com",
+            smtp_password="smtp-secret",
+        )
+
+        with patch("src.auth.email_service.smtplib.SMTP") as mock_smtp:
+            smtp_client = mock_smtp.return_value.__enter__.return_value
+            smtp_client.send_message.side_effect = smtplib.SMTPException("falha smtp smtp-secret")
+            result = EmailService(config).send_email("ana@example.com", "Assunto", "Mensagem")
+
+        self.assertFalse(result.success)
+        self.assertFalse(result.sent)
+        self.assertEqual(result.error_code, "smtp_send_failed")
+        self.assertEqual(result.message, EMAIL_SMTP_SEND_FAILED_MESSAGE)
         self.assertNotIn("smtp-secret", str(result.as_dict()))
 
     def test_api_provider_configurado_nao_expoe_chave_e_ainda_nao_envia(self):

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from sqlalchemy import create_engine, text
 
-from src.auth.email_service import EmailConfig, EmailService
+from src.auth.email_service import EmailConfig, EmailSendResult, EmailService
 from src.auth.email_verification_service import (
     EMAIL_VERIFICATION_FAKE_MESSAGE,
     EMAIL_VERIFICATION_INVALID_MESSAGE,
@@ -17,6 +17,16 @@ from src.auth.email_verification_service import (
     is_email_verification_required,
 )
 from src.auth.user_service import UserService, _now
+
+
+class RecordingEmailService(EmailService):
+    def __init__(self):
+        super().__init__(EmailConfig(enabled=False, provider="fake"))
+        self.verification_target = ""
+
+    def send_verification_email(self, to: str, verification_url_or_code: str) -> EmailSendResult:
+        self.verification_target = verification_url_or_code
+        return super().send_verification_email(to, verification_url_or_code)
 
 
 class TestEmailVerificationService(unittest.TestCase):
@@ -187,6 +197,19 @@ class TestEmailVerificationService(unittest.TestCase):
             )
         self.assertEqual(len(rows), 2)
         self.assertNotEqual(rows[-1]["token_hash"], hash_email_verification_token(first.raw_token))
+
+    def test_usa_app_public_base_url_para_link_de_verificacao(self):
+        recording_service = RecordingEmailService()
+        with patch.dict(os.environ, {"APP_PUBLIC_BASE_URL": "https://app.example.com"}, clear=True):
+            verification_service = EmailVerificationService(
+                self.engine,
+                email_service=recording_service,
+            )
+            result = verification_service.send_verification_email(self.user.id)
+
+        self.assertEqual(result.status, "fake")
+        self.assertIn("https://app.example.com?verify_email_token=", recording_service.verification_target)
+        self.assertNotIn(recording_service.verification_target, str(result.send_result.as_dict()))
 
     def test_token_cru_nao_aparece_em_logs(self):
         with self.assertLogs("src.auth.email_verification_service", level="INFO") as context:

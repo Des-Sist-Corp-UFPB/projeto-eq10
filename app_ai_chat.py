@@ -1165,6 +1165,23 @@ def _apply_style() -> None:
             outline: none !important;
         }
 
+        [data-testid="stTextInput"]:has(input[type="password"]) button,
+        [data-testid="stTextInput"]:has(input[type="password"]) [role="button"] {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        [data-testid="stTextInput"]:has(input[type="password"]) input {
+            padding-right: 0.85rem !important;
+        }
+
         [data-testid="stFormSubmitButton"] {
             display: flex;
             justify-content: flex-end;

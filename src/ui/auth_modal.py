@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import html
 import logging
+from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 
 import streamlit as st
 
+from src.auth.account_reactivation_service import (
+    AccountReactivationService,
+)
 from src.auth.email_verification_service import (
     EMAIL_VERIFICATION_SEND_FAILED_MESSAGE,
     EmailVerificationService,
@@ -16,6 +21,9 @@ from src.auth.password_reset_service import (
     PASSWORD_RESET_INVALID_MESSAGE,
     PASSWORD_RESET_NEUTRAL_MESSAGE,
     PasswordResetService,
+)
+from src.auth.pending_registration_service import (
+    PendingRegistrationService,
 )
 from src.auth.session import login_session, logout_session
 from src.auth.security import MIN_PASSWORD_LENGTH
@@ -28,7 +36,410 @@ AUTH_UNAVAILABLE_MESSAGE = (
     "Não foi possível acessar a autenticação agora. Tente novamente em alguns instantes."
 )
 
+GOOGLE_SIGN_IN_UNAVAILABLE_MESSAGE = "Login com Google sera implementado em uma etapa futura."
+REGISTRATION_PUBLIC_NEUTRAL_MESSAGE = (
+    "Se for possivel continuar com este e-mail, enviaremos instrucoes para ele."
+)
+REGISTRATION_PUBLIC_EMAIL_UNAVAILABLE_MESSAGE = (
+    "O envio de e-mail ainda nao esta configurado. Nao foi possivel continuar agora."
+)
+CONFIRM_EMAIL_DESCRIPTION = "Digite o codigo enviado para seu e-mail para continuar."
+CONFIRM_EMAIL_INVALID_MESSAGE = "Codigo invalido ou expirado."
+CONFIRM_EMAIL_STALE_MESSAGE = "Codigo invalido ou expirado. Inicie o processo novamente."
+CONFIRM_EMAIL_REACTIVATION_SUCCESS_MESSAGE = (
+    "E-mail confirmado. Sua conta foi reativada. Voce ja pode entrar."
+)
+AUTH_MODAL_FEEDBACK_KEY = "auth_modal_feedback_message"
+AUTH_MODAL_FEEDBACK_KIND_KEY = "auth_modal_feedback_kind"
+AUTH_MODAL_PROCESSING_KEY = "auth_modal_processing_message"
+PROFILE_SUBPANELS = {"change_name", "change_email", "change_password", "deactivate_account"}
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RegistrationNextStep:
+    status: str
+    message: str
+    panel: str | None = None
+    email: str | None = None
+    generic_error: bool = False
+    pending_registration_id: int | None = None
+    reactivation_token_id: int | None = None
+    flow_kind: str | None = None
+
+
+@dataclass(frozen=True)
+class EmailCodeConfirmationResult:
+    success: bool
+    status: str
+    message: str
+    flow_kind: str | None = None
+    user: Any | None = None
+    generic_error: bool = False
+
+
+def resolve_registration_next_step(result: Any, submitted_email: str) -> RegistrationNextStep:
+    """Resolve o proximo painel do cadastro sem depender de excecoes da UI."""
+    status = str(getattr(result, "status", "") or "unexpected_error")
+    message = str(getattr(result, "message", "") or "")
+    email = str(getattr(result, "email", "") or submitted_email or "").strip()
+
+    if bool(getattr(result, "success", False)):
+        return RegistrationNextStep(
+            status="email_instructions_available",
+            message=REGISTRATION_PUBLIC_NEUTRAL_MESSAGE,
+            panel="confirm_email",
+            email=email,
+            pending_registration_id=getattr(result, "pending_registration_id", None),
+            flow_kind="pending_registration",
+        )
+
+    if status == "active_email_exists":
+        return RegistrationNextStep(
+            status="email_instructions_available",
+            message=REGISTRATION_PUBLIC_NEUTRAL_MESSAGE,
+            panel="confirm_email",
+            email=email,
+            flow_kind="neutral",
+        )
+
+    if status == "deactivated_user_found":
+        return RegistrationNextStep(
+            status="email_instructions_available",
+            message=REGISTRATION_PUBLIC_NEUTRAL_MESSAGE,
+            panel="confirm_email",
+            email=email,
+            flow_kind="neutral",
+        )
+
+    if status == "email_not_sent":
+        error_code = getattr(getattr(result, "send_result", None), "error_code", None)
+        next_status = "email_sending_disabled" if error_code == "email_disabled" else "email_sending_failed"
+        return RegistrationNextStep(
+            status=next_status,
+            message=REGISTRATION_PUBLIC_EMAIL_UNAVAILABLE_MESSAGE,
+            email=email,
+        )
+
+    if status == "window_expired":
+        return RegistrationNextStep(
+            status="email_instructions_available",
+            message=REGISTRATION_PUBLIC_NEUTRAL_MESSAGE,
+            panel="confirm_email",
+            email=email,
+            flow_kind="neutral",
+        )
+
+    logger.warning(
+        "Erro seguro cadastro_next_step | status=%s | tipo_resultado=%s",
+        status,
+        type(result).__name__,
+    )
+    return RegistrationNextStep(
+        status="unexpected_error",
+        message=AUTH_UNAVAILABLE_MESSAGE,
+        email=email,
+        generic_error=True,
+    )
+
+
+_REGISTER_STALE_STATE_KEYS = (
+    "auth_error",
+    "auth_global_error",
+    "register_error",
+    "registration_error",
+    "reactivation_error",
+    "auth_success",
+    "registration_success",
+    "reactivation_success",
+    "registration_flow_kind",
+    "registration_email",
+    "pending_registration_id",
+    "pending_registration_email",
+    "account_reactivation_token_id",
+    "account_reactivation_email",
+)
+
+
+def _clear_register_submit_state(session_state: Any) -> None:
+    for key in _REGISTER_STALE_STATE_KEYS:
+        session_state.pop(key, None)
+
+
+def _clear_email_confirmation_state(session_state: Any) -> None:
+    for key in (
+        "registration_flow_kind",
+        "registration_email",
+        "pending_registration_id",
+        "pending_registration_email",
+        "account_reactivation_token_id",
+        "account_reactivation_email",
+    ):
+        session_state.pop(key, None)
+
+
+def _registration_email_state(status: str) -> str:
+    if status == "active_email_exists":
+        return "active_user"
+    if status == "email_instructions_available":
+        return "handled_internally"
+    return "unknown"
+
+
+def _email_delivery_is_disabled(service: Any) -> bool:
+    email_service = getattr(service, "email_service", None)
+    config = getattr(email_service, "config", None)
+    if config is None:
+        return False
+
+    provider = str(getattr(config, "provider", "") or "").strip().lower()
+    return not bool(getattr(config, "enabled", False)) or provider in {"fake", "local", "dev"}
+
+
+def handle_register_submit(
+    session_state: Any,
+    pending_registration_service: PendingRegistrationService,
+    account_reactivation_service: AccountReactivationService,
+    *,
+    nome: str,
+    email: str,
+    senha: str,
+    confirmar_senha: str,
+) -> RegistrationNextStep:
+    """Processa o submit real do cadastro e atualiza o estado da modal."""
+    _clear_register_submit_state(session_state)
+
+    if _email_delivery_is_disabled(pending_registration_service) or _email_delivery_is_disabled(account_reactivation_service):
+        next_step = RegistrationNextStep(
+            status="email_sending_disabled",
+            message=REGISTRATION_PUBLIC_EMAIL_UNAVAILABLE_MESSAGE,
+            email=email.strip(),
+        )
+        logger.info(
+            "register_submit operation=register_submit decision_status=%s panel=%s error_code=%s email_state=%s",
+            next_step.status,
+            next_step.panel or "none",
+            next_step.status,
+            "not_checked",
+        )
+        return next_step
+
+    try:
+        result = pending_registration_service.start_registration(nome, email, senha, confirmar_senha)
+    except AuthValidationError as exc:
+        next_step = RegistrationNextStep(
+            status="validation_error",
+            message=exc.public_message,
+            email=email.strip(),
+        )
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro register_submit | operation=register_submit | error_code=unexpected_error | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
+        next_step = RegistrationNextStep(
+            status="unexpected_error",
+            message=AUTH_UNAVAILABLE_MESSAGE,
+            email=email.strip(),
+            generic_error=True,
+        )
+    else:
+        result_status = str(getattr(result, "status", "") or "")
+        if result_status == "deactivated_user_found":
+            try:
+                reactivation_result = account_reactivation_service.request_reactivation(email)
+            except Exception as exc:
+                logger.warning(
+                    "Erro seguro register_submit | operation=register_submit | error_code=reactivation_request_failed | causa=%s | tipo=%s",
+                    safe_auth_exception_summary(exc),
+                    type(exc).__name__,
+                )
+                next_step = RegistrationNextStep(
+                    status="unexpected_error",
+                    message=AUTH_UNAVAILABLE_MESSAGE,
+                    email=email.strip(),
+                    generic_error=True,
+                )
+            else:
+                if reactivation_result.success and reactivation_result.reactivation_token_id:
+                    next_step = RegistrationNextStep(
+                        status="email_instructions_available",
+                        message=REGISTRATION_PUBLIC_NEUTRAL_MESSAGE,
+                        panel="confirm_email",
+                        email=reactivation_result.email or email.strip(),
+                        reactivation_token_id=reactivation_result.reactivation_token_id,
+                        flow_kind="reactivation",
+                    )
+                elif reactivation_result.status == "email_not_sent":
+                    next_step = RegistrationNextStep(
+                        status="email_sending_disabled",
+                        message=REGISTRATION_PUBLIC_EMAIL_UNAVAILABLE_MESSAGE,
+                        email=reactivation_result.email or email.strip(),
+                    )
+                else:
+                    next_step = RegistrationNextStep(
+                        status="email_instructions_available",
+                        message=REGISTRATION_PUBLIC_NEUTRAL_MESSAGE,
+                        panel="confirm_email",
+                        email=reactivation_result.email or email.strip(),
+                        flow_kind="neutral",
+                    )
+        else:
+            next_step = resolve_registration_next_step(result, email)
+
+    logger.info(
+        "register_submit operation=register_submit decision_status=%s panel=%s error_code=%s email_state=%s",
+        next_step.status,
+        next_step.panel or "none",
+        "none" if not next_step.generic_error else next_step.status,
+        _registration_email_state(next_step.status),
+    )
+
+    if next_step.panel == "confirm_email":
+        session_state["registration_flow_kind"] = next_step.flow_kind or "neutral"
+        session_state["registration_email"] = next_step.email or email.strip()
+    if next_step.pending_registration_id:
+        session_state["pending_registration_id"] = next_step.pending_registration_id
+        session_state["pending_registration_email"] = next_step.email or email.strip()
+    if next_step.reactivation_token_id:
+        session_state["account_reactivation_token_id"] = next_step.reactivation_token_id
+        session_state["account_reactivation_email"] = next_step.email or email.strip()
+
+    return next_step
+
+
+def handle_email_code_confirmation(
+    session_state: Any,
+    pending_registration_service: PendingRegistrationService,
+    account_reactivation_service: AccountReactivationService,
+    *,
+    code: str,
+) -> EmailCodeConfirmationResult:
+    """Confirma o codigo generico de e-mail usando o fluxo interno correto."""
+    clean_code = (code or "").strip()
+    if not clean_code:
+        return EmailCodeConfirmationResult(
+            False,
+            "empty_code",
+            "Informe o codigo enviado por e-mail.",
+        )
+
+    flow_kind = str(session_state.get("registration_flow_kind") or "").strip()
+
+    if flow_kind == "pending_registration":
+        pending_id = session_state.get("pending_registration_id")
+        pending_email = session_state.get("pending_registration_email")
+        if not pending_id or not pending_email:
+            return EmailCodeConfirmationResult(False, "invalid_or_expired", CONFIRM_EMAIL_STALE_MESSAGE)
+
+        try:
+            result = pending_registration_service.confirm_registration_code(
+                int(pending_id),
+                str(pending_email),
+                clean_code,
+            )
+        except AuthValidationError as exc:
+            return EmailCodeConfirmationResult(False, "validation_error", exc.public_message, flow_kind=flow_kind)
+        except Exception as exc:
+            logger.warning(
+                "Erro seguro confirmar_email | fluxo=pending_registration | causa=%s | tipo=%s",
+                safe_auth_exception_summary(exc),
+                type(exc).__name__,
+            )
+            return EmailCodeConfirmationResult(
+                False,
+                "unexpected_error",
+                AUTH_UNAVAILABLE_MESSAGE,
+                flow_kind=flow_kind,
+                generic_error=True,
+            )
+
+        if not result.success:
+            return EmailCodeConfirmationResult(
+                False,
+                str(result.status or "invalid_code"),
+                result.message or CONFIRM_EMAIL_INVALID_MESSAGE,
+                flow_kind=flow_kind,
+            )
+        if result.user is None:
+            return EmailCodeConfirmationResult(
+                False,
+                "unexpected_error",
+                AUTH_UNAVAILABLE_MESSAGE,
+                flow_kind=flow_kind,
+                generic_error=True,
+            )
+
+        _clear_email_confirmation_state(session_state)
+        return EmailCodeConfirmationResult(
+            True,
+            str(result.status or "created"),
+            result.message,
+            flow_kind=flow_kind,
+            user=result.user,
+        )
+
+    if flow_kind == "reactivation":
+        token_id = session_state.get("account_reactivation_token_id")
+        reactivation_email = session_state.get("account_reactivation_email")
+        if not token_id or not reactivation_email:
+            return EmailCodeConfirmationResult(False, "invalid_or_expired", CONFIRM_EMAIL_STALE_MESSAGE)
+
+        try:
+            result = account_reactivation_service.confirm_reactivation_code(
+                int(token_id),
+                str(reactivation_email),
+                clean_code,
+            )
+        except AuthValidationError as exc:
+            return EmailCodeConfirmationResult(False, "validation_error", exc.public_message, flow_kind=flow_kind)
+        except Exception as exc:
+            logger.warning(
+                "Erro seguro confirmar_email | fluxo=reactivation | causa=%s | tipo=%s",
+                safe_auth_exception_summary(exc),
+                type(exc).__name__,
+            )
+            return EmailCodeConfirmationResult(
+                False,
+                "unexpected_error",
+                AUTH_UNAVAILABLE_MESSAGE,
+                flow_kind=flow_kind,
+                generic_error=True,
+            )
+
+        if not result.success:
+            friendly_message = (
+                CONFIRM_EMAIL_INVALID_MESSAGE
+                if result.status in {"invalid_code", "expired", "used"}
+                else result.message
+            )
+            return EmailCodeConfirmationResult(
+                False,
+                str(result.status or "invalid_code"),
+                friendly_message or CONFIRM_EMAIL_INVALID_MESSAGE,
+                flow_kind=flow_kind,
+            )
+        if result.user is None:
+            return EmailCodeConfirmationResult(
+                False,
+                "unexpected_error",
+                AUTH_UNAVAILABLE_MESSAGE,
+                flow_kind=flow_kind,
+                generic_error=True,
+            )
+
+        _clear_email_confirmation_state(session_state)
+        return EmailCodeConfirmationResult(
+            True,
+            str(result.status or "reactivated"),
+            CONFIRM_EMAIL_REACTIVATION_SUCCESS_MESSAGE,
+            flow_kind=flow_kind,
+            user=result.user,
+        )
+
+    return EmailCodeConfirmationResult(False, "invalid_or_expired", CONFIRM_EMAIL_STALE_MESSAGE)
 
 PROFILE_WIDGET_KEYS = (
     "auth-change-name-input",
@@ -40,6 +451,8 @@ PROFILE_WIDGET_KEYS = (
     "auth-reset-request-email-input",
     "auth-reset-new-password-input",
     "auth-reset-confirm-password-input",
+    "auth-registration-code-input",
+    "auth-reactivation-code-input",
 )
 
 AUTH_MODAL_CSS = """
@@ -134,6 +547,24 @@ AUTH_MODAL_CSS = """
     [data-testid="stDialog"] .auth-global-error *,
     .auth-global-error * {
         color: #991B1B !important;
+    }
+
+    [data-testid="stDialog"] .auth-global-success,
+    .auth-global-success {
+        margin: -0.25rem 0 0.95rem;
+        padding: 0.78rem 0.9rem;
+        border: 1px solid #BBF7D0;
+        border-radius: 0.85rem;
+        background: #F0FDF4;
+        color: #166534 !important;
+        font-size: 0.9rem;
+        font-weight: 760;
+        line-height: 1.45;
+    }
+
+    [data-testid="stDialog"] .auth-global-success *,
+    .auth-global-success * {
+        color: #166534 !important;
     }
 
     [data-testid="stDialog"] .auth-info-message,
@@ -231,6 +662,23 @@ AUTH_MODAL_CSS = """
         box-shadow: none !important;
     }
 
+    [data-testid="stDialog"] [data-testid="stTextInput"]:has(input[type="password"]) button,
+    [data-testid="stDialog"] [data-testid="stTextInput"]:has(input[type="password"]) [role="button"] {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    [data-testid="stDialog"] [data-testid="stTextInput"]:has(input[type="password"]) input {
+        padding-right: 0.85rem !important;
+    }
+
     [data-testid="stDialog"] [data-testid="stFormSubmitButton"] {
         justify-content: stretch !important;
         margin-top: 0.35rem !important;
@@ -256,6 +704,28 @@ AUTH_MODAL_CSS = """
         text-align: center !important;
     }
 
+    [data-testid="stDialog"] .st-key-auth-login-submit button,
+    .st-key-auth-login-submit button {
+        width: 100% !important;
+        height: 2.85rem !important;
+        min-height: 2.85rem !important;
+        padding: 0 1rem !important;
+        border: 0 !important;
+        border-radius: 0.78rem !important;
+        background: linear-gradient(135deg, #7B2CBF 0%, #2563EB 100%) !important;
+        color: #FFFFFF !important;
+        font-size: 0.96rem !important;
+        font-weight: 800 !important;
+        box-shadow: 0 12px 22px rgba(76, 29, 149, 0.20) !important;
+        text-align: center !important;
+    }
+
+    [data-testid="stDialog"] .st-key-auth-login-submit button *,
+    .st-key-auth-login-submit button * {
+        color: #FFFFFF !important;
+        fill: #FFFFFF !important;
+    }
+
     [data-testid="stDialog"] [data-testid="stButton"] button {
         width: auto !important;
         min-height: 1.5rem !important;
@@ -268,6 +738,32 @@ AUTH_MODAL_CSS = """
         font-size: 0.9rem !important;
         font-weight: 760 !important;
         text-align: center !important;
+    }
+
+    [data-testid="stDialog"] .st-key-auth-login-submit [data-testid="stButton"] button,
+    [data-testid="stDialog"] .st-key-auth-login-submit button,
+    .st-key-auth-login-submit [data-testid="stButton"] button,
+    .st-key-auth-login-submit button {
+        width: 100% !important;
+        height: 2.85rem !important;
+        min-height: 2.85rem !important;
+        padding: 0 1rem !important;
+        border: 0 !important;
+        border-radius: 0.78rem !important;
+        background: linear-gradient(135deg, #7B2CBF 0%, #2563EB 100%) !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 12px 22px rgba(76, 29, 149, 0.20) !important;
+        font-size: 0.96rem !important;
+        font-weight: 800 !important;
+        text-align: center !important;
+    }
+
+    [data-testid="stDialog"] .st-key-auth-login-submit [data-testid="stButton"] button *,
+    [data-testid="stDialog"] .st-key-auth-login-submit button *,
+    .st-key-auth-login-submit [data-testid="stButton"] button *,
+    .st-key-auth-login-submit button * {
+        color: #FFFFFF !important;
+        fill: #FFFFFF !important;
     }
 
     .auth-dialog-footer {
@@ -317,13 +813,21 @@ AUTH_MODAL_CSS = """
         box-shadow: 0 0 0 3px rgba(123, 44, 191, 0.12) !important;
     }
 
+    [data-testid="stDialog"] .st-key-auth-login-forgot-password,
+    .st-key-auth-login-forgot-password {
+        display: flex !important;
+        justify-content: flex-end !important;
+        margin: -0.08rem 0 0.28rem !important;
+    }
+
     [data-testid="stDialog"] .st-key-auth-login-forgot-password button,
     .st-key-auth-login-forgot-password button {
-        width: 100% !important;
-        min-height: 1.9rem !important;
-        margin-top: 0.42rem !important;
-        padding: 0.18rem 0.4rem !important;
+        width: auto !important;
+        min-height: 1.55rem !important;
+        margin-top: 0 !important;
+        padding: 0.08rem 0.18rem !important;
         border: 0 !important;
+        border-radius: 0.45rem !important;
         background: transparent !important;
         color: #5B21B6 !important;
         box-shadow: none !important;
@@ -338,6 +842,51 @@ AUTH_MODAL_CSS = """
         color: #2563EB !important;
         background: rgba(37, 99, 235, 0.06) !important;
         box-shadow: none !important;
+    }
+
+    .auth-login-divider {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0.72rem 0 0.58rem;
+        color: #94A3B8 !important;
+        font-size: 0.82rem;
+        font-weight: 760;
+        text-transform: lowercase;
+    }
+
+    .auth-login-divider::before,
+    .auth-login-divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: #E2E8F0;
+    }
+
+    [data-testid="stDialog"] .st-key-auth-login-google-placeholder button,
+    .st-key-auth-login-google-placeholder button {
+        width: 100% !important;
+        height: 2.72rem !important;
+        min-height: 2.72rem !important;
+        padding: 0 1rem !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 0.78rem !important;
+        background: #FFFFFF !important;
+        color: #334155 !important;
+        box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06) !important;
+        font-size: 0.94rem !important;
+        font-weight: 780 !important;
+        text-align: center !important;
+    }
+
+    [data-testid="stDialog"] .st-key-auth-login-google-placeholder button:hover,
+    [data-testid="stDialog"] .st-key-auth-login-google-placeholder button:focus,
+    .st-key-auth-login-google-placeholder button:hover,
+    .st-key-auth-login-google-placeholder button:focus {
+        background: #F8FAFC !important;
+        border-color: rgba(100, 116, 139, 0.54) !important;
+        color: #0F172A !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.10) !important;
     }
 
     .auth-dialog-subtitle {
@@ -667,6 +1216,16 @@ def _get_password_reset_service() -> PasswordResetService:
     return PasswordResetService.from_environment()
 
 
+@st.cache_resource(show_spinner=False)
+def _get_pending_registration_service() -> PendingRegistrationService:
+    return PendingRegistrationService.from_environment()
+
+
+@st.cache_resource(show_spinner=False)
+def _get_account_reactivation_service() -> AccountReactivationService:
+    return AccountReactivationService.from_environment()
+
+
 def open_auth_modal(
     mode: str = "login",
     *,
@@ -680,6 +1239,7 @@ def open_auth_modal(
 
 
 def switch_auth_modal_mode(mode: str) -> None:
+    _clear_modal_feedback(st.session_state)
     open_auth_modal(
         mode,
         redirect_on_close=st.session_state.get("auth_redirect_on_close"),
@@ -694,7 +1254,12 @@ def close_auth_modal(*, redirect: bool = True) -> None:
     st.session_state.auth_modal_mode = None
     st.session_state.auth_redirect_on_close = None
     st.session_state.auth_target_page_on_success = None
+    _clear_modal_feedback(st.session_state)
     st.session_state.pop("password_reset_token", None)
+    st.session_state.pop("pending_registration_id", None)
+    st.session_state.pop("pending_registration_email", None)
+    st.session_state.pop("account_reactivation_token_id", None)
+    st.session_state.pop("account_reactivation_email", None)
 
     if redirect_page:
         set_current_page(str(redirect_page))
@@ -734,7 +1299,19 @@ def _clear_profile_form_state() -> None:
 def switch_profile_panel(panel: str) -> None:
     # Profile action clicks only change panels; persistence runs in form submits.
     _clear_profile_form_state()
+    _clear_modal_feedback(st.session_state)
     set_auth_panel(panel)
+
+
+def handle_profile_modal_close() -> None:
+    if st.session_state.get("auth_panel") in PROFILE_SUBPANELS:
+        _clear_profile_form_state()
+        st.session_state.pop(AUTH_MODAL_FEEDBACK_KEY, None)
+        st.session_state.pop(AUTH_MODAL_FEEDBACK_KIND_KEY, None)
+        set_auth_panel("profile")
+        return
+
+    close_auth_modal(redirect=False)
 
 
 def _finish_auth_success() -> None:
@@ -785,6 +1362,30 @@ def _get_password_reset_service_or_none() -> PasswordResetService | None:
         return None
 
 
+def _get_pending_registration_service_or_none() -> PendingRegistrationService | None:
+    try:
+        return _get_pending_registration_service()
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro pending_registration_service | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
+        return None
+
+
+def _get_account_reactivation_service_or_none() -> AccountReactivationService | None:
+    try:
+        return _get_account_reactivation_service()
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro account_reactivation_service | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
+        return None
+
+
 def _render_auth_dialog_subtitle(subtitle: str) -> None:
     st.markdown(
         f'<p class="auth-dialog-subtitle">{_escape_text(subtitle)}</p>',
@@ -802,6 +1403,7 @@ def _render_auth_dialog_heading(title: str, subtitle: str) -> None:
         """,
         unsafe_allow_html=True,
     )
+    _render_modal_feedback()
 
 
 def _render_global_error(container: Any, message: str) -> None:
@@ -814,6 +1416,52 @@ def _render_global_error(container: Any, message: str) -> None:
 def _render_global_info(container: Any, message: str) -> None:
     container.markdown(
         f'<section class="auth-info-message">{_escape_text(message)}</section>',
+        unsafe_allow_html=True,
+    )
+
+
+def _clear_modal_feedback(session_state: Any) -> None:
+    session_state.pop(AUTH_MODAL_FEEDBACK_KEY, None)
+    session_state.pop(AUTH_MODAL_FEEDBACK_KIND_KEY, None)
+
+
+def set_modal_feedback(session_state: Any, message: str, kind: str = "success") -> None:
+    session_state[AUTH_MODAL_FEEDBACK_KEY] = str(message)
+    session_state[AUTH_MODAL_FEEDBACK_KIND_KEY] = kind if kind in {"success", "error", "info"} else "success"
+
+
+@contextmanager
+def modal_action_processing(message: str):
+    st.session_state[AUTH_MODAL_PROCESSING_KEY] = message
+    try:
+        with st.spinner(message):
+            yield
+    finally:
+        st.session_state.pop(AUTH_MODAL_PROCESSING_KEY, None)
+
+
+def _render_modal_feedback() -> None:
+    message = st.session_state.pop(AUTH_MODAL_FEEDBACK_KEY, None)
+    if not message:
+        st.session_state.pop(AUTH_MODAL_FEEDBACK_KIND_KEY, None)
+        return
+
+    kind = st.session_state.pop(AUTH_MODAL_FEEDBACK_KIND_KEY, "success")
+    if kind == "error":
+        st.markdown(
+            f'<section class="auth-global-error" role="alert">{_escape_text(message)}</section>',
+            unsafe_allow_html=True,
+        )
+        return
+    if kind == "info":
+        st.markdown(
+            f'<section class="auth-info-message">{_escape_text(message)}</section>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    st.markdown(
+        f'<section class="auth-global-success" role="status">{_escape_text(message)}</section>',
         unsafe_allow_html=True,
     )
 
@@ -873,22 +1521,30 @@ def _render_profile_action_card(
 def _render_login_panel() -> None:
     _render_auth_dialog_heading("Acesso ao Chat IA", "Entre para continuar usando o chat inteligente.")
     global_error_slot = st.empty()
+    global_info_slot = st.empty()
 
-    with st.form("auth-login-form", clear_on_submit=False):
-        email = st.text_input("E-mail", placeholder="seu.email@exemplo.com")
-        field_error_slots = {"email": st.empty()}
-        senha = st.text_input("Senha", type="password", placeholder="Sua senha")
-        field_error_slots["senha"] = st.empty()
-        submitted = st.form_submit_button("Entrar", use_container_width=True)
+    email = st.text_input("E-mail", placeholder="seu.email@exemplo.com")
+    field_error_slots = {"email": st.empty()}
+    senha = st.text_input("Senha", type="password", placeholder="Sua senha")
+    field_error_slots["senha"] = st.empty()
+
+    if st.button("Esqueci minha senha", key="auth-login-forgot-password", use_container_width=False):
+        set_auth_panel("forgot_password")
+        st.rerun()
+
+    submitted = st.button("Entrar", key="auth-login-submit", use_container_width=True)
+
+    st.markdown('<div class="auth-login-divider">ou</div>', unsafe_allow_html=True)
+
+    # Placeholder seguro: Google OAuth sera implementado em fase futura.
+    if st.button("G  Entrar com Google", key="auth-login-google-placeholder", use_container_width=True):
+        _render_global_info(global_info_slot, GOOGLE_SIGN_IN_UNAVAILABLE_MESSAGE)
 
     _render_auth_footer(
         action_label="Criar conta",
         switch_mode="register",
         switch_key="auth-login-go-signup",
     )
-    if st.button("Esqueci minha senha", key="auth-login-forgot-password", use_container_width=True):
-        set_auth_panel("forgot_password")
-        st.rerun()
 
     if submitted:
         field_errors = validate_login_fields(email, senha)
@@ -902,7 +1558,8 @@ def _render_login_panel() -> None:
             return
 
         try:
-            user = service.authenticate(email, senha)
+            with modal_action_processing("Entrando..."):
+                user = service.authenticate(email, senha)
         except AuthValidationError as exc:
             _render_global_error(global_error_slot, exc.public_message)
         except Exception as exc:
@@ -950,41 +1607,109 @@ def _render_signup_panel() -> None:
             _render_field_errors(field_error_slots, field_errors)
             return
 
-        service = _get_auth_service_or_none()
+        service = _get_pending_registration_service_or_none()
         if service is None:
             _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
             return
-
-        try:
-            user = service.create_user(nome, email, senha, confirmar_senha)
-        except AuthValidationError as exc:
-            _render_global_error(global_error_slot, exc.public_message)
-        except Exception as exc:
-            logger.warning(
-                "Erro seguro cadastro | causa=%s | tipo=%s",
-                safe_auth_exception_summary(exc),
-                type(exc).__name__,
-            )
+        reactivation_service = _get_account_reactivation_service_or_none()
+        if reactivation_service is None:
             _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
-        else:
-            verification_message = "Conta criada com sucesso."
-            verification_service = _get_email_verification_service_or_none()
-            if verification_service is not None:
-                try:
-                    verification_result = verification_service.send_verification_email(user.id)
-                    verification_message = verification_result.message
-                except Exception as exc:
-                    logger.warning(
-                        "Erro seguro cadastro_verificacao_email | causa=%s | tipo=%s",
-                        safe_auth_exception_summary(exc),
-                        type(exc).__name__,
-                    )
-                    verification_message = EMAIL_VERIFICATION_SEND_FAILED_MESSAGE
+            return
 
-            login_session(st.session_state, user)
-            _finish_auth_success()
-            queue_toast(st.session_state, verification_message)
+        with modal_action_processing("Enviando codigo..."):
+            next_step = handle_register_submit(
+                st.session_state,
+                service,
+                reactivation_service,
+                nome=nome,
+                email=email,
+                senha=senha,
+                confirmar_senha=confirmar_senha,
+            )
+        if next_step.panel == "confirm_email":
+            set_auth_panel("confirm_email")
             st.rerun()
+            return
+
+        _render_global_error(global_error_slot, next_step.message)
+
+
+def _render_confirm_email_panel() -> None:
+    _render_auth_dialog_heading(
+        "Confirme seu e-mail",
+        CONFIRM_EMAIL_DESCRIPTION,
+    )
+    global_error_slot = st.empty()
+    flow_kind = st.session_state.get("registration_flow_kind")
+    pending_id = st.session_state.get("pending_registration_id")
+    pending_email = st.session_state.get("pending_registration_email")
+    token_id = st.session_state.get("account_reactivation_token_id")
+    reactivation_email = st.session_state.get("account_reactivation_email")
+
+    _render_global_info(
+        global_error_slot,
+        "Se houver instrucoes para este cadastro, elas foram enviadas ao e-mail informado.",
+    )
+
+    with st.form("auth-confirm-email-form", clear_on_submit=False):
+        codigo = st.text_input(
+            "Codigo",
+            placeholder="000000",
+            key="auth-registration-code-input",
+        )
+        field_error_slots = {"codigo": st.empty()}
+        submitted = st.form_submit_button("Confirmar e-mail", use_container_width=True)
+
+    if st.button("Voltar para entrar", key="auth-confirm-registration-go-login", use_container_width=True):
+        set_auth_panel("login")
+        st.rerun()
+
+    if not submitted:
+        return
+
+    if not (codigo or "").strip():
+        _render_field_errors(field_error_slots, {"codigo": "Informe o codigo enviado por e-mail."})
+        return
+
+    pending_service = _get_pending_registration_service_or_none()
+    reactivation_service = _get_account_reactivation_service_or_none()
+    if pending_service is None or reactivation_service is None:
+        _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+        return
+
+    with modal_action_processing("Verificando codigo..."):
+        result = handle_email_code_confirmation(
+            st.session_state,
+            pending_service,
+            reactivation_service,
+            code=codigo,
+        )
+    if not result.success:
+        _render_global_error(global_error_slot, result.message)
+        return
+
+    if result.flow_kind == "pending_registration":
+        login_session(st.session_state, result.user)
+        _finish_auth_success()
+        queue_toast(st.session_state, result.message)
+        st.rerun()
+        return
+
+    if result.flow_kind == "reactivation":
+        set_auth_panel("login")
+        set_modal_feedback(st.session_state, result.message)
+        st.rerun()
+        return
+
+    _render_global_error(global_error_slot, CONFIRM_EMAIL_STALE_MESSAGE)
+
+
+def _render_confirm_registration_panel() -> None:
+    _render_confirm_email_panel()
+
+
+def _render_confirm_reactivation_panel() -> None:
+    _render_confirm_email_panel()
 
 
 def _render_forgot_password_panel() -> None:
@@ -1021,7 +1746,8 @@ def _render_forgot_password_panel() -> None:
             return
 
         try:
-            result = service.request_password_reset(email)
+            with modal_action_processing("Enviando instrucoes..."):
+                result = service.request_password_reset(email)
         except Exception as exc:
             logger.warning(
                 "Erro seguro solicitar_recuperacao_senha | causa=%s | tipo=%s",
@@ -1090,7 +1816,8 @@ def _render_reset_password_panel() -> None:
             return
 
         try:
-            result = service.reset_password_with_token(reset_token, nova_senha, confirmar_senha)
+            with modal_action_processing("Salvando nova senha..."):
+                result = service.reset_password_with_token(reset_token, nova_senha, confirmar_senha)
         except AuthValidationError as exc:
             _render_global_error(global_error_slot, exc.public_message)
         except Exception as exc:
@@ -1106,7 +1833,7 @@ def _render_reset_password_panel() -> None:
                 return
             st.session_state.pop("password_reset_token", None)
             set_auth_panel("login")
-            queue_toast(st.session_state, result.message)
+            set_modal_feedback(st.session_state, result.message)
             st.rerun()
 
 
@@ -1172,18 +1899,19 @@ def _render_profile_panel() -> None:
         )
         if st.button("Reenviar verificacao", key="auth-profile-resend-verification"):
             if verification_service is None:
-                queue_toast(st.session_state, EMAIL_VERIFICATION_SEND_FAILED_MESSAGE)
+                set_modal_feedback(st.session_state, EMAIL_VERIFICATION_SEND_FAILED_MESSAGE, "error")
             else:
                 try:
-                    verification_result = verification_service.resend_verification_email(int(user["id"]))
-                    queue_toast(st.session_state, verification_result.message)
+                    with modal_action_processing("Enviando verificacao..."):
+                        verification_result = verification_service.resend_verification_email(int(user["id"]))
+                    set_modal_feedback(st.session_state, verification_result.message)
                 except Exception as exc:
                     logger.warning(
                         "Erro seguro reenviar_verificacao_email | causa=%s | tipo=%s",
                         safe_auth_exception_summary(exc),
                         type(exc).__name__,
                     )
-                    queue_toast(st.session_state, EMAIL_VERIFICATION_SEND_FAILED_MESSAGE)
+                    set_modal_feedback(st.session_state, EMAIL_VERIFICATION_SEND_FAILED_MESSAGE, "error")
             st.rerun()
 
     action_columns = st.columns(3, gap="small")
@@ -1260,7 +1988,8 @@ def _render_change_name_panel() -> None:
             return
 
         try:
-            updated_user = service.update_name(int(user["id"]), nome)
+            with modal_action_processing("Salvando alteracao..."):
+                updated_user = service.update_name(int(user["id"]), nome)
         except AuthValidationError as exc:
             _render_global_error(global_slot, exc.public_message)
         except Exception as exc:
@@ -1273,7 +2002,7 @@ def _render_change_name_panel() -> None:
         else:
             login_session(st.session_state, updated_user)
             switch_profile_panel("profile")
-            queue_toast(st.session_state, "Nome atualizado com sucesso.")
+            set_modal_feedback(st.session_state, "Nome atualizado com sucesso.")
             st.rerun()
 
 
@@ -1335,12 +2064,13 @@ def _render_change_password_panel() -> None:
             return
 
         try:
-            service.change_password(
-                int(user["id"]),
-                senha_atual,
-                nova_senha,
-                confirmar_senha,
-            )
+            with modal_action_processing("Salvando senha..."):
+                service.change_password(
+                    int(user["id"]),
+                    senha_atual,
+                    nova_senha,
+                    confirmar_senha,
+                )
         except AuthValidationError as exc:
             _render_global_error(global_slot, exc.public_message)
         except Exception as exc:
@@ -1352,7 +2082,7 @@ def _render_change_password_panel() -> None:
             _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
         else:
             switch_profile_panel("profile")
-            queue_toast(st.session_state, "Senha alterada com sucesso.")
+            set_modal_feedback(st.session_state, "Senha alterada com sucesso.")
             st.rerun()
 
 
@@ -1409,7 +2139,8 @@ def _render_change_email_panel() -> None:
             return
 
         try:
-            updated_user = service.update_email(int(user["id"]), clean_email)
+            with modal_action_processing("Salvando alteracao..."):
+                updated_user = service.update_email(int(user["id"]), clean_email)
         except AuthValidationError as exc:
             public_message = exc.public_message
             normalized_message = public_message.casefold()
@@ -1426,7 +2157,7 @@ def _render_change_email_panel() -> None:
         else:
             login_session(st.session_state, updated_user)
             switch_profile_panel("profile")
-            queue_toast(st.session_state, "E-mail atualizado com sucesso.")
+            set_modal_feedback(st.session_state, "E-mail atualizado com sucesso.")
             st.rerun()
 
 
@@ -1481,7 +2212,8 @@ def _render_deactivate_account_panel() -> None:
             return
 
         try:
-            service.soft_delete_user(int(user["id"]))
+            with modal_action_processing("Desativando conta..."):
+                service.soft_delete_user(int(user["id"]))
         except AuthValidationError as exc:
             _render_global_error(global_slot, exc.public_message)
         except Exception as exc:
@@ -1508,22 +2240,22 @@ def _render_auth_dialog() -> None:
         _render_login_panel()
 
 
-@st.dialog("Meu perfil", width="large", on_dismiss=_clear_auth_panel)
+@st.dialog("Meu perfil", width="large", on_dismiss=handle_profile_modal_close)
 def _render_profile_dialog() -> None:
     _render_profile_panel()
 
 
-@st.dialog("Alterar nome", width="large", on_dismiss=_clear_auth_panel)
+@st.dialog("Alterar nome", width="large", on_dismiss=handle_profile_modal_close)
 def _render_change_name_dialog() -> None:
     _render_change_name_panel()
 
 
-@st.dialog("Alterar senha", width="large", on_dismiss=_clear_auth_panel)
+@st.dialog("Alterar senha", width="large", on_dismiss=handle_profile_modal_close)
 def _render_change_password_dialog() -> None:
     _render_change_password_panel()
 
 
-@st.dialog("Alterar e-mail", width="large", on_dismiss=_clear_auth_panel)
+@st.dialog("Alterar e-mail", width="large", on_dismiss=handle_profile_modal_close)
 def _render_change_email_dialog() -> None:
     _render_change_email_panel()
 
@@ -1533,12 +2265,22 @@ def _render_forgot_password_dialog() -> None:
     _render_forgot_password_panel()
 
 
+@st.dialog("Confirmar e-mail", width="small", on_dismiss=_clear_auth_panel)
+def _render_confirm_registration_dialog() -> None:
+    _render_confirm_registration_panel()
+
+
+@st.dialog("Confirmar e-mail", width="small", on_dismiss=_clear_auth_panel)
+def _render_confirm_reactivation_dialog() -> None:
+    _render_confirm_reactivation_panel()
+
+
 @st.dialog("Redefinir senha", width="small", on_dismiss=_clear_auth_panel)
 def _render_reset_password_dialog() -> None:
     _render_reset_password_panel()
 
 
-@st.dialog("Desativar conta", width="large", on_dismiss=_clear_auth_panel)
+@st.dialog("Desativar conta", width="large", on_dismiss=handle_profile_modal_close)
 def _render_deactivate_account_dialog() -> None:
     _render_deactivate_account_panel()
 
@@ -1562,6 +2304,10 @@ def render_auth_panel() -> None:
         _render_change_email_dialog()
     elif panel == "forgot_password":
         _render_forgot_password_dialog()
+    elif panel in {"confirm_email", "confirm_registration"}:
+        _render_confirm_registration_dialog()
+    elif panel == "confirm_reactivation":
+        _render_confirm_reactivation_dialog()
     elif panel == "reset_password":
         _render_reset_password_dialog()
     elif panel == "deactivate_account":

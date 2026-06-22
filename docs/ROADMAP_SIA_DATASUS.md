@@ -1,6 +1,6 @@
 # Roadmap de Evolucao - SIA/DATASUS
 
-Atualizado em: 2026-06-21
+Atualizado em: 2026-06-22
 
 Este documento organiza os proximos passos tecnicos do app SIA/DATASUS. Ele nao substitui a documentacao tecnica existente; serve como roteiro de evolucao para estabilizar autenticacao, Chat IA, historico, auditoria e seguranca.
 
@@ -79,6 +79,8 @@ deletado_em TIMESTAMP NULL
 - [ ] Listagens normais devem ocultar usuarios com `deletado = true`.
 - [ ] Documentar que a acao visivel para o usuario deve ser `Desativar conta`, nao exclusao fisica.
 - [ ] Reservar `Exclusao definitiva administrativa` ou `expurgo` para uma politica futura explicita, com trilha de auditoria, autorizacao e confirmacao.
+- [ ] Permitir reativacao segura de conta desativada somente com prova de controle do e-mail.
+- [ ] Configurar janela de reativacao automatica, por exemplo `ACCOUNT_REACTIVATION_WINDOW_DAYS`.
 
 Comportamento recomendado para `Desativar conta`:
 
@@ -88,6 +90,17 @@ Comportamento recomendado para `Desativar conta`:
 - Bloquear logins futuros.
 - Ocultar o usuario em listagens comuns.
 - Nunca executar `DELETE` fisico no fluxo normal do usuario.
+
+Comportamento recomendado para reativacao:
+
+- Nao criar uma nova conta quando o e-mail pertence a usuario desativado.
+- Enviar codigo de reativacao por e-mail quando a conta estiver dentro da janela configurada.
+- Armazenar apenas `codigo_hash`, nunca o codigo cru.
+- Ao confirmar codigo valido, definir `deletado = false` e limpar `deletado_em`.
+- Contas fora da janela devem exigir revisao administrativa futura ou politica de expurgo.
+- Mensagens publicas de cadastro devem ser neutras para evitar enumeracao de contas.
+- A interface nao deve revelar se o e-mail pertence a conta ativa, desativada, inexistente ou fora da janela antes da confirmacao por codigo.
+- O estado "conta criada" ou "conta reativada" so pode aparecer depois da prova de controle do e-mail.
 
 Por que usar soft delete:
 
@@ -103,6 +116,9 @@ Criterios de aceite:
 - [ ] Nenhum `DELETE` fisico e usado para remocao/desativacao de conta.
 - [ ] Usuario e marcado com `deletado = true` ao desativar a conta.
 - [ ] Dados DATASUS nao sao alterados por operacoes de usuario.
+- [ ] Conta desativada nao e recriada silenciosamente no cadastro.
+- [ ] Reativacao exige confirmacao por e-mail.
+- [ ] Cadastro usa mensagem publica neutra para e-mails ativos, desativados ou inexistentes.
 
 ### Phase 3 - P1 - Perfil e Gerenciamento de Conta
 
@@ -333,6 +349,8 @@ Criterios de aceite:
 ### Phase 10 - P2 - Revisao LGPD e Seguranca
 
 Objetivo: documentar responsabilidades e reduzir risco juridico/operacional.
+
+Documento de referencia: `docs/SECURITY_LGPD_REVIEW.md`.
 
 Tarefas:
 

@@ -14,7 +14,7 @@ PENDING_TOAST_KIND_KEY = "pending_toast_kind"
 SUCCESS_FEEDBACK_CSS = (
     "<style>"
     ".success-feedback-stack{"
-    "position:fixed;top:1rem;right:1.15rem;z-index:3000;"
+    "position:fixed;top:1rem;right:1.15rem;z-index:2147483000;"
     "width:min(25rem,calc(100vw - 2rem));pointer-events:none;"
     "}"
     ".success-feedback-card{"

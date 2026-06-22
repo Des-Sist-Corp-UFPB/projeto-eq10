@@ -30,6 +30,7 @@ from src.auth.validation import EMAIL_RE
 logger = logging.getLogger(__name__)
 
 DEFAULT_PASSWORD_RESET_TOKEN_TTL_HOURS = 1
+DEFAULT_PUBLIC_BASE_URL = "http://localhost:8501"
 
 PASSWORD_RESET_NEUTRAL_MESSAGE = "Se houver uma conta com este e-mail, enviaremos instrucoes de recuperacao."
 PASSWORD_RESET_SUCCESS_MESSAGE = "Senha redefinida com sucesso. Voce ja pode entrar com a nova senha."
@@ -98,6 +99,16 @@ def _validate_reset_password(new_password: str, confirmation: str) -> str:
     return new_password
 
 
+def _resolve_public_base_url(explicit_url: str | None = None) -> str:
+    return (
+        explicit_url
+        or os.getenv("EMAIL_PUBLIC_BASE_URL")
+        or os.getenv("APP_PUBLIC_BASE_URL")
+        or os.getenv("APP_PUBLIC_URL")
+        or DEFAULT_PUBLIC_BASE_URL
+    ).strip().rstrip("/")
+
+
 class PasswordResetService:
     """Casos de uso para solicitacao e uso de token de recuperacao."""
 
@@ -112,7 +123,7 @@ class PasswordResetService:
     ):
         self.engine = engine
         self.email_service = email_service or EmailService.from_environment()
-        self.app_public_url = (app_public_url or os.getenv("APP_PUBLIC_URL", "")).strip()
+        self.app_public_url = _resolve_public_base_url(app_public_url)
         self.token_ttl_hours = token_ttl_hours
         if initialize_schema:
             self.ensure_schema()

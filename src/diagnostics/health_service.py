@@ -348,10 +348,18 @@ class HealthService:
                 details,
             )
 
+        if provider == SMTP_PROVIDER:
+            return self._result(
+                "email_configuration",
+                STATUS_OK,
+                "SMTP configurado para envio real quando EMAIL_ENABLED=true.",
+                details,
+            )
+
         return self._result(
             "email_configuration",
             STATUS_WARNING,
-            "Provedor real configurado, mas envio real ainda depende da implementacao do EmailService.",
+            "Provedor por API configurado, mas envio real ainda depende da implementacao do EmailService.",
             details,
         )
 

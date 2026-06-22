@@ -1,10 +1,12 @@
+import os
 import unittest
 from datetime import timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from sqlalchemy import create_engine, text
 
-from src.auth.email_service import EmailConfig, EmailService
+from src.auth.email_service import EmailConfig, EmailSendResult, EmailService
 from src.auth.password_reset_service import (
     PASSWORD_RESET_INVALID_MESSAGE,
     PASSWORD_RESET_NEUTRAL_MESSAGE,
@@ -14,6 +16,16 @@ from src.auth.password_reset_service import (
 )
 from src.auth.security import verify_password
 from src.auth.user_service import AuthValidationError, UserService, _now
+
+
+class RecordingEmailService(EmailService):
+    def __init__(self):
+        super().__init__(EmailConfig(enabled=False, provider="fake"))
+        self.reset_target = ""
+
+    def send_password_reset_email(self, to: str, reset_url: str) -> EmailSendResult:
+        self.reset_target = reset_url
+        return super().send_password_reset_email(to, reset_url)
 
 
 class TestPasswordResetService(unittest.TestCase):
@@ -204,6 +216,21 @@ class TestPasswordResetService(unittest.TestCase):
         self.assertNotIn(row["token_hash"], result.message)
         self.assertNotIn("reset_password_token", result.message)
         self.assertEqual(result.message, PASSWORD_RESET_NEUTRAL_MESSAGE)
+
+    def test_usa_email_public_base_url_para_link_de_reset(self):
+        recording_service = RecordingEmailService()
+        with patch.dict(os.environ, {"EMAIL_PUBLIC_BASE_URL": "https://app.example.com/chat"}, clear=True):
+            reset_service = PasswordResetService(
+                self.engine,
+                email_service=recording_service,
+                initialize_schema=False,
+            )
+            result = reset_service.request_password_reset("ana@example.com")
+
+        self.assertEqual(result.status, "fake")
+        self.assertIn("https://app.example.com/chat?reset_password_token=", recording_service.reset_target)
+        self.assertNotIn(recording_service.reset_target, result.message)
+        self.assertNotIn(recording_service.reset_target, str(result.send_result.as_dict()))
 
     def test_recuperacao_nao_toca_tabelas_datasus(self):
         source = Path("src/auth/password_reset_service.py").read_text(encoding="utf-8").upper()
