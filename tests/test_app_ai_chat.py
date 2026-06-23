@@ -56,18 +56,18 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn('del st.query_params["reset_password_token"]', app_source)
         self.assertIn("_handle_password_reset_query_param()", app_source)
 
-    def test_app_trata_link_de_alteracao_de_email(self):
+    def test_app_nao_usa_link_para_alteracao_de_email(self):
         app_source = APP_PATH.read_text(encoding="utf-8")
+        auth_source = AUTH_MODAL_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("def _handle_email_change_query_param", app_source)
-        self.assertIn('st.query_params.get("confirm_email_change_token")', app_source)
-        self.assertIn("_get_email_change_service().confirm_email_change_token(clean_token)", app_source)
-        self.assertIn("email_change_feedback", app_source)
-        self.assertIn("get_authenticated_user(st.session_state)", app_source)
-        self.assertIn("login_session(st.session_state, result.user)", app_source)
-        self.assertIn('del st.query_params["confirm_email_change_token"]', app_source)
-        self.assertIn("_handle_email_change_query_param()", app_source)
-        self.assertIn("def _render_email_change_feedback", app_source)
+        self.assertNotIn("confirm_email_change_token", app_source + auth_source)
+        self.assertNotIn("def _handle_email_change_query_param", app_source)
+        self.assertIn("def _render_confirm_email_change_panel", auth_source)
+        self.assertIn("service.confirm_email_change_code(", auth_source)
+        self.assertIn('"confirm_email_change"', auth_source)
+        self.assertIn("pending_email_change_id", auth_source)
+        self.assertIn("auth-email-change-code-input", auth_source)
+        self.assertIn("Confirmar novo e-mail", auth_source)
 
     def test_app_trata_link_de_verificacao_de_email(self):
         app_source = APP_PATH.read_text(encoding="utf-8")
@@ -455,12 +455,14 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn("auth-profile-resend-verification", auth_source)
         self.assertIn("verification_service.resend_verification_email(int(user[\"id\"]))", auth_source)
         self.assertIn("Gerenciar conta", auth_source)
-        self.assertIn("O e-mail da conta so sera alterado depois que voce confirmar o link enviado ao novo endereco.", auth_source)
+        self.assertIn("O e-mail da conta so sera alterado depois que voce informar o codigo enviado ao novo endereco.", auth_source)
         self.assertIn("auth-change-email-password-input", auth_source)
         self.assertIn("service.request_email_change(int(user[\"id\"]), clean_email, senha_atual)", auth_source)
         self.assertIn("EMAIL_CHANGE_DUPLICATE_MESSAGE", auth_source)
         self.assertIn("EMAIL_CHANGE_EMAIL_DISABLED_MESSAGE", auth_source)
         self.assertIn("EMAIL_CHANGE_SEND_FAILED_MESSAGE", auth_source)
+        self.assertIn("pending_email_change_id", auth_source)
+        self.assertIn('set_auth_panel("confirm_email_change")', auth_source)
         self.assertNotIn("service.update_email(int(user[\"id\"]), clean_email)", auth_source)
         self.assertIn('set_modal_feedback(st.session_state, "Nome atualizado com sucesso.")', auth_source)
         self.assertIn('set_modal_feedback(st.session_state, "Senha alterada com sucesso.")', auth_source)
@@ -496,6 +498,7 @@ class TestAppAiChat(unittest.TestCase):
             "auth-change-name-input",
             "auth-change-email-input",
             "auth-change-email-password-input",
+            "auth-email-change-code-input",
             "auth-current-password-input",
             "auth-new-password-input",
             "auth-confirm-password-input",

@@ -52,26 +52,28 @@ Regras:
 - O token deve ser de uso unico.
 - O token cru nao deve aparecer em logs, diagnosticos ou interface.
 
-### Tabela `email_change_tokens`
+### Tabela `pending_email_changes`
 
-Usada para confirmar alteracao do e-mail da conta pelo novo endereco. Pode armazenar:
+Usada para confirmar alteracao do e-mail da conta por codigo enviado ao novo endereco. Pode armazenar:
 
 - `id`;
 - `user_id`;
 - `novo_email`;
-- `token_hash`;
+- `codigo_hash`;
 - `criado_em`;
 - `expira_em`;
 - `usado_em`.
+- `tentativas`.
 
 Regras:
 
-- O e-mail em `usuarios.email` nao deve ser alterado antes da confirmacao valida do link enviado ao novo endereco.
-- O token cru nao deve ser armazenado.
-- Apenas `token_hash` deve ser persistido.
-- O token deve expirar.
-- O token deve ser de uso unico.
-- O token cru e o link completo de alteracao de e-mail nao devem aparecer em logs, diagnosticos ou interface.
+- O e-mail em `usuarios.email` nao deve ser alterado antes da confirmacao valida do codigo enviado ao novo endereco.
+- O codigo cru nao deve ser armazenado.
+- Apenas `codigo_hash` deve ser persistido.
+- O codigo deve expirar.
+- O codigo deve ter limite de tentativas.
+- O codigo deve ser de uso unico.
+- O codigo cru nao deve aparecer em logs, diagnosticos ou interface.
 
 ### Tabela `pending_registrations`
 
@@ -149,7 +151,7 @@ Regras:
 - `ultimo_login_em`: apoiar auditoria basica de acesso.
 - `deletado` e `deletado_em`: permitir desativacao segura sem exclusao fisica imediata.
 - `email_verificado` e `email_verificado_em`: registrar se o usuario confirmou controle do e-mail.
-- `email_change_tokens`: permitir alterar o e-mail da conta somente depois de confirmacao pelo novo endereco.
+- `pending_email_changes`: permitir alterar o e-mail da conta somente depois de confirmacao por codigo enviado ao novo endereco.
 - `pending_registrations`: permitir confirmar o e-mail por codigo antes de criar a conta real.
 - `email_verification_tokens`: permitir verificacao segura de e-mail em fluxos de perfil ou evolucoes futuras.
 - `password_reset_tokens`: permitir recuperacao segura de senha.
@@ -222,8 +224,9 @@ Regras:
 - Senhas sao armazenadas como hash, nao em texto puro.
 - Fluxos normais de remocao usam soft delete com `deletado` e `deletado_em`.
 - Login bloqueia usuarios desativados/deletados.
-- Tokens de verificacao de e-mail, alteracao de e-mail e recuperacao de senha usam `token_hash`.
-- Alteracao de e-mail exige senha atual e confirmacao pelo novo endereco antes de modificar `usuarios.email`.
+- Tokens de verificacao de e-mail e recuperacao de senha usam `token_hash`.
+- Alteracao de e-mail exige senha atual e codigo enviado ao novo endereco antes de modificar `usuarios.email`.
+- Alteracoes pendentes de e-mail armazenam `codigo_hash`, nunca codigo em texto puro.
 - Confirmacao valida de alteracao de e-mail marca `email_verificado = true` e preenche `email_verificado_em`.
 - O cadastro por e-mail usa `pending_registrations` e so cria usuario apos codigo valido.
 - Cadastros pendentes armazenam `senha_hash` e `codigo_hash`, nunca senha ou codigo em texto puro.
@@ -266,7 +269,7 @@ Regras:
 - Segredos devem ser configurados no ambiente do servidor, portal de deploy ou GitHub Secrets quando apropriado.
 - Arquivos `.env` reais nao devem ser versionados.
 - Logs e diagnosticos devem mostrar apenas status como `api_key_configured: true/false`.
-- Logs nao devem exibir valores de chave, senha, token, hash, link de alteracao de e-mail, link de reset ou string de conexao completa.
+- Logs nao devem exibir valores de chave, senha, token, codigo, hash, link de reset ou string de conexao completa.
 - Mensagens de erro exibidas na interface devem ser amigaveis e sem detalhes tecnicos sensiveis.
 
 ## Retencao, Desativacao e Exclusao
@@ -322,7 +325,7 @@ Exclusao fisica definitiva, expurgo ou remocao administrativa so deve existir fu
 - [ ] Nenhum token cru e registrado em logs.
 - [ ] Nenhum codigo de cadastro cru e registrado em logs.
 - [ ] Nenhum link completo de verificacao ou recuperacao com token e registrado em logs.
-- [ ] Nenhum link completo de alteracao de e-mail com token e registrado em logs.
+- [ ] Nenhum codigo de alteracao de e-mail cru e registrado em logs.
 - [ ] Nenhuma senha e registrada em logs.
 - [ ] Nenhum hash de senha aparece na interface.
 - [ ] Nenhum traceback aparece na interface.
@@ -333,7 +336,7 @@ Exclusao fisica definitiva, expurgo ou remocao administrativa so deve existir fu
 - [ ] Dados analiticos DATASUS permanecem somente leitura para o app.
 - [ ] Desativacao de usuario usa soft delete.
 - [ ] Reativacao de usuario exige confirmacao por e-mail.
-- [ ] Alteracao de e-mail exige confirmacao pelo novo endereco.
+- [ ] Alteracao de e-mail exige codigo enviado ao novo endereco.
 - [ ] Recuperacao de senha usa mensagem neutra.
 - [ ] Cadastro cria usuario apenas depois da confirmacao do codigo de e-mail.
 - [ ] Health checks nao expoem segredos.

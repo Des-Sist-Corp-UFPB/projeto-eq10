@@ -10,7 +10,7 @@ O servico de e-mail devera apoiar, em fases futuras:
 
 - Verificar que o usuario controla o e-mail cadastrado.
 - Enviar codigo de verificacao para confirmar o e-mail antes de criar a conta.
-- Enviar links de confirmacao para alterar o e-mail da conta somente depois que o usuario provar controle do novo endereco.
+- Enviar codigos de confirmacao para alterar o e-mail da conta somente depois que o usuario provar controle do novo endereco.
 - Enviar links de recuperacao de senha.
 - Enviar notificacoes de seguranca, se o projeto precisar disso depois.
 - Evitar comportamento falso ou enganoso, como dizer que um e-mail real foi enviado quando o ambiente ainda esta em modo local, fake ou sem configuracao.
@@ -116,9 +116,9 @@ Implementacao inicial disponivel:
 - Fundacao de recuperacao de senha: `src/auth/password_reset_service.py`.
 - Tabela de tokens: `password_reset_tokens`, armazenando somente `token_hash`.
 - Mensagem publica neutra: `Se houver uma conta com este e-mail, enviaremos instrucoes de recuperacao.`
-- Alteracao verificada de e-mail: `src/auth/email_change_service.py`.
-- Tabela de tokens: `email_change_tokens`, armazenando somente `token_hash` e o novo e-mail solicitado.
-- O e-mail em `usuarios.email` so e atualizado depois que o link enviado ao novo endereco e confirmado.
+- Alteracao verificada de e-mail por codigo: `src/auth/email_change_service.py`.
+- Tabela temporaria: `pending_email_changes`, armazenando somente `codigo_hash` e o novo e-mail solicitado.
+- O e-mail em `usuarios.email` so e atualizado depois que o codigo enviado ao novo endereco e confirmado.
 
 Exemplo de comportamento seguro em modo fake/local:
 
@@ -165,7 +165,7 @@ Observacoes:
 
 - Segredos devem ser configurados no ambiente do servidor, portal da disciplina ou GitHub Secrets quando fizer sentido.
 - Nenhuma senha SMTP, API key, token ou segredo deve ser versionado no repositorio.
-- `APP_PUBLIC_BASE_URL`, `EMAIL_PUBLIC_BASE_URL` ou `APP_PUBLIC_URL` sera necessario para montar links de alteracao de e-mail, verificacao e recuperacao em ambiente real.
+- `APP_PUBLIC_BASE_URL`, `EMAIL_PUBLIC_BASE_URL` ou `APP_PUBLIC_URL` sera necessario para montar links de verificacao e recuperacao em ambiente real.
 - Se nenhuma URL publica for configurada, o fallback local e `http://localhost:8501`.
 - Em ambiente local sem URL publica, deve-se usar modo fake/local ou uma URL explicitamente configurada para teste.
 
@@ -196,7 +196,8 @@ Nunca commitar esses valores reais. Configure credenciais no ambiente do servido
 Regras obrigatorias para as fases futuras:
 
 - Nunca registrar tokens de verificacao.
-- Nunca registrar links completos de alteracao de e-mail, recuperacao ou verificacao.
+- Nunca registrar links completos de recuperacao ou verificacao.
+- Nunca registrar codigos de alteracao de e-mail.
 - Nunca registrar credenciais SMTP.
 - Nunca registrar API keys.
 - Nunca registrar senhas ou hashes.
@@ -205,7 +206,7 @@ Regras obrigatorias para as fases futuras:
 - Token deve ser de uso unico.
 - Token usado deve ser marcado com `usado_em` ou equivalente.
 - Mensagens publicas nao devem revelar se um e-mail existe no sistema.
-- Alteracao de e-mail deve exigir senha atual e confirmacao pelo novo endereco antes de modificar `usuarios.email`.
+- Alteracao de e-mail deve exigir senha atual e codigo enviado ao novo endereco antes de modificar `usuarios.email`.
 - O fluxo de recuperacao deve usar mensagem neutra:
 
 > Se houver uma conta com este e-mail, enviaremos instrucoes de recuperacao.
@@ -310,7 +311,7 @@ Regras:
 - Nao aceitar token expirado.
 - Nao armazenar senha em texto puro.
 
-## Integracao com Alteracao Verificada de E-mail
+## Integracao com Alteracao Verificada de E-mail por Codigo
 
 Fluxo implementado:
 
@@ -318,27 +319,27 @@ Fluxo implementado:
 - O formulario solicita o novo e-mail e a senha atual.
 - O sistema valida formato, e-mail diferente do atual, senha atual e duplicidade de e-mail ativo.
 - O sistema nao altera `usuarios.email` imediatamente.
-- O sistema cria um registro em `email_change_tokens` com `novo_email`, `token_hash`, `criado_em`, `expira_em` e `usado_em`.
-- O token cru existe apenas para montar o link enviado por e-mail e nao deve ser registrado em logs.
-- O link usa `?confirm_email_change_token=<token>`.
-- Quando o usuario abre o link, o app valida token, expiracao, uso unico e duplicidade.
+- O sistema cria um registro em `pending_email_changes` com `novo_email`, `codigo_hash`, `criado_em`, `expira_em`, `usado_em` e `tentativas`.
+- O codigo cru existe apenas para montar o e-mail enviado ao novo endereco e nao deve ser registrado em logs.
+- O usuario informa o codigo no modal `Confirmar novo e-mail`.
+- O app valida hash do codigo, expiracao, limite de tentativas, uso unico e duplicidade.
 - Somente depois da confirmacao valida o sistema atualiza `usuarios.email`, define `email_verificado = true`, preenche `email_verificado_em` e atualiza `atualizado_em`.
-- O token e marcado como usado.
-- Se o usuario ainda estiver logado no mesmo navegador, a sessao e atualizada com o novo e-mail.
+- A solicitacao pendente e marcada como usada.
+- A sessao do usuario logado e atualizada com o novo e-mail.
 
 Mensagens esperadas:
 
-- Envio real bem-sucedido: `Enviamos um link de confirmacao para o novo e-mail.`
+- Envio real bem-sucedido: `Enviamos um codigo de confirmacao para o novo e-mail.`
 - Envio desabilitado/fake: `O envio de e-mail ainda nao esta configurado. Nao foi possivel alterar o e-mail agora.`
-- Link valido: `E-mail alterado com sucesso.`
-- Link invalido, expirado ou ja usado: mensagem segura sem expor token ou detalhes internos.
+- Codigo valido: `E-mail alterado com sucesso.`
+- Codigo invalido, expirado, usado ou bloqueado por tentativas: mensagem segura sem expor codigo ou detalhes internos.
 
 Regras:
 
-- Nao atualizar o e-mail antes da confirmacao pelo novo endereco.
+- Nao atualizar o e-mail antes da confirmacao do codigo enviado ao novo endereco.
 - Nao expor se o novo e-mail pertence a outro usuario alem da mensagem segura `Nao foi possivel usar este e-mail.`
-- Nao registrar token cru, link completo, senha atual, senha SMTP ou API key.
-- Em modo fake/local, nao fingir que o link real foi enviado.
+- Nao registrar codigo cru, senha atual, senha SMTP ou API key.
+- Em modo fake/local, nao fingir que o codigo real foi enviado.
 
 ## Notificacoes Futuras de Seguranca
 

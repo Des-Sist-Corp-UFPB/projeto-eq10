@@ -260,7 +260,11 @@ class PasswordResetService:
         try:
             token = self.create_password_reset_token(int(user["id"]))
             reset_target = self._build_reset_target(token.raw_token)
-            send_result = self.email_service.send_password_reset_email(token.email, reset_target)
+            send_result = self.email_service.send_password_reset_email(
+                token.email,
+                reset_target,
+                expires_in_minutes=self.token_ttl_hours * 60,
+            )
         except Exception as exc:
             logger.warning(
                 "Erro seguro recuperacao_senha | acao=request | causa=%s | tipo=%s",

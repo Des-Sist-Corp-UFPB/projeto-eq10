@@ -14,8 +14,11 @@ from src.auth.account_reactivation_service import (
     AccountReactivationService,
 )
 from src.auth.email_change_service import (
+    EMAIL_CHANGE_CODE_SENT_MESSAGE,
     EMAIL_CHANGE_DUPLICATE_MESSAGE,
     EMAIL_CHANGE_EMAIL_DISABLED_MESSAGE,
+    EMAIL_CHANGE_EXPIRED_CODE_MESSAGE,
+    EMAIL_CHANGE_INVALID_CODE_MESSAGE,
     EMAIL_CHANGE_SEND_FAILED_MESSAGE,
     EmailChangeService,
 )
@@ -58,7 +61,13 @@ CONFIRM_EMAIL_REACTIVATION_SUCCESS_MESSAGE = (
 AUTH_MODAL_FEEDBACK_KEY = "auth_modal_feedback_message"
 AUTH_MODAL_FEEDBACK_KIND_KEY = "auth_modal_feedback_kind"
 AUTH_MODAL_PROCESSING_KEY = "auth_modal_processing_message"
-PROFILE_SUBPANELS = {"change_name", "change_email", "change_password", "deactivate_account"}
+PROFILE_SUBPANELS = {
+    "change_name",
+    "change_email",
+    "confirm_email_change",
+    "change_password",
+    "deactivate_account",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +190,15 @@ def _clear_email_confirmation_state(session_state: Any) -> None:
         "pending_registration_email",
         "account_reactivation_token_id",
         "account_reactivation_email",
+    ):
+        session_state.pop(key, None)
+
+
+def _clear_pending_email_change_state(session_state: Any) -> None:
+    for key in (
+        "pending_email_change_id",
+        "pending_email_change_user_id",
+        "pending_email_change_new_email",
     ):
         session_state.pop(key, None)
 
@@ -451,6 +469,7 @@ PROFILE_WIDGET_KEYS = (
     "auth-change-name-input",
     "auth-change-email-input",
     "auth-change-email-password-input",
+    "auth-email-change-code-input",
     "auth-current-password-input",
     "auth-new-password-input",
     "auth-confirm-password-input",
@@ -1329,6 +1348,7 @@ def close_auth_modal(*, redirect: bool = True) -> None:
     st.session_state.pop("pending_registration_email", None)
     st.session_state.pop("account_reactivation_token_id", None)
     st.session_state.pop("account_reactivation_email", None)
+    _clear_pending_email_change_state(st.session_state)
 
     if redirect_page:
         set_current_page(str(redirect_page))
@@ -1368,6 +1388,8 @@ def _clear_profile_form_state() -> None:
 def switch_profile_panel(panel: str) -> None:
     # Profile action clicks only change panels; persistence runs in form submits.
     _clear_profile_form_state()
+    if panel not in {"confirm_email_change"}:
+        _clear_pending_email_change_state(st.session_state)
     _clear_modal_feedback(st.session_state)
     _clear_modal_processing()
     set_auth_panel(panel)
@@ -1376,6 +1398,7 @@ def switch_profile_panel(panel: str) -> None:
 def handle_profile_modal_close() -> None:
     if st.session_state.get("auth_panel") in PROFILE_SUBPANELS:
         _clear_profile_form_state()
+        _clear_pending_email_change_state(st.session_state)
         st.session_state.pop(AUTH_MODAL_FEEDBACK_KEY, None)
         st.session_state.pop(AUTH_MODAL_FEEDBACK_KIND_KEY, None)
         set_auth_panel("profile")
@@ -2308,7 +2331,7 @@ def _render_change_email_panel() -> None:
     )
 
     global_slot = st.empty()
-    save_email_processing_label = "Enviando confirmacao..."
+    save_email_processing_label = "Enviando codigo..."
     is_processing = _is_modal_processing()
 
     with st.form("auth-change-email-form", clear_on_submit=False):
@@ -2316,7 +2339,7 @@ def _render_change_email_panel() -> None:
             f"""
             <section class="auth-dialog-profile">
                 <p>E-mail atual: <strong>{_escape_text(user["email"])}</strong></p>
-                <p>O e-mail da conta so sera alterado depois que voce confirmar o link enviado ao novo endereco.</p>
+                <p>O e-mail da conta so sera alterado depois que voce informar o codigo enviado ao novo endereco.</p>
             </section>
             """,
             unsafe_allow_html=True,
@@ -2335,7 +2358,7 @@ def _render_change_email_panel() -> None:
         )
         field_error_slots["senha_atual"] = st.empty()
         submitted = st.form_submit_button(
-            _processing_label("Enviar confirmacao", save_email_processing_label),
+            _processing_label("Enviar codigo", save_email_processing_label),
             use_container_width=True,
             disabled=is_processing,
             on_click=_start_modal_processing,
@@ -2387,13 +2410,112 @@ def _render_change_email_panel() -> None:
             _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
         else:
             if result.success:
-                _render_global_info(global_slot, result.message)
+                st.session_state.pending_email_change_id = result.pending_change_id
+                st.session_state.pending_email_change_user_id = result.user_id
+                st.session_state.pending_email_change_new_email = result.new_email
+                set_modal_feedback(st.session_state, result.message or EMAIL_CHANGE_CODE_SENT_MESSAGE, "success")
+                set_auth_panel("confirm_email_change")
+                st.rerun()
             elif result.status == "duplicate_email":
                 _render_global_error(global_slot, EMAIL_CHANGE_DUPLICATE_MESSAGE)
             elif result.status == "email_disabled":
                 _render_global_error(global_slot, EMAIL_CHANGE_EMAIL_DISABLED_MESSAGE)
             elif result.status == "send_failed":
                 _render_global_error(global_slot, EMAIL_CHANGE_SEND_FAILED_MESSAGE)
+            else:
+                _render_global_error(global_slot, result.message)
+
+
+def _render_confirm_email_change_panel() -> None:
+    user = st.session_state.get("auth_user")
+    if not isinstance(user, dict) or not user.get("id"):
+        set_auth_panel("login")
+        return
+
+    pending_change_id = st.session_state.get("pending_email_change_id")
+    pending_user_id = st.session_state.get("pending_email_change_user_id")
+    new_email = st.session_state.get("pending_email_change_new_email")
+    if not pending_change_id or not pending_user_id or int(pending_user_id) != int(user["id"]):
+        set_modal_feedback(st.session_state, "Codigo invalido ou expirado. Solicite um novo codigo.", "error")
+        switch_profile_panel("profile")
+        st.rerun()
+        return
+
+    st.markdown('<section class="auth-profile-form-panel"></section>', unsafe_allow_html=True)
+    _render_auth_dialog_heading(
+        "Confirmar novo e-mail",
+        "Digite o codigo enviado para o novo e-mail para concluir a alteracao.",
+    )
+
+    global_slot = st.empty()
+    confirm_processing_label = "Verificando codigo..."
+    is_processing = _is_modal_processing()
+
+    with st.form("auth-confirm-email-change-form", clear_on_submit=False):
+        st.markdown(
+            f"""
+            <section class="auth-dialog-profile">
+                <p>Novo e-mail: <strong>{_escape_text(new_email or "")}</strong></p>
+                <p>O e-mail atual permanece em uso ate a confirmacao do codigo.</p>
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
+        codigo = st.text_input(
+            "Codigo",
+            placeholder="000000",
+            key="auth-email-change-code-input",
+        )
+        field_error_slots = {"codigo": st.empty()}
+        submitted = st.form_submit_button(
+            _processing_label("Confirmar novo e-mail", confirm_processing_label),
+            use_container_width=True,
+            disabled=is_processing,
+            on_click=_start_modal_processing,
+            args=(confirm_processing_label,),
+        )
+
+    if st.button("Voltar ao perfil", key="auth-email-change-back", use_container_width=True, disabled=is_processing):
+        switch_profile_panel("profile")
+        st.rerun()
+
+    if _should_process(submitted, confirm_processing_label):
+        if not (codigo or "").strip():
+            _render_field_errors(field_error_slots, {"codigo": "Informe o codigo enviado por e-mail."})
+            _clear_modal_processing()
+            return
+
+        service = _get_email_change_service_or_none()
+        if service is None:
+            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+            _clear_modal_processing()
+            return
+
+        try:
+            with modal_action_processing(confirm_processing_label):
+                result = service.confirm_email_change_code(
+                    int(pending_change_id),
+                    int(user["id"]),
+                    codigo,
+                )
+        except Exception as exc:
+            logger.warning(
+                "Erro seguro confirmar_alteracao_email | causa=%s | tipo=%s",
+                safe_auth_exception_summary(exc),
+                type(exc).__name__,
+            )
+            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+        else:
+            if result.success and result.user is not None:
+                login_session(st.session_state, result.user)
+                _clear_pending_email_change_state(st.session_state)
+                switch_profile_panel("profile")
+                set_modal_feedback(st.session_state, result.message)
+                st.rerun()
+            elif result.status == "invalid_code":
+                _render_global_error(global_slot, EMAIL_CHANGE_INVALID_CODE_MESSAGE)
+            elif result.status == "expired":
+                _render_global_error(global_slot, EMAIL_CHANGE_EXPIRED_CODE_MESSAGE)
             else:
                 _render_global_error(global_slot, result.message)
 
@@ -2507,6 +2629,11 @@ def _render_change_email_dialog() -> None:
     _render_change_email_panel()
 
 
+@st.dialog("Confirmar novo e-mail", width="large", on_dismiss=handle_profile_modal_close)
+def _render_confirm_email_change_dialog() -> None:
+    _render_confirm_email_change_panel()
+
+
 @st.dialog("Recuperar senha", width="small", on_dismiss=_clear_auth_panel)
 def _render_forgot_password_dialog() -> None:
     _render_forgot_password_panel()
@@ -2549,6 +2676,8 @@ def render_auth_panel() -> None:
         _render_change_password_dialog()
     elif panel == "change_email":
         _render_change_email_dialog()
+    elif panel == "confirm_email_change":
+        _render_confirm_email_change_dialog()
     elif panel == "forgot_password":
         _render_forgot_password_dialog()
     elif panel in {"confirm_email", "confirm_registration"}:

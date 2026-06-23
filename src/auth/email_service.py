@@ -239,44 +239,62 @@ class EmailService:
             message_type="verification",
         )
 
-    def send_password_reset_email(self, to: str, reset_url: str) -> EmailSendResult:
+    def send_password_reset_email(
+        self,
+        to: str,
+        reset_url: str,
+        *,
+        expires_in_minutes: int = 60,
+    ) -> EmailSendResult:
         safe_reset_url = escape(reset_url, quote=True)
         body_text = (
             "Use o link abaixo para definir uma nova senha no SIA/DATASUS:\n\n"
             f"{reset_url}\n\n"
+            f"Este link expira em {expires_in_minutes} minutos. "
             "Se voce nao solicitou esta acao, ignore esta mensagem."
         )
         body_html = (
             "<p>Use o link abaixo para definir uma nova senha no SIA/DATASUS:</p>"
             f"<p><a href=\"{safe_reset_url}\">Redefinir senha</a></p>"
+            f"<p>Este link expira em {expires_in_minutes} minutos.</p>"
             "<p>Se voce nao solicitou esta acao, ignore esta mensagem.</p>"
         )
         return self.send_email(
             to,
-            "Recuperacao de senha",
+            "Redefinicao de senha",
             body_text,
             body_html,
             message_type="password_reset",
         )
 
-    def send_email_change_confirmation_email(self, to: str, confirmation_url: str) -> EmailSendResult:
-        safe_confirmation_url = escape(confirmation_url, quote=True)
+    def send_email_change_code_email(
+        self,
+        to: str,
+        code: str,
+        *,
+        expires_in_minutes: int = 15,
+    ) -> EmailSendResult:
+        safe_code = escape(code, quote=True)
         body_text = (
-            "Use o link abaixo para confirmar a alteracao de e-mail no SIA/DATASUS:\n\n"
-            f"{confirmation_url}\n\n"
+            "Seu codigo para alterar o e-mail da conta SIA/DATASUS e:\n\n"
+            f"{code}\n\n"
+            f"Este codigo expira em {expires_in_minutes} minutos. "
+            "O e-mail da conta so sera alterado depois da confirmacao. "
             "Se voce nao solicitou esta acao, ignore esta mensagem."
         )
         body_html = (
-            "<p>Use o link abaixo para confirmar a alteracao de e-mail no SIA/DATASUS:</p>"
-            f"<p><a href=\"{safe_confirmation_url}\">Confirmar novo e-mail</a></p>"
+            "<p>Seu codigo para alterar o e-mail da conta SIA/DATASUS e:</p>"
+            f"<p style=\"font-size:24px;font-weight:700;letter-spacing:4px;\">{safe_code}</p>"
+            f"<p>Este codigo expira em {expires_in_minutes} minutos.</p>"
+            "<p>O e-mail da conta so sera alterado depois da confirmacao.</p>"
             "<p>Se voce nao solicitou esta acao, ignore esta mensagem.</p>"
         )
         return self.send_email(
             to,
-            "Confirmacao de alteracao de e-mail",
+            "Codigo para alterar seu e-mail",
             body_text,
             body_html,
-            message_type="email_change",
+            message_type="email_change_code",
         )
 
     def _config_error_code(self) -> str | None:

@@ -23,9 +23,15 @@ class RecordingEmailService(EmailService):
         super().__init__(EmailConfig(enabled=False, provider="fake"))
         self.reset_target = ""
 
-    def send_password_reset_email(self, to: str, reset_url: str) -> EmailSendResult:
+    def send_password_reset_email(
+        self,
+        to: str,
+        reset_url: str,
+        *,
+        expires_in_minutes: int = 60,
+    ) -> EmailSendResult:
         self.reset_target = reset_url
-        return super().send_password_reset_email(to, reset_url)
+        return super().send_password_reset_email(to, reset_url, expires_in_minutes=expires_in_minutes)
 
 
 class TestPasswordResetService(unittest.TestCase):

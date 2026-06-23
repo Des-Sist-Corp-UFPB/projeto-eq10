@@ -8,7 +8,7 @@ from src.auth.session import (
     logout_session,
 )
 from src.auth.email_service import EmailConfig, EmailSendResult, EmailService
-from src.auth.email_change_service import EmailChangeResult, EmailChangeService, EmailChangeToken
+from src.auth.email_change_service import EmailChangeResult, EmailChangeService, PendingEmailChange
 from src.auth.email_verification_service import (
     EmailVerificationResult,
     EmailVerificationService,
@@ -24,7 +24,6 @@ __all__ = [
     "EmailConfig",
     "EmailChangeResult",
     "EmailChangeService",
-    "EmailChangeToken",
     "EmailSendResult",
     "EmailVerificationResult",
     "EmailVerificationService",
@@ -33,6 +32,7 @@ __all__ = [
     "PasswordResetResult",
     "PasswordResetService",
     "PasswordResetToken",
+    "PendingEmailChange",
     "UserProfile",
     "UserService",
     "can_access_chat",
