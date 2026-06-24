@@ -44,6 +44,7 @@ class UserProfile:
     criado_em: Any = None
     atualizado_em: Any = None
     ultimo_login_em: Any = None
+    can_view_audit: bool = False
 
 
 def _now() -> datetime:
@@ -201,6 +202,7 @@ def _row_to_user(row: Any) -> UserProfile:
         criado_em=row["criado_em"],
         atualizado_em=row["atualizado_em"],
         ultimo_login_em=row["ultimo_login_em"],
+        can_view_audit=bool(row["can_view_audit"]) if "can_view_audit" in row.keys() else False,
     )
 
 
@@ -353,7 +355,8 @@ class UserService:
                 email_verificado_em TIMESTAMP NULL,
                 deleted_at TIMESTAMP NULL,
                 deletado BOOLEAN NOT NULL DEFAULT false,
-                deletado_em TIMESTAMP NULL
+                deletado_em TIMESTAMP NULL,
+                can_view_audit BOOLEAN NOT NULL DEFAULT false
             )
         """
         try:
@@ -364,8 +367,10 @@ class UserService:
                 _add_usuario_column_if_missing(conn, columns, "email_verificado_em", "TIMESTAMP NULL")
                 _add_usuario_column_if_missing(conn, columns, "deletado", "BOOLEAN NOT NULL DEFAULT false")
                 _add_usuario_column_if_missing(conn, columns, "deletado_em", "TIMESTAMP NULL")
+                _add_usuario_column_if_missing(conn, columns, "can_view_audit", "BOOLEAN NOT NULL DEFAULT false")
                 conn.execute(text("UPDATE usuarios SET email_verificado = false WHERE email_verificado IS NULL"))
                 conn.execute(text("UPDATE usuarios SET deletado = false WHERE deletado IS NULL"))
+                conn.execute(text("UPDATE usuarios SET can_view_audit = false WHERE can_view_audit IS NULL"))
                 columns = _get_usuario_columns(conn)
                 active_condition = _active_user_condition(columns)
                 create_index_sql = f"""
@@ -467,7 +472,8 @@ class UserService:
                 row = conn.execute(
                     text(
                         f"""
-                        SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em
+                        SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em,
+                               COALESCE(can_view_audit, false) AS can_view_audit
                         FROM usuarios
                         WHERE lower(email) = :email
                           AND {active_condition}
@@ -482,7 +488,19 @@ class UserService:
             _log_database_error("create_user", exc)
             raise
 
-        return _row_to_user(row)
+        user = _row_to_user(row)
+        # Auditoria: conta criada
+        try:
+            from src.audit.audit_log_service import AuditLogService, EVENT_ACCOUNT_CREATED
+            AuditLogService(self.engine, initialize_schema=False).log_event(
+                EVENT_ACCOUNT_CREATED,
+                user_id=user.id,
+                user_email=user.email,
+                detalhe=f"role={user.role}",
+            )
+        except Exception:
+            logger.debug("audit_log nao disponivel ainda — ignorado em create_user")
+        return user
 
     def authenticate(self, email: str, senha: str) -> UserProfile:
         clean_email = _validate_email(email)
@@ -530,7 +548,8 @@ class UserService:
                 active_row = conn.execute(
                     text(
                         """
-                        SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em
+                        SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em,
+                               COALESCE(can_view_audit, false) AS can_view_audit
                         FROM usuarios
                         WHERE id = :id
                         LIMIT 1
@@ -544,7 +563,18 @@ class UserService:
             _log_database_error("authenticate", exc)
             raise
 
-        return _row_to_user(active_row)
+        user = _row_to_user(active_row)
+        # Auditoria: login realizado
+        try:
+            from src.audit.audit_log_service import AuditLogService, EVENT_LOGIN
+            AuditLogService(self.engine, initialize_schema=False).log_event(
+                EVENT_LOGIN,
+                user_id=user.id,
+                user_email=user.email,
+            )
+        except Exception:
+            logger.debug("audit_log nao disponivel ainda — ignorado em authenticate")
+        return user
 
     def get_user_by_id(self, user_id: int) -> UserProfile | None:
         try:
@@ -553,7 +583,8 @@ class UserService:
                 row = conn.execute(
                     text(
                         f"""
-                        SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em
+                        SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em,
+                               COALESCE(can_view_audit, false) AS can_view_audit
                         FROM usuarios
                         WHERE id = :id
                           AND {active_condition}
@@ -567,6 +598,110 @@ class UserService:
             raise
 
         return _row_to_user(row) if row else None
+
+    def get_all_users(self) -> list[UserProfile]:
+        """Retorna todos os usuarios ativos. Uso exclusivo de Super Admins."""
+        try:
+            with self.engine.connect() as conn:
+                active_condition = _active_user_condition(_get_usuario_columns(conn))
+                rows = conn.execute(
+                    text(
+                        f"""
+                        SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em,
+                               COALESCE(can_view_audit, false) AS can_view_audit
+                        FROM usuarios
+                        WHERE {active_condition}
+                        ORDER BY criado_em DESC
+                        """
+                    )
+                ).mappings().all()
+        except SQLAlchemyError as exc:
+            _log_database_error("get_all_users", exc)
+            raise
+
+        return [_row_to_user(r) for r in rows]
+
+    def set_role(
+        self,
+        target_user_id: int,
+        new_role: str,
+        acting_admin_id: int | None = None,
+        acting_admin_email: str | None = None,
+    ) -> UserProfile:
+        """Atualiza o papel (role) de um usuario. Registra evento de auditoria."""
+        from src.auth.roles import VALID_ROLES
+        if new_role not in VALID_ROLES:
+            raise AuthValidationError(f"Papel invalido: {new_role}")
+
+        try:
+            with self.engine.begin() as conn:
+                active_condition = _active_user_condition(_get_usuario_columns(conn))
+                conn.execute(
+                    text(
+                        f"""
+                        UPDATE usuarios
+                        SET role = :role, atualizado_em = :atualizado_em
+                        WHERE id = :id AND {active_condition}
+                        """
+                    ),
+                    {"id": target_user_id, "role": new_role, "atualizado_em": _now()},
+                )
+        except SQLAlchemyError as exc:
+            _log_database_error("set_role", exc)
+            raise
+
+        user = self.get_user_by_id(target_user_id)
+        if user is None:
+            raise AuthValidationError("Usuario ativo nao encontrado.")
+
+        try:
+            from src.audit.audit_log_service import AuditLogService, EVENT_ROLE_CHANGED
+            AuditLogService(self.engine, initialize_schema=False).log_event(
+                EVENT_ROLE_CHANGED,
+                user_id=target_user_id,
+                user_email=user.email,
+                detalhe=f"novo_role={new_role} | admin_id={acting_admin_id} | admin={acting_admin_email}",
+            )
+        except Exception:
+            logger.debug("audit_log nao disponivel — ignorado em set_role")
+
+        return user
+
+    def set_audit_access(
+        self,
+        target_user_id: int,
+        grant: bool,
+        acting_admin_id: int | None = None,
+        acting_admin_email: str | None = None,
+    ) -> None:
+        """Concede ou revoga acesso de visualizacao do log de auditoria."""
+        try:
+            with self.engine.begin() as conn:
+                active_condition = _active_user_condition(_get_usuario_columns(conn))
+                conn.execute(
+                    text(
+                        f"""
+                        UPDATE usuarios
+                        SET can_view_audit = :val, atualizado_em = :atualizado_em
+                        WHERE id = :id AND {active_condition}
+                        """
+                    ),
+                    {"id": target_user_id, "val": grant, "atualizado_em": _now()},
+                )
+        except SQLAlchemyError as exc:
+            _log_database_error("set_audit_access", exc)
+            raise
+
+        try:
+            from src.audit.audit_log_service import AuditLogService, EVENT_ACCESS_GRANTED, EVENT_ACCESS_REVOKED
+            evento = EVENT_ACCESS_GRANTED if grant else EVENT_ACCESS_REVOKED
+            AuditLogService(self.engine, initialize_schema=False).log_event(
+                evento,
+                user_id=target_user_id,
+                detalhe=f"admin_id={acting_admin_id} | admin={acting_admin_email}",
+            )
+        except Exception:
+            logger.debug("audit_log nao disponivel — ignorado em set_audit_access")
 
     def update_name(self, user_id: int, nome: str) -> UserProfile:
         clean_name = _validate_name(nome)
@@ -740,6 +875,13 @@ class UserService:
                 if len(assignments) == 1:
                     raise AuthValidationError("Tabela de usuarios nao possui soft delete configurado.")
 
+                # Captura email antes de deletar para o log de auditoria
+                user_row = conn.execute(
+                    text("SELECT email FROM usuarios WHERE id = :id LIMIT 1"),
+                    {"id": user_id},
+                ).mappings().first()
+                user_email_for_audit = user_row["email"] if user_row else None
+
                 conn.execute(
                     text(
                         f"""
@@ -756,3 +898,13 @@ class UserService:
         except SQLAlchemyError as exc:
             _log_database_error("soft_delete_user", exc)
             raise
+
+        try:
+            from src.audit.audit_log_service import AuditLogService, EVENT_ACCOUNT_DELETED
+            AuditLogService(self.engine, initialize_schema=False).log_event(
+                EVENT_ACCOUNT_DELETED,
+                user_id=user_id,
+                user_email=user_email_for_audit,
+            )
+        except Exception:
+            logger.debug("audit_log nao disponivel — ignorado em soft_delete_user")

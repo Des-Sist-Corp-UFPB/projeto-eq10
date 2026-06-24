@@ -9,14 +9,19 @@ from typing import Any
 
 import streamlit as st
 
+from src.auth.roles import can_view_audit_log
+from src.auth.session import get_authenticated_user
+
 DEFAULT_PAGE = "Estatísticas"
 CHAT_PAGE = "Chat IA"
+ADMIN_PAGE = "Uso Restrito"
 BASE_DIR = Path(__file__).resolve().parents[2]
 LOGO_PATH = BASE_DIR / "images" / "logo.png"
 
 PAGE_SLUGS = {
     "estatisticas": DEFAULT_PAGE,
     "chat-ia": CHAT_PAGE,
+    "uso-restrito": ADMIN_PAGE,
 }
 PAGE_TO_SLUG = {page: slug for slug, page in PAGE_SLUGS.items()}
 
@@ -68,8 +73,12 @@ def _sidebar_link(page_name: str, icon_class: str, active_page: str) -> str:
 
 
 def render_sidebar(active_page: str = DEFAULT_PAGE) -> None:
+    user = get_authenticated_user(st.session_state)
+    show_admin = can_view_audit_log(user)
+
     statistics_link = _sidebar_link(DEFAULT_PAGE, "stats", active_page)
     chat_link = _sidebar_link(CHAT_PAGE, "chat", active_page)
+    admin_link = _sidebar_link(ADMIN_PAGE, "lock", active_page) if show_admin else ""
     logo_data_uri = _get_sidebar_logo_data_uri()
     logo_markup = (
         f'<img class="brand-logo" src="{logo_data_uri}" alt="Brasão de Mamanguape">'
@@ -89,6 +98,7 @@ def render_sidebar(active_page: str = DEFAULT_PAGE) -> None:
             <nav class="sidebar-nav" aria-label="Navegação principal">
                 <div class="sidebar-nav-item">{statistics_link}</div>
                 <div class="sidebar-nav-item">{chat_link}</div>
+                {f'<div class="sidebar-nav-item">{admin_link}</div>' if show_admin else ''}
             </nav>
         </aside>
         """,
@@ -102,4 +112,8 @@ def render_sidebar(active_page: str = DEFAULT_PAGE) -> None:
     if st.button("Chat IA", key="sidebar-nav-chat-ia", use_container_width=True):
         set_current_page(CHAT_PAGE)
         st.rerun()
+    if show_admin:
+        if st.button("Uso Restrito", key="sidebar-nav-uso-restrito", use_container_width=True):
+            set_current_page(ADMIN_PAGE)
+            st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)

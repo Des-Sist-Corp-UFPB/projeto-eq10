@@ -22,7 +22,7 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn("def _get_pandas_module", source)
         self.assertIn("@st.cache_resource(show_spinner=False)", source)
         self.assertIn("perguntar_datasus = _get_datasus_question_runner()", source)
-        self.assertIn("resposta = perguntar_datasus(prompt)", source)
+        self.assertIn("resposta = perguntar_datasus(prompt, user_context=get_authenticated_user(st.session_state))", source)
 
     def test_app_valida_autenticacao_antes_do_chat(self):
         source = APP_PATH.read_text(encoding="utf-8")
@@ -535,7 +535,7 @@ class TestAppAiChat(unittest.TestCase):
             "from src.ui.auth_modal import open_auth_modal, render_auth_panel",
             "from src.ui.header import render_auth_header",
             "from src.ui.protected_chat import render_chat_auth_gate",
-            "from src.ui.sidebar import CHAT_PAGE, DEFAULT_PAGE, get_current_page, render_sidebar",
+            "from src.ui.sidebar import ADMIN_PAGE, CHAT_PAGE, DEFAULT_PAGE, get_current_page, render_sidebar",
             "from src.ui.statistics_page import render_statistics_page",
         ]
 

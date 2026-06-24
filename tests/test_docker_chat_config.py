@@ -37,10 +37,9 @@ class TestDockerChatConfig(unittest.TestCase):
         self.assertIn("env_file:", source)
         self.assertIn("- ./.env", source)
 
-    def test_compose_expoe_porta_8501(self):
+    def test_compose_expoe_porta_8080(self):
         source = COMPOSE_PATH.read_text(encoding="utf-8")
-
-        self.assertIn('"8501:8501"', source)
+        self.assertIn('"8080:8080"', source)
 
     def test_compose_nao_executa_main_py(self):
         source = COMPOSE_PATH.read_text(encoding="utf-8")
