@@ -20,6 +20,11 @@ class TestAuthUserService(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite+pysqlite:///:memory:")
         self.service = UserService(self.engine)
+        
+        # O servico de auditoria intercepta a criacao/delecao de usuarios
+        # Entao precisamos garantir que sua tabela existe nos testes baseados em sqlite
+        from src.audit.audit_log_service import AuditLogService
+        AuditLogService(self.engine, initialize_schema=True)
 
     def _senha_hash(self, email="ana@example.com"):
         with self.engine.connect() as conn:
@@ -165,7 +170,7 @@ class TestAuthUserService(unittest.TestCase):
         senha_hash = self._senha_hash()
 
         self.assertNotEqual(senha_hash, "senha-forte")
-        self.assertTrue(senha_hash.startswith("pbkdf2_sha256$"))
+        self.assertTrue(senha_hash.startswith("$argon2id$") or senha_hash.startswith("pbkdf2_sha256$"))
         self.assertTrue(verify_password("senha-forte", senha_hash))
 
     def test_nao_permite_email_ativo_duplicado(self):

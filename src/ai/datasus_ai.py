@@ -83,12 +83,33 @@ def _try_responder_modo_simples(
     return resposta
 
 
-def perguntar_datasus(prompt_usuario: str) -> str:
-    """Recebe uma pergunta sobre dados SIA/DATASUS sem acionar a ETL principal."""
+def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> str:
+    """Recebe uma pergunta sobre dados SIA/DATASUS sem acionar a ETL principal.
+
+    Args:
+        prompt_usuario: O texto da pergunta do usuario.
+        user_context: Dicionario com id, nome, email e role do usuario autenticado
+                      (de get_authenticated_user()). Usado para auditoria.
+    """
+    user_id = int(user_context["id"]) if user_context and user_context.get("id") else None
+    user_email = user_context.get("email") if user_context else None
+
     valido, mensagem = validar_prompt(prompt_usuario)
 
     if not valido:
         log_ai_question(prompt_usuario, status="bloqueado_prompt", detail=mensagem)
+        # Auditoria: prompt bloqueado pelo prompt_guard
+        try:
+            from src.audit.audit_log_service import AuditLogService, EVENT_PROMPT_GUARD_BLOCK
+            AuditLogService.from_environment().log_event(
+                EVENT_PROMPT_GUARD_BLOCK,
+                user_id=user_id,
+                user_email=user_email,
+                prompt_text=prompt_usuario,
+                detalhe=mensagem,
+            )
+        except Exception:
+            pass
         return mensagem
 
     mes_valido, mensagem_mes = validar_mes_solicitado_no_prompt(prompt_usuario)
@@ -131,6 +152,18 @@ def perguntar_datasus(prompt_usuario: str) -> str:
 
     if resposta_simples is not None:
         log_ai_question(prompt_usuario, status="respondido_modo_simples")
+        # Auditoria: prompt respondido
+        try:
+            from src.audit.audit_log_service import AuditLogService, EVENT_CHAT_PROMPT
+            AuditLogService.from_environment().log_event(
+                EVENT_CHAT_PROMPT,
+                user_id=user_id,
+                user_email=user_email,
+                prompt_text=prompt_usuario,
+                detalhe="modo_simples",
+            )
+        except Exception:
+            pass
         return resposta_simples
 
     if not is_llm_enabled():
@@ -211,4 +244,16 @@ def perguntar_datasus(prompt_usuario: str) -> str:
         return GENERIC_AI_ERROR_MESSAGE
 
     log_ai_question(prompt_usuario, status="respondido")
+    # Auditoria: prompt respondido pelo LLM
+    try:
+        from src.audit.audit_log_service import AuditLogService, EVENT_CHAT_PROMPT
+        AuditLogService.from_environment().log_event(
+            EVENT_CHAT_PROMPT,
+            user_id=user_id,
+            user_email=user_email,
+            prompt_text=prompt_usuario,
+            detalhe="llm",
+        )
+    except Exception:
+        pass
     return resposta

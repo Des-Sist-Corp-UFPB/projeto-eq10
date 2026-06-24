@@ -17,5 +17,7 @@ dependencies = [
     "pandasai>=3.0.0,<4.0.0",
     "pandasai-litellm",
     "streamlit>=1.45.0",
+    # Segurança: hashing Argon2 para senhas de usuarios.
+    "argon2-cffi>=23.1.0",
 ]
 
