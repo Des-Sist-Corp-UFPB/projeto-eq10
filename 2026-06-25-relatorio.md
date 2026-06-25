@@ -5,9 +5,9 @@
 | **Data** | 2026-06-25 |
 | **Repositório** | https://github.com/des-sist-corp-ufpb/projeto-eq10 |
 | **Aplicação** | https://eq10.dsc.rodrigor.com |
-| **Período de atividade** | 2026-06-24 → 2026-06-24 |
-| **Total de commits** (sem merges) | 1 |
-| **Integrantes** | Gabriel Nunes Gomes (@Gabriel-Nunes-UFPB) |
+| **Período de atividade** | 2026-06-24 → 2026-06-25 |
+| **Total de commits** (sem merges, branch main) | 2 |
+| **Integrantes** | Gabriel Nunes Gomes (@Gabriel-Nunes-UFPB), Heloisa Duarte De Andrade (@heloisaa27) |
 
 ---
 
@@ -47,16 +47,23 @@ Não detectados automaticamente.
 
 ### Resumo
 
-| Usuário | Commits | % commits | Linhas adicionadas | Linhas no código atual | % código atual |
-|---------|---------|-----------|-------------------|----------------------|----------------|
-| Gabriel Nunes Gomes (@Gabriel-Nunes-UFPB) | 1 | 100% | 55.015 | 19.586 | 100% |
+| Usuário | Commits (main) | Commits (GitHub API) | Linhas adicionadas | Linhas no código atual | % código atual |
+|---------|---------------|---------------------|-------------------|----------------------|----------------|
+| Gabriel Nunes Gomes (@Gabriel-Nunes-UFPB) | 1 | **46** ⚠️ | 55.015 | 19.586 | 100% |
+| Heloisa Duarte De Andrade (@heloisaa27) | 0 | **32** ⚠️ | 0 | 0 | 0% |
+| *(sem login GitHub)* | 1 | 50% | — | — | — |
+
+> **⚠️ Divergência entre commits locais e GitHub API:**
+> - **@Gabriel-Nunes-UFPB**: 1 commit(s) na branch `main` vs **46** registrados na API GitHub (commits em branches não mergeadas ou absorvidos via squash-merge sem preservação de autoria).
+> - **@heloisaa27**: 0 commit(s) na branch `main` vs **32** registrados na API GitHub (commits em branches não mergeadas ou absorvidos via squash-merge sem preservação de autoria).
+>
 
 ### Contribuição por Camada
 
-| Camada | Total linhas | Gabriel Nunes Gomes (@Gabriel-Nunes-UFPB) |
-|--------|-------------|---------|
-| Service | 7.853 | 100% |
-| Test | 3.580 | 100% |
+| Camada | Total linhas | Gabriel Nunes Gomes (@Gabriel-Nunes-UFPB) | Heloisa Duarte De Andrade (@heloisaa27) |
+|--------|-------------|---------|---------|
+| Service | 7.853 | 100% | 0% |
+| Test | 3.580 | 100% | 0% |
 
 ---
 
@@ -64,27 +71,27 @@ Não detectados automaticamente.
 
 Baseado em `git blame` nos arquivos de controller e service.
 
-| Arquivo | Total linhas | Gabriel Nunes Gomes (@Gabriel-Nunes-UFPB) |
-|---------|-------------|---------|
-| `user_service.py` | 910 | 100% |
-| `email_change_service.py` | 657 | 100% |
-| `chat_history_service.py` | 596 | 100% |
-| `pending_registration_service.py` | 561 | 100% |
-| `account_reactivation_service.py` | 523 | 100% |
-| `email_verification_service.py` | 521 | 100% |
-| `password_reset_service.py` | 467 | 100% |
-| `email_service.py` | 450 | 100% |
-| `test_auth_user_service.py` | 450 | 100% |
-| `health_service.py` | 431 | 100% |
-| `test_pending_registration_service.py` | 333 | 100% |
-| `test_account_reactivation_service.py` | 286 | 100% |
-| `test_email_change_service.py` | 285 | 100% |
-| `test_email_service.py` | 281 | 100% |
-| `test_password_reset_service.py` | 262 | 100% |
-| `test_email_verification_service.py` | 244 | 100% |
-| `test_health_service.py` | 222 | 100% |
-| `audit_log_service.py` | 196 | 100% |
-| `test_chat_history_service.py` | 178 | 100% |
+| Arquivo | Total linhas | Gabriel Nunes Gomes (@Gabriel-Nunes-UFPB) | Heloisa Duarte De Andrade (@heloisaa27) |
+|---------|-------------|---------|---------|
+| `user_service.py` | 910 | 100% | 0% |
+| `email_change_service.py` | 657 | 100% | 0% |
+| `chat_history_service.py` | 596 | 100% | 0% |
+| `pending_registration_service.py` | 561 | 100% | 0% |
+| `account_reactivation_service.py` | 523 | 100% | 0% |
+| `email_verification_service.py` | 521 | 100% | 0% |
+| `password_reset_service.py` | 467 | 100% | 0% |
+| `email_service.py` | 450 | 100% | 0% |
+| `test_auth_user_service.py` | 450 | 100% | 0% |
+| `health_service.py` | 431 | 100% | 0% |
+| `test_pending_registration_service.py` | 333 | 100% | 0% |
+| `test_account_reactivation_service.py` | 286 | 100% | 0% |
+| `test_email_change_service.py` | 285 | 100% | 0% |
+| `test_email_service.py` | 281 | 100% | 0% |
+| `test_password_reset_service.py` | 262 | 100% | 0% |
+| `test_email_verification_service.py` | 244 | 100% | 0% |
+| `test_health_service.py` | 222 | 100% | 0% |
+| `audit_log_service.py` | 196 | 100% | 0% |
+| `test_chat_history_service.py` | 178 | 100% | 0% |
 
 ---
 
