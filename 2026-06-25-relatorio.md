@@ -6,7 +6,7 @@
 | **Repositório** | https://github.com/des-sist-corp-ufpb/projeto-eq10 |
 | **Aplicação** | https://eq10.dsc.rodrigor.com |
 | **Período de atividade** | 2026-06-24 → 2026-06-25 |
-| **Total de commits** (sem merges, branch main) | 2 |
+| **Total de commits** (sem merges, branch main) | 3 |
 | **Integrantes** | Gabriel Nunes Gomes (@Gabriel-Nunes-UFPB), Heloisa Duarte De Andrade (@heloisaa27) |
 
 ---
@@ -31,7 +31,7 @@ Não detectados automaticamente.
 | Aspecto | Status | Observação |
 |---------|--------|-----------|
 | Arquitetura em camadas | ❌ | controller=❌  service=✅  repository=❌ |
-| Testes automatizados | ✅ | 32 arquivo(s) de teste |
+| Testes automatizados | ✅ | 0 Java, 0 JS/TS, 32 Python |
 | Migrations versionadas | ❌ | não encontradas |
 | Logging | ✅ | @Slf4j / LoggerFactory / logging.getLogger detectado |
 | Autenticação / Segurança | ✅ | Spring Security / JWT / decorator detectado |
@@ -51,7 +51,7 @@ Não detectados automaticamente.
 |---------|---------------|---------------------|-------------------|----------------------|----------------|
 | Gabriel Nunes Gomes (@Gabriel-Nunes-UFPB) | 1 | **46** ⚠️ | 55.015 | 19.586 | 100% |
 | Heloisa Duarte De Andrade (@heloisaa27) | 0 | **32** ⚠️ | 0 | 0 | 0% |
-| *(sem login GitHub)* | 1 | 50% | — | — | — |
+| *(sem login GitHub)* | 2 | 67% | — | — | — |
 
 > **⚠️ Divergência entre commits locais e GitHub API:**
 > - **@Gabriel-Nunes-UFPB**: 1 commit(s) na branch `main` vs **46** registrados na API GitHub (commits em branches não mergeadas ou absorvidos via squash-merge sem preservação de autoria).
