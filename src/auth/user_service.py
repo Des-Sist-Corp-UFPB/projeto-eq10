@@ -46,6 +46,12 @@ class UserProfile:
     ultimo_login_em: Any = None
 
 
+GOOGLE_EMAIL_NOT_VERIFIED_MESSAGE = "Nao foi possivel confirmar o e-mail da conta Google."
+GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE = (
+    "Nao foi possivel entrar com Google para esta conta. Use a recuperacao da conta."
+)
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -226,6 +232,100 @@ def _get_usuario_columns(conn: Any) -> set[str]:
     }
 
 
+def _usuarios_create_table_sql(dialect: str) -> str:
+    id_column = "id SERIAL PRIMARY KEY"
+    if dialect == "sqlite":
+        id_column = "id INTEGER PRIMARY KEY AUTOINCREMENT"
+
+    return f"""
+        CREATE TABLE IF NOT EXISTS usuarios (
+            {id_column},
+            nome TEXT NOT NULL,
+            email TEXT NOT NULL,
+            senha_hash TEXT NULL,
+            role TEXT NOT NULL DEFAULT 'user',
+            criado_em TIMESTAMP NOT NULL,
+            atualizado_em TIMESTAMP NOT NULL,
+            ultimo_login_em TIMESTAMP NULL,
+            email_verificado BOOLEAN NOT NULL DEFAULT false,
+            email_verificado_em TIMESTAMP NULL,
+            deleted_at TIMESTAMP NULL,
+            deletado BOOLEAN NOT NULL DEFAULT false,
+            deletado_em TIMESTAMP NULL,
+            google_sub TEXT NULL,
+            google_picture TEXT NULL,
+            auth_provider TEXT NOT NULL DEFAULT 'password'
+        )
+    """
+
+
+def _drop_password_hash_not_null_if_needed(conn: Any) -> None:
+    if conn.dialect.name == "postgresql":
+        conn.execute(text("ALTER TABLE usuarios ALTER COLUMN senha_hash DROP NOT NULL"))
+        return
+
+    if conn.dialect.name != "sqlite":
+        return
+
+    table_info = list(conn.execute(text("PRAGMA table_info(usuarios)")).mappings())
+    senha_hash_info = next((row for row in table_info if row["name"] == "senha_hash"), None)
+    if not senha_hash_info or not bool(senha_hash_info["notnull"]):
+        return
+
+    old_columns = {str(row["name"]) for row in table_info}
+    backup_table = "usuarios_password_not_null_backup"
+    target_columns = [
+        "id",
+        "nome",
+        "email",
+        "senha_hash",
+        "role",
+        "criado_em",
+        "atualizado_em",
+        "ultimo_login_em",
+        "email_verificado",
+        "email_verificado_em",
+        "deleted_at",
+        "deletado",
+        "deletado_em",
+        "google_sub",
+        "google_picture",
+        "auth_provider",
+    ]
+    defaults = {
+        "role": "'user'",
+        "criado_em": "CURRENT_TIMESTAMP",
+        "atualizado_em": "CURRENT_TIMESTAMP",
+        "ultimo_login_em": "NULL",
+        "email_verificado": "false",
+        "email_verificado_em": "NULL",
+        "deleted_at": "NULL",
+        "deletado": "false",
+        "deletado_em": "NULL",
+        "google_sub": "NULL",
+        "google_picture": "NULL",
+        "auth_provider": "'password'",
+    }
+    select_expressions = [
+        column if column in old_columns else defaults.get(column, "NULL")
+        for column in target_columns
+    ]
+
+    conn.execute(text(f"DROP TABLE IF EXISTS {backup_table}"))
+    conn.execute(text(f"ALTER TABLE usuarios RENAME TO {backup_table}"))
+    conn.execute(text(_usuarios_create_table_sql("sqlite")))
+    conn.execute(
+        text(
+            f"""
+            INSERT INTO usuarios ({", ".join(target_columns)})
+            SELECT {", ".join(select_expressions)}
+            FROM {backup_table}
+            """
+        )
+    )
+    conn.execute(text(f"DROP TABLE {backup_table}"))
+
+
 def _add_usuario_column_if_missing(
     conn: Any,
     columns: set[str],
@@ -335,37 +435,22 @@ class UserService:
 
     def ensure_schema(self) -> None:
         dialect = self.engine.dialect.name
-        id_column = "id SERIAL PRIMARY KEY"
-        if dialect == "sqlite":
-            id_column = "id INTEGER PRIMARY KEY AUTOINCREMENT"
-
-        create_table_sql = f"""
-            CREATE TABLE IF NOT EXISTS usuarios (
-                {id_column},
-                nome TEXT NOT NULL,
-                email TEXT NOT NULL,
-                senha_hash TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'user',
-                criado_em TIMESTAMP NOT NULL,
-                atualizado_em TIMESTAMP NOT NULL,
-                ultimo_login_em TIMESTAMP NULL,
-                email_verificado BOOLEAN NOT NULL DEFAULT false,
-                email_verificado_em TIMESTAMP NULL,
-                deleted_at TIMESTAMP NULL,
-                deletado BOOLEAN NOT NULL DEFAULT false,
-                deletado_em TIMESTAMP NULL
-            )
-        """
+        create_table_sql = _usuarios_create_table_sql(dialect)
         try:
             with self.engine.begin() as conn:
                 conn.execute(text(create_table_sql))
+                _drop_password_hash_not_null_if_needed(conn)
                 columns = _get_usuario_columns(conn)
                 _add_usuario_column_if_missing(conn, columns, "email_verificado", "BOOLEAN NOT NULL DEFAULT false")
                 _add_usuario_column_if_missing(conn, columns, "email_verificado_em", "TIMESTAMP NULL")
                 _add_usuario_column_if_missing(conn, columns, "deletado", "BOOLEAN NOT NULL DEFAULT false")
                 _add_usuario_column_if_missing(conn, columns, "deletado_em", "TIMESTAMP NULL")
+                _add_usuario_column_if_missing(conn, columns, "google_sub", "TEXT NULL")
+                _add_usuario_column_if_missing(conn, columns, "google_picture", "TEXT NULL")
+                _add_usuario_column_if_missing(conn, columns, "auth_provider", "TEXT NOT NULL DEFAULT 'password'")
                 conn.execute(text("UPDATE usuarios SET email_verificado = false WHERE email_verificado IS NULL"))
                 conn.execute(text("UPDATE usuarios SET deletado = false WHERE deletado IS NULL"))
+                conn.execute(text("UPDATE usuarios SET auth_provider = 'password' WHERE auth_provider IS NULL"))
                 columns = _get_usuario_columns(conn)
                 active_condition = _active_user_condition(columns)
                 create_index_sql = f"""
@@ -374,6 +459,15 @@ class UserService:
                     WHERE {active_condition}
                 """
                 conn.execute(text(create_index_sql))
+                conn.execute(
+                    text(
+                        """
+                        CREATE UNIQUE INDEX IF NOT EXISTS ux_usuarios_google_sub
+                        ON usuarios (google_sub)
+                        WHERE google_sub IS NOT NULL
+                        """
+                    )
+                )
         except SQLAlchemyError as exc:
             _log_database_error("ensure_schema", exc)
             raise
@@ -546,6 +640,137 @@ class UserService:
 
         return _row_to_user(active_row)
 
+    def authenticate_google_identity(
+        self,
+        *,
+        google_sub: str,
+        email: str,
+        email_verified: bool,
+        name: str | None = None,
+        picture: str | None = None,
+    ) -> UserProfile:
+        """Entra, vincula ou cria usuario a partir de uma identidade Google verificada."""
+        clean_sub = (google_sub or "").strip()
+        if not clean_sub:
+            raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
+        clean_email = _validate_email(email)
+        if not email_verified:
+            raise AuthValidationError(GOOGLE_EMAIL_NOT_VERIFIED_MESSAGE)
+
+        clean_name = (name or "").strip() or clean_email.split("@", 1)[0] or "Usuario"
+        clean_picture = (picture or "").strip() or None
+
+        try:
+            with self.engine.begin() as conn:
+                columns = _get_usuario_columns(conn)
+                active_condition = _active_user_condition(columns)
+                soft_delete_columns = _soft_delete_select_columns(columns)
+                active_sort_expression = _active_user_sort_expression(columns)
+                now = _now()
+
+                google_row = conn.execute(
+                    text(
+                        f"""
+                        SELECT id, nome, email, role, criado_em, atualizado_em,
+                               ultimo_login_em, google_sub, {soft_delete_columns}
+                        FROM usuarios
+                        WHERE google_sub = :google_sub
+                        ORDER BY {active_sort_expression} DESC, id DESC
+                        LIMIT 1
+                        """
+                    ),
+                    {"google_sub": clean_sub},
+                ).mappings().first()
+
+                if google_row:
+                    if _is_soft_deleted(google_row):
+                        raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
+                    self._touch_google_login(conn, int(google_row["id"]), clean_picture, now)
+                    return self._get_user_by_id_in_connection(conn, int(google_row["id"]))
+
+                email_row = conn.execute(
+                    text(
+                        f"""
+                        SELECT id, google_sub, {soft_delete_columns}
+                        FROM usuarios
+                        WHERE lower(email) = :email
+                        ORDER BY {active_sort_expression} DESC, id DESC
+                        LIMIT 1
+                        """
+                    ),
+                    {"email": clean_email},
+                ).mappings().first()
+
+                if email_row:
+                    if _is_soft_deleted(email_row):
+                        raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
+                    existing_sub = str(email_row["google_sub"] or "").strip()
+                    if existing_sub and existing_sub != clean_sub:
+                        raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
+                    self._link_google_identity(conn, int(email_row["id"]), clean_sub, clean_picture, now)
+                    return self._get_user_by_id_in_connection(conn, int(email_row["id"]))
+
+                user_id = self._create_google_user(conn, clean_name, clean_email, clean_sub, clean_picture, now)
+                return self._get_user_by_id_in_connection(conn, user_id)
+        except AuthValidationError:
+            raise
+        except SQLAlchemyError as exc:
+            _log_database_error("authenticate_google_identity", exc)
+            raise
+
+    def get_user_by_google_sub(self, google_sub: str) -> UserProfile | None:
+        clean_sub = (google_sub or "").strip()
+        if not clean_sub:
+            return None
+
+        try:
+            with self.engine.connect() as conn:
+                columns = _get_usuario_columns(conn)
+                if "google_sub" not in columns:
+                    return None
+                active_condition = _active_user_condition(columns)
+                row = conn.execute(
+                    text(
+                        f"""
+                        SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em
+                        FROM usuarios
+                        WHERE google_sub = :google_sub
+                          AND {active_condition}
+                        LIMIT 1
+                        """
+                    ),
+                    {"google_sub": clean_sub},
+                ).mappings().first()
+        except SQLAlchemyError as exc:
+            _log_database_error("get_user_by_google_sub", exc)
+            raise
+
+        return _row_to_user(row) if row else None
+
+    def get_active_user_by_email(self, email: str) -> UserProfile | None:
+        clean_email = _validate_email(email)
+        try:
+            with self.engine.connect() as conn:
+                columns = _get_usuario_columns(conn)
+                active_condition = _active_user_condition(columns)
+                row = conn.execute(
+                    text(
+                        f"""
+                        SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em
+                        FROM usuarios
+                        WHERE lower(email) = :email
+                          AND {active_condition}
+                        LIMIT 1
+                        """
+                    ),
+                    {"email": clean_email},
+                ).mappings().first()
+        except SQLAlchemyError as exc:
+            _log_database_error("get_active_user_by_email", exc)
+            raise
+
+        return _row_to_user(row) if row else None
+
     def get_user_by_id(self, user_id: int) -> UserProfile | None:
         try:
             with self.engine.connect() as conn:
@@ -567,6 +792,179 @@ class UserService:
             raise
 
         return _row_to_user(row) if row else None
+
+    def _get_user_by_id_in_connection(self, conn: Any, user_id: int) -> UserProfile:
+        row = conn.execute(
+            text(
+                """
+                SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em
+                FROM usuarios
+                WHERE id = :id
+                LIMIT 1
+                """
+            ),
+            {"id": user_id},
+        ).mappings().first()
+        if row is None:
+            raise AuthValidationError("Usuario ativo nao encontrado.")
+        return _row_to_user(row)
+
+    def _touch_google_login(
+        self,
+        conn: Any,
+        user_id: int,
+        picture: str | None,
+        now: datetime,
+    ) -> None:
+        columns = _get_usuario_columns(conn)
+        assignments = [
+            "ultimo_login_em = :ultimo_login_em",
+            "atualizado_em = :atualizado_em",
+        ]
+        params: dict[str, Any] = {
+            "id": user_id,
+            "ultimo_login_em": now,
+            "atualizado_em": now,
+        }
+        if "google_picture" in columns:
+            assignments.append("google_picture = :google_picture")
+            params["google_picture"] = picture
+        if "email_verificado" in columns:
+            assignments.append("email_verificado = :email_verificado")
+            params["email_verificado"] = True
+        if "email_verificado_em" in columns:
+            assignments.append("email_verificado_em = COALESCE(email_verificado_em, :email_verificado_em)")
+            params["email_verificado_em"] = now
+
+        conn.execute(
+            text(
+                f"""
+                UPDATE usuarios
+                SET {", ".join(assignments)}
+                WHERE id = :id
+                """
+            ),
+            params,
+        )
+
+    def _link_google_identity(
+        self,
+        conn: Any,
+        user_id: int,
+        google_sub: str,
+        picture: str | None,
+        now: datetime,
+    ) -> None:
+        columns = _get_usuario_columns(conn)
+        assignments = [
+            "ultimo_login_em = :ultimo_login_em",
+            "atualizado_em = :atualizado_em",
+        ]
+        params: dict[str, Any] = {
+            "id": user_id,
+            "google_sub": google_sub,
+            "google_picture": picture,
+            "ultimo_login_em": now,
+            "atualizado_em": now,
+        }
+        if "google_sub" in columns:
+            assignments.append("google_sub = :google_sub")
+        if "google_picture" in columns:
+            assignments.append("google_picture = :google_picture")
+        if "auth_provider" in columns:
+            assignments.append("auth_provider = :auth_provider")
+            params["auth_provider"] = "password_google"
+        if "email_verificado" in columns:
+            assignments.append("email_verificado = :email_verificado")
+            params["email_verificado"] = True
+        if "email_verificado_em" in columns:
+            assignments.append("email_verificado_em = COALESCE(email_verificado_em, :email_verificado_em)")
+            params["email_verificado_em"] = now
+
+        conn.execute(
+            text(
+                f"""
+                UPDATE usuarios
+                SET {", ".join(assignments)}
+                WHERE id = :id
+                """
+            ),
+            params,
+        )
+
+    def _create_google_user(
+        self,
+        conn: Any,
+        name: str,
+        email: str,
+        google_sub: str,
+        picture: str | None,
+        now: datetime,
+    ) -> int:
+        conn.execute(
+            text(
+                """
+                INSERT INTO usuarios (
+                    nome,
+                    email,
+                    senha_hash,
+                    role,
+                    criado_em,
+                    atualizado_em,
+                    ultimo_login_em,
+                    email_verificado,
+                    email_verificado_em,
+                    deletado,
+                    deletado_em,
+                    google_sub,
+                    google_picture,
+                    auth_provider
+                )
+                VALUES (
+                    :nome,
+                    :email,
+                    NULL,
+                    'user',
+                    :criado_em,
+                    :atualizado_em,
+                    :ultimo_login_em,
+                    :email_verificado,
+                    :email_verificado_em,
+                    :deletado,
+                    :deletado_em,
+                    :google_sub,
+                    :google_picture,
+                    :auth_provider
+                )
+                """
+            ),
+            {
+                "nome": name,
+                "email": email,
+                "criado_em": now,
+                "atualizado_em": now,
+                "ultimo_login_em": now,
+                "email_verificado": True,
+                "email_verificado_em": now,
+                "deletado": False,
+                "deletado_em": None,
+                "google_sub": google_sub,
+                "google_picture": picture,
+                "auth_provider": "google",
+            },
+        )
+        row = conn.execute(
+            text(
+                """
+                SELECT id
+                FROM usuarios
+                WHERE google_sub = :google_sub
+                LIMIT 1
+                """
+            ),
+            {"google_sub": google_sub},
+        ).mappings().first()
+        return int(row["id"])
 
     def update_name(self, user_id: int, nome: str) -> UserProfile:
         clean_name = _validate_name(nome)

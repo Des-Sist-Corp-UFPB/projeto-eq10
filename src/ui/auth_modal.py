@@ -26,6 +26,13 @@ from src.auth.email_verification_service import (
     EMAIL_VERIFICATION_SEND_FAILED_MESSAGE,
     EmailVerificationService,
 )
+from src.auth.google_oauth_service import (
+    GOOGLE_OAUTH_TARGET_PAGE_KEY,
+    GOOGLE_OAUTH_UNAVAILABLE_MESSAGE,
+    GoogleOAuthError,
+    GoogleOAuthService,
+    store_oauth_state,
+)
 from src.auth.password_reset_service import (
     PASSWORD_RESET_INVALID_MESSAGE,
     PASSWORD_RESET_NEUTRAL_MESSAGE,
@@ -45,7 +52,7 @@ AUTH_UNAVAILABLE_MESSAGE = (
     "Não foi possível acessar a autenticação agora. Tente novamente em alguns instantes."
 )
 
-GOOGLE_SIGN_IN_UNAVAILABLE_MESSAGE = "Login com Google sera implementado em uma etapa futura."
+GOOGLE_SIGN_IN_UNAVAILABLE_MESSAGE = GOOGLE_OAUTH_UNAVAILABLE_MESSAGE
 REGISTRATION_PUBLIC_NEUTRAL_MESSAGE = (
     "Se for possivel continuar com este e-mail, enviaremos instrucoes para ele."
 )
@@ -889,8 +896,12 @@ AUTH_MODAL_CSS = """
         background: #E2E8F0;
     }
 
-    [data-testid="stDialog"] .st-key-auth-login-google-placeholder button,
-    .st-key-auth-login-google-placeholder button {
+    [data-testid="stDialog"] .st-key-auth-login-google-action button,
+    [data-testid="stDialog"] .st-key-auth-signup-google-action button,
+    .st-key-auth-login-google-action button,
+    .st-key-auth-signup-google-action button,
+    [data-testid="stDialog"] [data-testid="stLinkButton"] a[href*="accounts.google.com"],
+    [data-testid="stDialog"] a[href*="accounts.google.com"] {
         width: 100% !important;
         height: 2.72rem !important;
         min-height: 2.72rem !important;
@@ -903,12 +914,21 @@ AUTH_MODAL_CSS = """
         font-size: 0.94rem !important;
         font-weight: 780 !important;
         text-align: center !important;
+        text-decoration: none !important;
     }
 
-    [data-testid="stDialog"] .st-key-auth-login-google-placeholder button:hover,
-    [data-testid="stDialog"] .st-key-auth-login-google-placeholder button:focus,
-    .st-key-auth-login-google-placeholder button:hover,
-    .st-key-auth-login-google-placeholder button:focus {
+    [data-testid="stDialog"] .st-key-auth-login-google-action button:hover,
+    [data-testid="stDialog"] .st-key-auth-login-google-action button:focus,
+    [data-testid="stDialog"] .st-key-auth-signup-google-action button:hover,
+    [data-testid="stDialog"] .st-key-auth-signup-google-action button:focus,
+    .st-key-auth-login-google-action button:hover,
+    .st-key-auth-login-google-action button:focus,
+    .st-key-auth-signup-google-action button:hover,
+    .st-key-auth-signup-google-action button:focus,
+    [data-testid="stDialog"] [data-testid="stLinkButton"] a[href*="accounts.google.com"]:hover,
+    [data-testid="stDialog"] [data-testid="stLinkButton"] a[href*="accounts.google.com"]:focus,
+    [data-testid="stDialog"] a[href*="accounts.google.com"]:hover,
+    [data-testid="stDialog"] a[href*="accounts.google.com"]:focus {
         background: #F8FAFC !important;
         border-color: rgba(100, 116, 139, 0.54) !important;
         color: #0F172A !important;
@@ -1312,6 +1332,11 @@ def _get_account_reactivation_service() -> AccountReactivationService:
     return AccountReactivationService.from_environment()
 
 
+@st.cache_resource(show_spinner=False)
+def _get_google_oauth_service() -> GoogleOAuthService:
+    return GoogleOAuthService.from_environment()
+
+
 def open_auth_modal(
     mode: str = "login",
     *,
@@ -1491,6 +1516,18 @@ def _get_account_reactivation_service_or_none() -> AccountReactivationService | 
         return None
 
 
+def _get_google_oauth_service_or_none() -> GoogleOAuthService | None:
+    try:
+        return _get_google_oauth_service()
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro google_oauth_service | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
+        return None
+
+
 def _render_auth_dialog_subtitle(subtitle: str) -> None:
     st.markdown(
         f'<p class="auth-dialog-subtitle">{_escape_text(subtitle)}</p>',
@@ -1624,6 +1661,45 @@ def _render_auth_footer(
     st.markdown("</section>", unsafe_allow_html=True)
 
 
+def _render_google_oauth_action(
+    global_info_slot: Any,
+    *,
+    key: str,
+    label: str = "G  Entrar com Google",
+) -> None:
+    service = _get_google_oauth_service_or_none()
+    if service is not None and service.is_available():
+        try:
+            state = store_oauth_state(st.session_state)
+            target_page = st.session_state.get("auth_target_page_on_success")
+            if target_page:
+                st.session_state[GOOGLE_OAUTH_TARGET_PAGE_KEY] = target_page
+            auth_url = service.build_authorization_url(state)
+        except GoogleOAuthError as exc:
+            logger.warning(
+                "Erro seguro google_oauth_url | code=%s",
+                exc.error_code,
+            )
+            if st.button(label, key=key, use_container_width=True, disabled=_is_modal_processing()):
+                _render_global_info(global_info_slot, exc.public_message)
+            return
+        except Exception as exc:
+            logger.warning(
+                "Erro seguro google_oauth_url | causa=%s | tipo=%s",
+                safe_auth_exception_summary(exc),
+                type(exc).__name__,
+            )
+            if st.button(label, key=key, use_container_width=True, disabled=_is_modal_processing()):
+                _render_global_info(global_info_slot, GOOGLE_SIGN_IN_UNAVAILABLE_MESSAGE)
+            return
+
+        st.link_button(label, auth_url, use_container_width=True, disabled=_is_modal_processing())
+        return
+
+    if st.button(label, key=key, use_container_width=True, disabled=_is_modal_processing()):
+        _render_global_info(global_info_slot, GOOGLE_SIGN_IN_UNAVAILABLE_MESSAGE)
+
+
 def _render_profile_action_card(
     *,
     title: str,
@@ -1678,14 +1754,7 @@ def _render_login_panel() -> None:
 
     st.markdown('<div class="auth-login-divider">ou</div>', unsafe_allow_html=True)
 
-    # Placeholder seguro: Google OAuth sera implementado em fase futura.
-    if st.button(
-        "G  Entrar com Google",
-        key="auth-login-google-placeholder",
-        use_container_width=True,
-        disabled=is_processing,
-    ):
-        _render_global_info(global_info_slot, GOOGLE_SIGN_IN_UNAVAILABLE_MESSAGE)
+    _render_google_oauth_action(global_info_slot, key="auth-login-google-action")
 
     _render_auth_footer(
         action_label="Criar conta",
@@ -1729,6 +1798,7 @@ def _render_login_panel() -> None:
 def _render_signup_panel() -> None:
     _render_auth_dialog_heading("Criar conta", "Preencha seus dados para acessar o Chat IA.")
     global_error_slot = st.empty()
+    global_info_slot = st.empty()
     signup_processing_label = "Enviando codigo..."
     is_processing = _is_modal_processing()
 
@@ -1752,6 +1822,9 @@ def _render_signup_panel() -> None:
             on_click=_start_modal_processing,
             args=(signup_processing_label,),
         )
+
+    st.markdown('<div class="auth-login-divider">ou</div>', unsafe_allow_html=True)
+    _render_google_oauth_action(global_info_slot, key="auth-signup-google-action", label="G  Criar conta com Google")
 
     _render_auth_footer(
         action_label="Entrar",

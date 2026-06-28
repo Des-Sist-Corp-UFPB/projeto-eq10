@@ -9,6 +9,7 @@ from src.auth.session import (
 )
 from src.auth.email_service import EmailConfig, EmailSendResult, EmailService
 from src.auth.email_change_service import EmailChangeResult, EmailChangeService, PendingEmailChange
+from src.auth.google_oauth_service import GoogleIdentity, GoogleOAuthConfig, GoogleOAuthService
 from src.auth.email_verification_service import (
     EmailVerificationResult,
     EmailVerificationService,
@@ -29,6 +30,9 @@ __all__ = [
     "EmailVerificationService",
     "EmailVerificationToken",
     "EmailService",
+    "GoogleIdentity",
+    "GoogleOAuthConfig",
+    "GoogleOAuthService",
     "PasswordResetResult",
     "PasswordResetService",
     "PasswordResetToken",

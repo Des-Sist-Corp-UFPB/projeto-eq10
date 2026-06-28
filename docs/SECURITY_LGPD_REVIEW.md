@@ -32,6 +32,9 @@ A tabela `usuarios` pertence ao dominio da aplicacao, nao ao dominio analitico D
 - `deletado_em`: data de desativacao da conta.
 - `email_verificado`: indica se o controle do e-mail foi confirmado.
 - `email_verificado_em`: data de verificacao do e-mail.
+- `google_sub`: identificador estavel retornado pelo Google OpenID Connect, quando login Google for usado.
+- `google_picture`: URL da foto de perfil retornada pelo Google, quando disponivel.
+- `auth_provider`: origem principal/vinculada da autenticacao, por exemplo `password`, `google` ou `password_google`.
 
 ### Tabela `email_verification_tokens`
 
@@ -156,6 +159,9 @@ Regras:
 - `email_verification_tokens`: permitir verificacao segura de e-mail em fluxos de perfil ou evolucoes futuras.
 - `password_reset_tokens`: permitir recuperacao segura de senha.
 - `account_reactivation_tokens`: permitir reativacao segura de conta desativada com prova de controle do e-mail.
+- `google_sub`: vincular a conta local a uma identidade Google verificada sem armazenar tokens do Google.
+- `google_picture`: exibir ou preparar avatar de perfil, quando usado pela interface.
+- `auth_provider`: apoiar auditoria basica sobre o tipo de autenticacao usada pela conta.
 - `chat_sessions` e `chat_messages`: armazenar historico autenticado do Chat IA e apoiar auditabilidade.
 
 ## Dados do Chat IA
@@ -249,6 +255,10 @@ Regras:
 - O Chat IA usa handlers/fallbacks estatisticos controlados quando possivel.
 - A camada de IA nao deve executar SQL arbitrario gerado diretamente do prompt do usuario.
 - A view `vw_data_sus_ia` e consultada apenas como fonte de leitura para analises.
+- Login com Google usa OAuth/OpenID Connect com parametro `state` para protecao contra CSRF.
+- O e-mail retornado pelo Google so e aceito quando `email_verified = true`.
+- `google_sub` e usado como identificador estavel do provedor.
+- Access tokens, refresh tokens, authorization code e ID token do Google nao devem ser armazenados.
 
 ## Segredos e Variaveis de Ambiente
 
@@ -261,6 +271,7 @@ Os seguintes segredos nunca devem ser commitados:
 - `AI_DB_PASSWORD`;
 - `EMAIL_SMTP_PASSWORD`;
 - `EMAIL_API_KEY`;
+- `GOOGLE_CLIENT_SECRET`;
 - futuros OAuth client secrets;
 - strings de conexao de banco com usuario e senha.
 
@@ -270,6 +281,7 @@ Regras:
 - Arquivos `.env` reais nao devem ser versionados.
 - Logs e diagnosticos devem mostrar apenas status como `api_key_configured: true/false`.
 - Logs nao devem exibir valores de chave, senha, token, codigo, hash, link de reset ou string de conexao completa.
+- Logs nao devem exibir authorization code, access token, refresh token ou ID token do Google.
 - Mensagens de erro exibidas na interface devem ser amigaveis e sem detalhes tecnicos sensiveis.
 
 ## Retencao, Desativacao e Exclusao
@@ -308,7 +320,8 @@ Exclusao fisica definitiva, expurgo ou remocao administrativa so deve existir fu
 
 - Envio real por SMTP/API ainda nao esta configurado por padrao.
 - Verificacao de e-mail nao e obrigatoria por padrao.
-- Google OAuth ainda nao foi implementado.
+- Google OAuth foi implementado, mas depende de configuracao segura por ambiente para uso real.
+- Google OAuth exige configuracao segura de `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REDIRECT_URI` por ambiente.
 - Papeis e permissoes administrativas para diagnosticos ainda nao estao finalizados.
 - Periodo de retencao do historico de chat ainda nao foi formalmente definido.
 - Politica de expurgo/exclusao fisica ainda nao foi definida.
@@ -326,6 +339,7 @@ Exclusao fisica definitiva, expurgo ou remocao administrativa so deve existir fu
 - [ ] Nenhum codigo de cadastro cru e registrado em logs.
 - [ ] Nenhum link completo de verificacao ou recuperacao com token e registrado em logs.
 - [ ] Nenhum codigo de alteracao de e-mail cru e registrado em logs.
+- [ ] Nenhum token ou authorization code do Google e registrado em logs.
 - [ ] Nenhuma senha e registrada em logs.
 - [ ] Nenhum hash de senha aparece na interface.
 - [ ] Nenhum traceback aparece na interface.
