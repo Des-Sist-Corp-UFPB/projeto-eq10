@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import os
 import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,7 +11,13 @@ from typing import Any
 from urllib.parse import quote_plus
 
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError, ProgrammingError, SQLAlchemyError
+from sqlalchemy.exc import (
+    DBAPIError,
+    IntegrityError,
+    OperationalError,
+    ProgrammingError,
+    SQLAlchemyError,
+)
 
 from src.auth.security import MIN_PASSWORD_LENGTH, hash_password, verify_password
 from src.auth.validation import EMAIL_RE
@@ -47,6 +53,12 @@ class UserProfile:
     can_view_audit: bool = False
 
 
+GOOGLE_EMAIL_NOT_VERIFIED_MESSAGE = "Nao foi possivel confirmar o e-mail da conta Google."
+GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE = (
+    "Nao foi possivel entrar com Google para esta conta. Use a recuperacao da conta."
+)
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -76,7 +88,10 @@ def _build_database_url(prefix: str) -> str | None:
 
     netloc = f"{host}:{port}" if port else str(host)
     safe_password = quote_plus(password or "")
-    return f"postgresql+psycopg2://{user}:{safe_password}@{netloc}/{database}{_postgres_query_suffix(str(host), prefix)}"
+    return (
+        f"postgresql+psycopg2://{user}:{safe_password}@{netloc}/{database}"
+        f"{_postgres_query_suffix(str(host), prefix)}"
+    )
 
 
 def _build_lowercase_database_url() -> str | None:
@@ -91,7 +106,10 @@ def _build_lowercase_database_url() -> str | None:
 
     netloc = f"{host}:{port}" if port else str(host)
     safe_password = quote_plus(password or "")
-    return f"postgresql+psycopg2://{user}:{safe_password}@{netloc}/{database}{_postgres_query_suffix(str(host), 'DB')}"
+    return (
+        f"postgresql+psycopg2://{user}:{safe_password}@{netloc}/{database}"
+        f"{_postgres_query_suffix(str(host), 'DB')}"
+    )
 
 
 def _is_local_host(host: str) -> bool:
@@ -228,6 +246,103 @@ def _get_usuario_columns(conn: Any) -> set[str]:
     }
 
 
+def _usuarios_create_table_sql(dialect: str) -> str:
+    id_column = "id SERIAL PRIMARY KEY"
+    if dialect == "sqlite":
+        id_column = "id INTEGER PRIMARY KEY AUTOINCREMENT"
+
+    return f"""
+        CREATE TABLE IF NOT EXISTS usuarios (
+            {id_column},
+            nome TEXT NOT NULL,
+            email TEXT NOT NULL,
+            senha_hash TEXT NULL,
+            role TEXT NOT NULL DEFAULT 'user',
+            criado_em TIMESTAMP NOT NULL,
+            atualizado_em TIMESTAMP NOT NULL,
+            ultimo_login_em TIMESTAMP NULL,
+            email_verificado BOOLEAN NOT NULL DEFAULT false,
+            email_verificado_em TIMESTAMP NULL,
+            deleted_at TIMESTAMP NULL,
+            deletado BOOLEAN NOT NULL DEFAULT false,
+            deletado_em TIMESTAMP NULL,
+            google_sub TEXT NULL,
+            google_picture TEXT NULL,
+            auth_provider TEXT NOT NULL DEFAULT 'password',
+            can_view_audit BOOLEAN NOT NULL DEFAULT false
+        )
+    """
+
+
+def _drop_password_hash_not_null_if_needed(conn: Any) -> None:
+    if conn.dialect.name == "postgresql":
+        conn.execute(text("ALTER TABLE usuarios ALTER COLUMN senha_hash DROP NOT NULL"))
+        return
+
+    if conn.dialect.name != "sqlite":
+        return
+
+    table_info = list(conn.execute(text("PRAGMA table_info(usuarios)")).mappings())
+    senha_hash_info = next((row for row in table_info if row["name"] == "senha_hash"), None)
+    if not senha_hash_info or not bool(senha_hash_info["notnull"]):
+        return
+
+    old_columns = {str(row["name"]) for row in table_info}
+    backup_table = "usuarios_password_not_null_backup"
+    target_columns = [
+        "id",
+        "nome",
+        "email",
+        "senha_hash",
+        "role",
+        "criado_em",
+        "atualizado_em",
+        "ultimo_login_em",
+        "email_verificado",
+        "email_verificado_em",
+        "deleted_at",
+        "deletado",
+        "deletado_em",
+        "google_sub",
+        "google_picture",
+        "auth_provider",
+        "can_view_audit",
+    ]
+    defaults = {
+        "role": "'user'",
+        "criado_em": "CURRENT_TIMESTAMP",
+        "atualizado_em": "CURRENT_TIMESTAMP",
+        "ultimo_login_em": "NULL",
+        "email_verificado": "false",
+        "email_verificado_em": "NULL",
+        "deleted_at": "NULL",
+        "deletado": "false",
+        "deletado_em": "NULL",
+        "google_sub": "NULL",
+        "google_picture": "NULL",
+        "auth_provider": "'password'",
+        "can_view_audit": "false",
+    }
+    select_expressions = [
+        column if column in old_columns else defaults.get(column, "NULL")
+        for column in target_columns
+    ]
+
+    conn.execute(text(f"DROP TABLE IF EXISTS {backup_table}"))
+    conn.execute(text(f"ALTER TABLE usuarios RENAME TO {backup_table}"))
+    conn.execute(text(_usuarios_create_table_sql("sqlite")))
+    conn.execute(
+        text(
+            f"""
+            INSERT INTO usuarios ({", ".join(target_columns)})
+            SELECT {", ".join(select_expressions)}
+            FROM {backup_table}
+            """
+        )
+    )
+    conn.execute(text(f"DROP TABLE {backup_table}"))
+
+
 def _add_usuario_column_if_missing(
     conn: Any,
     columns: set[str],
@@ -337,40 +452,29 @@ class UserService:
 
     def ensure_schema(self) -> None:
         dialect = self.engine.dialect.name
-        id_column = "id SERIAL PRIMARY KEY"
-        if dialect == "sqlite":
-            id_column = "id INTEGER PRIMARY KEY AUTOINCREMENT"
+        create_table_sql = _usuarios_create_table_sql(dialect)
 
-        create_table_sql = f"""
-            CREATE TABLE IF NOT EXISTS usuarios (
-                {id_column},
-                nome TEXT NOT NULL,
-                email TEXT NOT NULL,
-                senha_hash TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'user',
-                criado_em TIMESTAMP NOT NULL,
-                atualizado_em TIMESTAMP NOT NULL,
-                ultimo_login_em TIMESTAMP NULL,
-                email_verificado BOOLEAN NOT NULL DEFAULT false,
-                email_verificado_em TIMESTAMP NULL,
-                deleted_at TIMESTAMP NULL,
-                deletado BOOLEAN NOT NULL DEFAULT false,
-                deletado_em TIMESTAMP NULL,
-                can_view_audit BOOLEAN NOT NULL DEFAULT false
-            )
-        """
         try:
             with self.engine.begin() as conn:
                 conn.execute(text(create_table_sql))
+                _drop_password_hash_not_null_if_needed(conn)
+
                 columns = _get_usuario_columns(conn)
                 _add_usuario_column_if_missing(conn, columns, "email_verificado", "BOOLEAN NOT NULL DEFAULT false")
                 _add_usuario_column_if_missing(conn, columns, "email_verificado_em", "TIMESTAMP NULL")
+                _add_usuario_column_if_missing(conn, columns, "deleted_at", "TIMESTAMP NULL")
                 _add_usuario_column_if_missing(conn, columns, "deletado", "BOOLEAN NOT NULL DEFAULT false")
                 _add_usuario_column_if_missing(conn, columns, "deletado_em", "TIMESTAMP NULL")
+                _add_usuario_column_if_missing(conn, columns, "google_sub", "TEXT NULL")
+                _add_usuario_column_if_missing(conn, columns, "google_picture", "TEXT NULL")
+                _add_usuario_column_if_missing(conn, columns, "auth_provider", "TEXT NOT NULL DEFAULT 'password'")
                 _add_usuario_column_if_missing(conn, columns, "can_view_audit", "BOOLEAN NOT NULL DEFAULT false")
+
                 conn.execute(text("UPDATE usuarios SET email_verificado = false WHERE email_verificado IS NULL"))
                 conn.execute(text("UPDATE usuarios SET deletado = false WHERE deletado IS NULL"))
+                conn.execute(text("UPDATE usuarios SET auth_provider = 'password' WHERE auth_provider IS NULL"))
                 conn.execute(text("UPDATE usuarios SET can_view_audit = false WHERE can_view_audit IS NULL"))
+
                 columns = _get_usuario_columns(conn)
                 active_condition = _active_user_condition(columns)
                 create_index_sql = f"""
@@ -379,6 +483,16 @@ class UserService:
                     WHERE {active_condition}
                 """
                 conn.execute(text(create_index_sql))
+
+                conn.execute(
+                    text(
+                        """
+                        CREATE UNIQUE INDEX IF NOT EXISTS ux_usuarios_google_sub
+                        ON usuarios (google_sub)
+                        WHERE google_sub IS NOT NULL
+                        """
+                    )
+                )
         except SQLAlchemyError as exc:
             _log_database_error("ensure_schema", exc)
             raise
@@ -489,9 +603,10 @@ class UserService:
             raise
 
         user = _row_to_user(row)
-        # Auditoria: conta criada
+
         try:
             from src.audit.audit_log_service import AuditLogService, EVENT_ACCOUNT_CREATED
+
             AuditLogService(self.engine, initialize_schema=False).log_event(
                 EVENT_ACCOUNT_CREATED,
                 user_id=user.id,
@@ -500,6 +615,7 @@ class UserService:
             )
         except Exception:
             logger.debug("audit_log nao disponivel ainda — ignorado em create_user")
+
         return user
 
     def authenticate(self, email: str, senha: str) -> UserProfile:
@@ -529,6 +645,8 @@ class UserService:
                 if not row:
                     raise AuthValidationError("E-mail ou senha inválidos.")
                 if _is_soft_deleted(row):
+                    raise AuthValidationError("E-mail ou senha inválidos.")
+                if not row["senha_hash"]:
                     raise AuthValidationError("E-mail ou senha inválidos.")
                 if not verify_password(senha, row["senha_hash"]):
                     raise AuthValidationError("E-mail ou senha inválidos.")
@@ -564,9 +682,10 @@ class UserService:
             raise
 
         user = _row_to_user(active_row)
-        # Auditoria: login realizado
+
         try:
             from src.audit.audit_log_service import AuditLogService, EVENT_LOGIN
+
             AuditLogService(self.engine, initialize_schema=False).log_event(
                 EVENT_LOGIN,
                 user_id=user.id,
@@ -574,7 +693,142 @@ class UserService:
             )
         except Exception:
             logger.debug("audit_log nao disponivel ainda — ignorado em authenticate")
+
         return user
+
+    def authenticate_google_identity(
+        self,
+        *,
+        google_sub: str,
+        email: str,
+        email_verified: bool,
+        name: str | None = None,
+        picture: str | None = None,
+    ) -> UserProfile:
+        """Entra, vincula ou cria usuario a partir de uma identidade Google verificada."""
+        clean_sub = (google_sub or "").strip()
+        if not clean_sub:
+            raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
+
+        clean_email = _validate_email(email)
+        if not email_verified:
+            raise AuthValidationError(GOOGLE_EMAIL_NOT_VERIFIED_MESSAGE)
+
+        clean_name = (name or "").strip() or clean_email.split("@", 1)[0] or "Usuario"
+        clean_picture = (picture or "").strip() or None
+
+        try:
+            with self.engine.begin() as conn:
+                columns = _get_usuario_columns(conn)
+                active_condition = _active_user_condition(columns)
+                soft_delete_columns = _soft_delete_select_columns(columns)
+                active_sort_expression = _active_user_sort_expression(columns)
+                now = _now()
+
+                google_row = conn.execute(
+                    text(
+                        f"""
+                        SELECT id, nome, email, role, criado_em, atualizado_em,
+                               ultimo_login_em, google_sub, {soft_delete_columns}
+                        FROM usuarios
+                        WHERE google_sub = :google_sub
+                        ORDER BY {active_sort_expression} DESC, id DESC
+                        LIMIT 1
+                        """
+                    ),
+                    {"google_sub": clean_sub},
+                ).mappings().first()
+
+                if google_row:
+                    if _is_soft_deleted(google_row):
+                        raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
+                    self._touch_google_login(conn, int(google_row["id"]), clean_picture, now)
+                    return self._get_user_by_id_in_connection(conn, int(google_row["id"]))
+
+                email_row = conn.execute(
+                    text(
+                        f"""
+                        SELECT id, google_sub, {soft_delete_columns}
+                        FROM usuarios
+                        WHERE lower(email) = :email
+                        ORDER BY {active_sort_expression} DESC, id DESC
+                        LIMIT 1
+                        """
+                    ),
+                    {"email": clean_email},
+                ).mappings().first()
+
+                if email_row:
+                    if _is_soft_deleted(email_row):
+                        raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
+                    existing_sub = str(email_row["google_sub"] or "").strip()
+                    if existing_sub and existing_sub != clean_sub:
+                        raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
+                    self._link_google_identity(conn, int(email_row["id"]), clean_sub, clean_picture, now)
+                    return self._get_user_by_id_in_connection(conn, int(email_row["id"]))
+
+                user_id = self._create_google_user(conn, clean_name, clean_email, clean_sub, clean_picture, now)
+                return self._get_user_by_id_in_connection(conn, user_id)
+        except AuthValidationError:
+            raise
+        except SQLAlchemyError as exc:
+            _log_database_error("authenticate_google_identity", exc)
+            raise
+
+    def get_user_by_google_sub(self, google_sub: str) -> UserProfile | None:
+        clean_sub = (google_sub or "").strip()
+        if not clean_sub:
+            return None
+
+        try:
+            with self.engine.connect() as conn:
+                columns = _get_usuario_columns(conn)
+                if "google_sub" not in columns:
+                    return None
+                active_condition = _active_user_condition(columns)
+                row = conn.execute(
+                    text(
+                        f"""
+                        SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em,
+                               COALESCE(can_view_audit, false) AS can_view_audit
+                        FROM usuarios
+                        WHERE google_sub = :google_sub
+                          AND {active_condition}
+                        LIMIT 1
+                        """
+                    ),
+                    {"google_sub": clean_sub},
+                ).mappings().first()
+        except SQLAlchemyError as exc:
+            _log_database_error("get_user_by_google_sub", exc)
+            raise
+
+        return _row_to_user(row) if row else None
+
+    def get_active_user_by_email(self, email: str) -> UserProfile | None:
+        clean_email = _validate_email(email)
+        try:
+            with self.engine.connect() as conn:
+                columns = _get_usuario_columns(conn)
+                active_condition = _active_user_condition(columns)
+                row = conn.execute(
+                    text(
+                        f"""
+                        SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em,
+                               COALESCE(can_view_audit, false) AS can_view_audit
+                        FROM usuarios
+                        WHERE lower(email) = :email
+                          AND {active_condition}
+                        LIMIT 1
+                        """
+                    ),
+                    {"email": clean_email},
+                ).mappings().first()
+        except SQLAlchemyError as exc:
+            _log_database_error("get_active_user_by_email", exc)
+            raise
+
+        return _row_to_user(row) if row else None
 
     def get_user_by_id(self, user_id: int) -> UserProfile | None:
         try:
@@ -599,6 +853,180 @@ class UserService:
 
         return _row_to_user(row) if row else None
 
+    def _get_user_by_id_in_connection(self, conn: Any, user_id: int) -> UserProfile:
+        row = conn.execute(
+            text(
+                """
+                SELECT id, nome, email, role, criado_em, atualizado_em, ultimo_login_em,
+                       COALESCE(can_view_audit, false) AS can_view_audit
+                FROM usuarios
+                WHERE id = :id
+                LIMIT 1
+                """
+            ),
+            {"id": user_id},
+        ).mappings().first()
+        if row is None:
+            raise AuthValidationError("Usuario ativo nao encontrado.")
+        return _row_to_user(row)
+
+    def _touch_google_login(
+        self,
+        conn: Any,
+        user_id: int,
+        picture: str | None,
+        now: datetime,
+    ) -> None:
+        columns = _get_usuario_columns(conn)
+        assignments = [
+            "ultimo_login_em = :ultimo_login_em",
+            "atualizado_em = :atualizado_em",
+        ]
+        params: dict[str, Any] = {
+            "id": user_id,
+            "ultimo_login_em": now,
+            "atualizado_em": now,
+        }
+        if "google_picture" in columns:
+            assignments.append("google_picture = :google_picture")
+            params["google_picture"] = picture
+        if "email_verificado" in columns:
+            assignments.append("email_verificado = :email_verificado")
+            params["email_verificado"] = True
+        if "email_verificado_em" in columns:
+            assignments.append("email_verificado_em = COALESCE(email_verificado_em, :email_verificado_em)")
+            params["email_verificado_em"] = now
+
+        conn.execute(
+            text(
+                f"""
+                UPDATE usuarios
+                SET {", ".join(assignments)}
+                WHERE id = :id
+                """
+            ),
+            params,
+        )
+
+    def _link_google_identity(
+        self,
+        conn: Any,
+        user_id: int,
+        google_sub: str,
+        picture: str | None,
+        now: datetime,
+    ) -> None:
+        columns = _get_usuario_columns(conn)
+        assignments = [
+            "ultimo_login_em = :ultimo_login_em",
+            "atualizado_em = :atualizado_em",
+        ]
+        params: dict[str, Any] = {
+            "id": user_id,
+            "google_sub": google_sub,
+            "google_picture": picture,
+            "ultimo_login_em": now,
+            "atualizado_em": now,
+        }
+        if "google_sub" in columns:
+            assignments.append("google_sub = :google_sub")
+        if "google_picture" in columns:
+            assignments.append("google_picture = :google_picture")
+        if "auth_provider" in columns:
+            assignments.append("auth_provider = :auth_provider")
+            params["auth_provider"] = "password_google"
+        if "email_verificado" in columns:
+            assignments.append("email_verificado = :email_verificado")
+            params["email_verificado"] = True
+        if "email_verificado_em" in columns:
+            assignments.append("email_verificado_em = COALESCE(email_verificado_em, :email_verificado_em)")
+            params["email_verificado_em"] = now
+
+        conn.execute(
+            text(
+                f"""
+                UPDATE usuarios
+                SET {", ".join(assignments)}
+                WHERE id = :id
+                """
+            ),
+            params,
+        )
+
+    def _create_google_user(
+        self,
+        conn: Any,
+        name: str,
+        email: str,
+        google_sub: str,
+        picture: str | None,
+        now: datetime,
+    ) -> int:
+        conn.execute(
+            text(
+                """
+                INSERT INTO usuarios (
+                    nome,
+                    email,
+                    senha_hash,
+                    role,
+                    criado_em,
+                    atualizado_em,
+                    ultimo_login_em,
+                    email_verificado,
+                    email_verificado_em,
+                    deletado,
+                    deletado_em,
+                    google_sub,
+                    google_picture,
+                    auth_provider
+                )
+                VALUES (
+                    :nome,
+                    :email,
+                    NULL,
+                    'user',
+                    :criado_em,
+                    :atualizado_em,
+                    :ultimo_login_em,
+                    :email_verificado,
+                    :email_verificado_em,
+                    :deletado,
+                    :deletado_em,
+                    :google_sub,
+                    :google_picture,
+                    :auth_provider
+                )
+                """
+            ),
+            {
+                "nome": name,
+                "email": email,
+                "criado_em": now,
+                "atualizado_em": now,
+                "ultimo_login_em": now,
+                "email_verificado": True,
+                "email_verificado_em": now,
+                "deletado": False,
+                "deletado_em": None,
+                "google_sub": google_sub,
+                "google_picture": picture,
+                "auth_provider": "google",
+            },
+        )
+        row = conn.execute(
+            text(
+                """
+                SELECT id
+                FROM usuarios
+                WHERE google_sub = :google_sub
+                LIMIT 1
+                """
+            ),
+            {"google_sub": google_sub},
+        ).mappings().first()
+        return int(row["id"])
+
     def get_all_users(self) -> list[UserProfile]:
         """Retorna todos os usuarios ativos. Uso exclusivo de Super Admins."""
         try:
@@ -619,7 +1047,7 @@ class UserService:
             _log_database_error("get_all_users", exc)
             raise
 
-        return [_row_to_user(r) for r in rows]
+        return [_row_to_user(row) for row in rows]
 
     def set_role(
         self,
@@ -630,6 +1058,7 @@ class UserService:
     ) -> UserProfile:
         """Atualiza o papel (role) de um usuario. Registra evento de auditoria."""
         from src.auth.roles import VALID_ROLES
+
         if new_role not in VALID_ROLES:
             raise AuthValidationError(f"Papel invalido: {new_role}")
 
@@ -640,8 +1069,10 @@ class UserService:
                     text(
                         f"""
                         UPDATE usuarios
-                        SET role = :role, atualizado_em = :atualizado_em
-                        WHERE id = :id AND {active_condition}
+                        SET role = :role,
+                            atualizado_em = :atualizado_em
+                        WHERE id = :id
+                          AND {active_condition}
                         """
                     ),
                     {"id": target_user_id, "role": new_role, "atualizado_em": _now()},
@@ -656,6 +1087,7 @@ class UserService:
 
         try:
             from src.audit.audit_log_service import AuditLogService, EVENT_ROLE_CHANGED
+
             AuditLogService(self.engine, initialize_schema=False).log_event(
                 EVENT_ROLE_CHANGED,
                 user_id=target_user_id,
@@ -682,8 +1114,10 @@ class UserService:
                     text(
                         f"""
                         UPDATE usuarios
-                        SET can_view_audit = :val, atualizado_em = :atualizado_em
-                        WHERE id = :id AND {active_condition}
+                        SET can_view_audit = :val,
+                            atualizado_em = :atualizado_em
+                        WHERE id = :id
+                          AND {active_condition}
                         """
                     ),
                     {"id": target_user_id, "val": grant, "atualizado_em": _now()},
@@ -693,7 +1127,12 @@ class UserService:
             raise
 
         try:
-            from src.audit.audit_log_service import AuditLogService, EVENT_ACCESS_GRANTED, EVENT_ACCESS_REVOKED
+            from src.audit.audit_log_service import (
+                AuditLogService,
+                EVENT_ACCESS_GRANTED,
+                EVENT_ACCESS_REVOKED,
+            )
+
             evento = EVENT_ACCESS_GRANTED if grant else EVENT_ACCESS_REVOKED
             AuditLogService(self.engine, initialize_schema=False).log_event(
                 evento,
@@ -767,7 +1206,7 @@ class UserService:
                     {"id": user_id, "email": clean_email},
                 ).mappings().first()
                 if duplicate_user:
-                    raise AuthValidationError("JÃ¡ existe uma conta ativa com este e-mail.")
+                    raise AuthValidationError("Já existe uma conta ativa com este e-mail.")
 
                 assignments = ["email = :email", "atualizado_em = :atualizado_em"]
                 params: dict[str, Any] = {
@@ -832,6 +1271,8 @@ class UserService:
 
                 if not row:
                     raise AuthValidationError("Usuario ativo nao encontrado.")
+                if not row["senha_hash"]:
+                    raise AuthValidationError("Senha atual invalida.")
                 if not verify_password(senha_atual, row["senha_hash"]):
                     raise AuthValidationError("Senha atual invalida.")
 
@@ -863,6 +1304,7 @@ class UserService:
                 active_condition = _active_user_condition(columns)
                 assignments = ["atualizado_em = :atualizado_em"]
                 params: dict[str, Any] = {"id": user_id, "atualizado_em": _now()}
+
                 if "deleted_at" in columns:
                     assignments.insert(0, "deleted_at = :deleted_at")
                     params["deleted_at"] = params["atualizado_em"]
@@ -875,7 +1317,6 @@ class UserService:
                 if len(assignments) == 1:
                     raise AuthValidationError("Tabela de usuarios nao possui soft delete configurado.")
 
-                # Captura email antes de deletar para o log de auditoria
                 user_row = conn.execute(
                     text("SELECT email FROM usuarios WHERE id = :id LIMIT 1"),
                     {"id": user_id},
@@ -901,6 +1342,7 @@ class UserService:
 
         try:
             from src.audit.audit_log_service import AuditLogService, EVENT_ACCOUNT_DELETED
+
             AuditLogService(self.engine, initialize_schema=False).log_event(
                 EVENT_ACCOUNT_DELETED,
                 user_id=user_id,
@@ -908,3 +1350,4 @@ class UserService:
             )
         except Exception:
             logger.debug("audit_log nao disponivel — ignorado em soft_delete_user")
+

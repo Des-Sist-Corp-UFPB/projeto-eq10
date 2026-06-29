@@ -12,14 +12,23 @@ from typing import Any
 import streamlit as st
 
 from src.auth.email_verification_service import EmailVerificationService, is_email_verification_required
-from src.auth.session import can_access_chat, get_authenticated_user
-from src.auth.user_service import safe_auth_exception_summary
+from src.auth.google_oauth_service import (
+    GOOGLE_OAUTH_GENERIC_ERROR_MESSAGE,
+    GOOGLE_OAUTH_INVALID_STATE_MESSAGE,
+    GOOGLE_OAUTH_TARGET_PAGE_KEY,
+    GoogleOAuthError,
+    GoogleOAuthService,
+    clear_oauth_state,
+    validate_oauth_state,
+)
+from src.auth.session import can_access_chat, get_authenticated_user, login_session
+from src.auth.user_service import AuthValidationError, UserService, safe_auth_exception_summary
 from src.chat.chat_history_service import ChatHistoryService
-from src.ui.auth_modal import open_auth_modal, render_auth_panel, set_auth_panel
+from src.ui.auth_modal import close_auth_modal, open_auth_modal, render_auth_panel, set_auth_panel
 from src.ui.header import render_auth_header
-from src.ui.notifications import render_pending_toast
+from src.ui.notifications import queue_toast, render_pending_toast
 from src.ui.protected_chat import render_chat_auth_gate, render_chat_email_verification_gate
-from src.ui.sidebar import ADMIN_PAGE, CHAT_PAGE, DEFAULT_PAGE, get_current_page, render_sidebar
+from src.ui.sidebar import ADMIN_PAGE, CHAT_PAGE, DEFAULT_PAGE, get_current_page, render_sidebar, set_current_page
 from src.ui.statistics_page import render_statistics_page
 from src.ui.admin_page import render_admin_page
 
@@ -40,6 +49,7 @@ EMAIL_VERIFICATION_QUERY_ERROR_MESSAGE = (
     "Nao foi possivel validar o link de verificacao agora. "
     "Tente novamente em alguns instantes."
 )
+GOOGLE_OAUTH_QUERY_ERROR_MESSAGE = GOOGLE_OAUTH_GENERIC_ERROR_MESSAGE
 UNEXPECTED_FORMAT_ERROR_MESSAGE = (
     "A camada de IA respondeu com um formato inesperado. "
     "Tente uma pergunta mais específica."
@@ -74,6 +84,16 @@ def _get_datasus_question_runner() -> Any:
 @st.cache_resource(show_spinner=False)
 def _get_email_verification_service() -> EmailVerificationService:
     return EmailVerificationService.from_environment()
+
+
+@st.cache_resource(show_spinner=False)
+def _get_auth_user_service() -> UserService:
+    return UserService.from_environment()
+
+
+@st.cache_resource(show_spinner=False)
+def _get_google_oauth_service() -> GoogleOAuthService:
+    return GoogleOAuthService.from_environment()
 
 
 @st.cache_resource(show_spinner=False)
@@ -208,8 +228,101 @@ def _handle_email_verification_query_param() -> None:
         )
 
 
+def _get_query_param_value(name: str) -> str:
+    raw_value = st.query_params.get(name)
+    if isinstance(raw_value, list):
+        raw_value = raw_value[0] if raw_value else None
+    return str(raw_value or "").strip()
+
+
+def _clear_google_oauth_query_params() -> None:
+    for key in ("code", "state", "scope", "authuser", "prompt", "hd"):
+        try:
+            if key in st.query_params:
+                del st.query_params[key]
+        except Exception as exc:
+            logger.warning(
+                "Erro seguro limpar_google_oauth_query | chave=%s | tipo=%s",
+                key,
+                type(exc).__name__,
+            )
+
+
+def _handle_google_oauth_query_param() -> None:
+    code = _get_query_param_value("code")
+    state = _get_query_param_value("state")
+    if not code and not state:
+        return
+
+    try:
+        if not code or not validate_oauth_state(st.session_state, state):
+            st.session_state.google_oauth_feedback = {
+                "message": GOOGLE_OAUTH_INVALID_STATE_MESSAGE,
+                "success": False,
+            }
+            return
+
+        identity = _get_google_oauth_service().exchange_code_for_identity(code)
+        user = _get_auth_user_service().authenticate_google_identity(
+            google_sub=identity.sub,
+            email=identity.email,
+            email_verified=identity.email_verified,
+            name=identity.name,
+            picture=identity.picture,
+        )
+        login_session(st.session_state, user)
+        target_page = st.session_state.pop(GOOGLE_OAUTH_TARGET_PAGE_KEY, None)
+        close_auth_modal(redirect=False)
+        if target_page:
+            set_current_page(str(target_page))
+        queue_toast(st.session_state, "Login realizado com sucesso.")
+        st.session_state.google_oauth_feedback = {
+            "message": "Login com Google realizado com sucesso.",
+            "success": True,
+        }
+    except GoogleOAuthError as exc:
+        logger.warning("Erro seguro google_oauth_callback | code=%s", exc.error_code)
+        st.session_state.google_oauth_feedback = {
+            "message": exc.public_message,
+            "success": False,
+        }
+    except AuthValidationError as exc:
+        st.session_state.google_oauth_feedback = {
+            "message": exc.public_message,
+            "success": False,
+        }
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro google_oauth_callback | causa=%s | tipo=%s",
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
+        st.session_state.google_oauth_feedback = {
+            "message": GOOGLE_OAUTH_QUERY_ERROR_MESSAGE,
+            "success": False,
+        }
+    finally:
+        clear_oauth_state(st.session_state)
+        _clear_google_oauth_query_params()
+
+
 def _render_email_verification_feedback() -> None:
     feedback = st.session_state.pop("email_verification_feedback", None)
+    if not isinstance(feedback, dict):
+        return
+
+    message = str(feedback.get("message") or "").strip()
+    if not message:
+        return
+
+    if bool(feedback.get("success")):
+        st.success(message)
+    else:
+        st.error(message)
+
+
+def _render_google_oauth_feedback() -> None:
+    feedback = st.session_state.pop("google_oauth_feedback", None)
     if not isinstance(feedback, dict):
         return
 
@@ -1870,6 +1983,7 @@ def main() -> None:
     _apply_style()
     _init_messages()
     render_pending_toast()
+    _handle_google_oauth_query_param()
     _handle_password_reset_query_param()
     _handle_email_verification_query_param()
     current_page = get_current_page()
@@ -1885,6 +1999,7 @@ def main() -> None:
     )
     render_auth_header()
     render_auth_panel()
+    _render_google_oauth_feedback()
     _render_email_verification_feedback()
     render_sidebar(current_page)
 

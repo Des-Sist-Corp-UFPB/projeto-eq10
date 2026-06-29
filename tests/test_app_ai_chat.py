@@ -228,7 +228,7 @@ class TestAppAiChat(unittest.TestCase):
         header_source = HEADER_PATH.read_text(encoding="utf-8")
         protected_source = PROTECTED_CHAT_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("from src.ui.auth_modal import open_auth_modal, render_auth_panel", app_source)
+        self.assertIn("from src.ui.auth_modal import close_auth_modal, open_auth_modal, render_auth_panel, set_auth_panel", app_source)
         self.assertIn("and not st.session_state.get(\"auth_panel\")", app_source)
         self.assertIn("open_auth_modal(", app_source)
         self.assertIn("open_auth_modal(", header_source)
@@ -333,11 +333,16 @@ class TestAppAiChat(unittest.TestCase):
         self.assertIn("Alterando senha...", auth_source)
         self.assertIn("Desativando...", auth_source)
         self.assertIn("auth-login-forgot-password", auth_source)
-        self.assertIn("auth-login-google-placeholder", auth_source)
+        self.assertIn("auth-login-google-action", auth_source)
+        self.assertIn("auth-signup-google-action", auth_source)
         self.assertIn("Entrar com Google", auth_source)
+        self.assertIn("Criar conta com Google", auth_source)
         self.assertIn("GOOGLE_SIGN_IN_UNAVAILABLE_MESSAGE", auth_source)
-        self.assertIn("Login com Google sera implementado em uma etapa futura.", auth_source)
-        self.assertIn("Google OAuth sera implementado em fase futura.", auth_source)
+        self.assertIn("GoogleOAuthService", auth_source)
+        self.assertIn("store_oauth_state(st.session_state)", auth_source)
+        self.assertIn("service.build_authorization_url(state)", auth_source)
+        self.assertIn("st.link_button(label, auth_url", auth_source)
+        self.assertNotIn("Google OAuth sera implementado em fase futura.", auth_source)
         self.assertIn("auth-login-divider", auth_source)
         self.assertIn("auth-password-reset-request-form", auth_source)
         self.assertIn("auth-password-reset-confirm-form", auth_source)
@@ -396,6 +401,25 @@ class TestAppAiChat(unittest.TestCase):
         self.assertNotIn('st.button("Cancelar"', auth_source)
         self.assertNotIn('st.button("Fechar", key="auth-login-close"', auth_source)
         self.assertNotIn('st.button("Fechar", key="auth-signup-close"', auth_source)
+
+    def test_app_trata_callback_google_oauth(self):
+        app_source = APP_PATH.read_text(encoding="utf-8")
+        auth_source = AUTH_MODAL_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("from src.auth.google_oauth_service import", app_source)
+        self.assertIn("def _handle_google_oauth_query_param", app_source)
+        self.assertIn('_get_query_param_value("code")', app_source)
+        self.assertIn('_get_query_param_value("state")', app_source)
+        self.assertIn("validate_oauth_state(st.session_state, state)", app_source)
+        self.assertIn("_get_google_oauth_service().exchange_code_for_identity(code)", app_source)
+        self.assertIn("_get_auth_user_service().authenticate_google_identity(", app_source)
+        self.assertIn("login_session(st.session_state, user)", app_source)
+        self.assertIn("close_auth_modal(redirect=False)", app_source)
+        self.assertIn("clear_oauth_state(st.session_state)", app_source)
+        self.assertIn('del st.query_params[key]', app_source)
+        self.assertIn("_handle_google_oauth_query_param()", app_source)
+        self.assertIn("def _render_google_oauth_feedback", app_source)
+        self.assertIn("GOOGLE_OAUTH_TARGET_PAGE_KEY", app_source + auth_source)
 
     def test_profile_menu_e_modal_tem_fluxo_enxuto(self):
         app_source = APP_PATH.read_text(encoding="utf-8")
@@ -532,10 +556,10 @@ class TestAppAiChat(unittest.TestCase):
         source = APP_PATH.read_text(encoding="utf-8")
 
         expected_imports = [
-            "from src.ui.auth_modal import open_auth_modal, render_auth_panel",
+            "from src.ui.auth_modal import close_auth_modal, open_auth_modal, render_auth_panel, set_auth_panel",
             "from src.ui.header import render_auth_header",
             "from src.ui.protected_chat import render_chat_auth_gate",
-            "from src.ui.sidebar import ADMIN_PAGE, CHAT_PAGE, DEFAULT_PAGE, get_current_page, render_sidebar",
+            "from src.ui.sidebar import ADMIN_PAGE, CHAT_PAGE, DEFAULT_PAGE, get_current_page, render_sidebar, set_current_page",
             "from src.ui.statistics_page import render_statistics_page",
         ]
 

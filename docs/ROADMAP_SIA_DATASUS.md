@@ -373,7 +373,7 @@ Criterios de aceite:
 
 Objetivo: permitir login federado com Google sem quebrar o login por e-mail e senha.
 
-Esta e uma funcionalidade maior e nao deve ser implementada antes de estabilizar cadastro, login, logout, sessoes, soft delete e configuracao segura de ambiente.
+Implementacao inicial: o app agora possui fluxo Google OAuth/OpenID Connect por authorization code, validacao de `state`, troca de codigo por tokens, validacao de ID token, uso de `google_sub` como identificador estavel e vinculo/criacao de usuario local apenas quando o e-mail Google vem como verificado. Segredos OAuth devem permanecer somente em variaveis de ambiente.
 
 Comportamento recomendado:
 
@@ -414,11 +414,12 @@ Requisitos de seguranca:
 
 Criterios de aceite:
 
-- [ ] Usuario consegue entrar com Google.
-- [ ] Conta local e criada ou vinculada com seguranca.
-- [ ] Segredos OAuth nao sao commitados.
-- [ ] Login existente por e-mail/senha continua funcionando.
-- [ ] E-mail retornado pelo Google e tratado como verificado apenas quando o provedor indicar essa informacao.
+- [x] Usuario consegue entrar com Google quando `GOOGLE_OAUTH_ENABLED=true` e credenciais estao configuradas.
+- [x] Conta local e criada ou vinculada com seguranca por `google_sub` ou e-mail Google verificado.
+- [x] Segredos OAuth permanecem em variaveis de ambiente e nao sao commitados.
+- [x] Login existente por e-mail/senha continua funcionando.
+- [x] E-mail retornado pelo Google e tratado como verificado apenas quando o provedor indicar essa informacao.
+- [x] Usuarios desativados nao sao reativados silenciosamente pelo login Google.
 
 ### Phase 12 - P3 - Melhorias Futuras Opcionais
 

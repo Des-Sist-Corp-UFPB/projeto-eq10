@@ -59,7 +59,16 @@ class TestAuthUserService(unittest.TestCase):
         self.assertIn("deleted_at", columns)
         self.assertIn("deletado", columns)
         self.assertIn("deletado_em", columns)
+        self.assertIn("google_sub", columns)
+        self.assertIn("google_picture", columns)
+        self.assertIn("auth_provider", columns)
         self.assertIn("ux_usuarios_email_ativo", indexes)
+        self.assertIn("ux_usuarios_google_sub", indexes)
+
+        with self.engine.connect() as conn:
+            senha_hash_info = conn.execute(text("PRAGMA table_info(usuarios)")).mappings().all()
+        senha_hash_column = next(row for row in senha_hash_info if row["name"] == "senha_hash")
+        self.assertFalse(bool(senha_hash_column["notnull"]))
 
     def test_get_auth_engine_nao_usa_ai_db_readonly_como_fallback(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -206,6 +215,151 @@ class TestAuthUserService(unittest.TestCase):
 
         self.assertEqual(user.email, "ana@example.com")
         self.assertIsNotNone(user.ultimo_login_em)
+
+    def test_google_cria_usuario_verificado_sem_senha_local(self):
+        user = self.service.authenticate_google_identity(
+            google_sub="google-sub-123",
+            email="ana@example.com",
+            email_verified=True,
+            name="Ana Google",
+            picture="https://example.com/ana.png",
+        )
+
+        self.assertEqual(user.email, "ana@example.com")
+        self.assertEqual(user.nome, "Ana Google")
+        self.assertIsNotNone(user.ultimo_login_em)
+
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT senha_hash, google_sub, google_picture, auth_provider,
+                           email_verificado, email_verificado_em
+                    FROM usuarios
+                    WHERE id = :id
+                    """
+                ),
+                {"id": user.id},
+            ).mappings().first()
+
+        self.assertIsNone(row["senha_hash"])
+        self.assertEqual(row["google_sub"], "google-sub-123")
+        self.assertEqual(row["google_picture"], "https://example.com/ana.png")
+        self.assertEqual(row["auth_provider"], "google")
+        self.assertTrue(row["email_verificado"])
+        self.assertIsNotNone(row["email_verificado_em"])
+
+        with self.assertRaises(AuthValidationError) as context:
+            self.service.authenticate("ana@example.com", "qualquer-senha")
+
+        self.assertEqual(context.exception.public_message, "E-mail ou senha inválidos.")
+
+    def test_google_vincula_conta_local_ativa_por_email_verificado(self):
+        local_user = self.service.create_user(
+            "Ana Local",
+            "ana@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+
+        google_user = self.service.authenticate_google_identity(
+            google_sub="google-sub-123",
+            email="ANA@example.com",
+            email_verified=True,
+            name="Ana Google",
+        )
+
+        self.assertEqual(google_user.id, local_user.id)
+        self.assertEqual(self.service.authenticate("ana@example.com", "senha-forte").id, local_user.id)
+
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT google_sub, auth_provider, email_verificado FROM usuarios WHERE id = :id"),
+                {"id": local_user.id},
+            ).mappings().first()
+
+        self.assertEqual(row["google_sub"], "google-sub-123")
+        self.assertEqual(row["auth_provider"], "password_google")
+        self.assertTrue(row["email_verificado"])
+
+    def test_google_login_com_sub_existente_reusa_usuario(self):
+        created_user = self.service.authenticate_google_identity(
+            google_sub="google-sub-123",
+            email="ana@example.com",
+            email_verified=True,
+            name="Ana Google",
+        )
+
+        authenticated_user = self.service.authenticate_google_identity(
+            google_sub="google-sub-123",
+            email="ana@example.com",
+            email_verified=True,
+            name="Outro Nome",
+        )
+
+        self.assertEqual(authenticated_user.id, created_user.id)
+        self.assertEqual(self.service.get_user_by_google_sub("google-sub-123").id, created_user.id)
+
+    def test_google_rejeita_email_nao_verificado(self):
+        with self.assertRaises(AuthValidationError) as context:
+            self.service.authenticate_google_identity(
+                google_sub="google-sub-123",
+                email="ana@example.com",
+                email_verified=False,
+                name="Ana Google",
+            )
+
+        self.assertEqual(
+            context.exception.public_message,
+            "Nao foi possivel confirmar o e-mail da conta Google.",
+        )
+
+    def test_google_nao_reativa_usuario_deletado_por_email(self):
+        user = self.service.create_user(
+            "Ana Local",
+            "ana@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+        self.service.soft_delete_user(user.id)
+
+        with self.assertRaises(AuthValidationError) as context:
+            self.service.authenticate_google_identity(
+                google_sub="google-sub-123",
+                email="ana@example.com",
+                email_verified=True,
+                name="Ana Google",
+            )
+
+        self.assertEqual(
+            context.exception.public_message,
+            "Nao foi possivel entrar com Google para esta conta. Use a recuperacao da conta.",
+        )
+        with self.engine.connect() as conn:
+            total = conn.execute(text("SELECT COUNT(*) AS total FROM usuarios")).mappings().first()["total"]
+        self.assertEqual(total, 1)
+
+    def test_google_nao_reativa_usuario_deletado_por_sub(self):
+        user = self.service.authenticate_google_identity(
+            google_sub="google-sub-123",
+            email="ana@example.com",
+            email_verified=True,
+            name="Ana Google",
+        )
+        self.service.soft_delete_user(user.id)
+
+        with self.assertRaises(AuthValidationError) as context:
+            self.service.authenticate_google_identity(
+                google_sub="google-sub-123",
+                email="ana@example.com",
+                email_verified=True,
+                name="Ana Google",
+            )
+
+        self.assertEqual(
+            context.exception.public_message,
+            "Nao foi possivel entrar com Google para esta conta. Use a recuperacao da conta.",
+        )
 
     def test_falha_login_com_senha_incorreta(self):
         self.service.create_user(
