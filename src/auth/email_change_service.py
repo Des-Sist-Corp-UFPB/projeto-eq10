@@ -85,6 +85,15 @@ def _coerce_datetime(value: Any) -> datetime:
     return parsed.replace(tzinfo=None)
 
 
+def _log_audit_event(engine: Any, evento: str, **kwargs: Any) -> None:
+    try:
+        from src.audit.audit_log_service import log_audit_event_safely
+
+        log_audit_event_safely(engine, evento, **kwargs)
+    except Exception:
+        logger.debug("audit_log nao disponivel ainda - ignorado em alteracao_email")
+
+
 def _email_delivery_is_disabled(email_service: EmailService) -> bool:
     config = getattr(email_service, "config", None)
     if config is None:
@@ -256,6 +265,16 @@ class EmailChangeService:
                 _safe_error_summary(exc),
                 type(exc).__name__,
             )
+            _log_audit_event(
+                self.engine,
+                "email_sending_failure",
+                user_id=user_id,
+                user_email=current_email,
+                detalhe="message_type=email_change_code; error_code=request_failed",
+                status="failure",
+                source="email",
+                action="email_change",
+            )
             return EmailChangeResult(
                 False,
                 "send_failed",
@@ -273,6 +292,16 @@ class EmailChangeService:
                 else EMAIL_CHANGE_SEND_FAILED_MESSAGE
             )
             status = "email_disabled" if message == EMAIL_CHANGE_EMAIL_DISABLED_MESSAGE else "send_failed"
+            _log_audit_event(
+                self.engine,
+                "email_sending_failure",
+                user_id=user_id,
+                user_email=current_email,
+                detalhe=f"message_type=email_change_code; mode={send_result.mode}; error_code={send_result.error_code or status}",
+                status="failure",
+                source="email",
+                action="email_change",
+            )
             return EmailChangeResult(
                 False,
                 status,
@@ -291,6 +320,16 @@ class EmailChangeService:
             pending_change.id,
             send_result.provider,
             send_result.mode,
+        )
+        _log_audit_event(
+            self.engine,
+            "email_change_requested",
+            user_id=user_id,
+            user_email=current_email,
+            detalhe=f"novo_email={mask_email(clean_new_email)}; pending_id={pending_change.id}",
+            status="info",
+            source="auth",
+            action="email_change_request",
         )
         return EmailChangeResult(
             True,
@@ -554,8 +593,27 @@ class EmailChangeService:
                 _safe_error_summary(exc),
                 type(exc).__name__,
             )
+            _log_audit_event(
+                self.engine,
+                "database_connection_failure",
+                user_id=user_id,
+                detalhe="operacao=email_change_confirm",
+                status="failure",
+                source="auth",
+                action="database",
+            )
             raise
 
+        _log_audit_event(
+            self.engine,
+            "email_change_confirmed",
+            user_id=int(user_id),
+            user_email=new_email,
+            detalhe=f"email_anterior={mask_email(current_email)}",
+            status="success",
+            source="auth",
+            action="email_change_confirm",
+        )
         return EmailChangeResult(
             True,
             "changed",

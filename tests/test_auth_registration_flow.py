@@ -10,6 +10,7 @@ from src.auth.user_service import UserService
 from src.ui.auth_modal import (
     AUTH_UNAVAILABLE_MESSAGE,
     CONFIRM_EMAIL_STALE_MESSAGE,
+    REGISTRATION_PUBLIC_EMAIL_SEND_FAILED_MESSAGE,
     REGISTRATION_PUBLIC_EMAIL_UNAVAILABLE_MESSAGE,
     REGISTRATION_PUBLIC_NEUTRAL_MESSAGE,
     handle_email_code_confirmation,
@@ -62,6 +63,31 @@ class SentEmailService(EmailService):
         )
 
 
+class FailingSmtpEmailService(EmailService):
+    def __init__(self):
+        super().__init__(EmailConfig(enabled=True, provider="smtp"))
+
+    def send_email(
+        self,
+        to: str,
+        subject: str,
+        body_text: str,
+        body_html: str | None = None,
+        *,
+        message_type: str = "generic",
+    ) -> EmailSendResult:
+        return EmailSendResult(
+            success=False,
+            sent=False,
+            provider="smtp",
+            mode="smtp",
+            message="send failed",
+            error_code="smtp_send_failed",
+            message_type=message_type,
+            recipient=mask_email(to),
+        )
+
+
 class TestAuthRegistrationFlow(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite+pysqlite:///:memory:")
@@ -92,6 +118,18 @@ class TestAuthRegistrationFlow(unittest.TestCase):
         with self.engine.connect() as conn:
             return conn.exec_driver_sql(
                 "SELECT COUNT(*) FROM pending_registrations WHERE lower(email) = lower(?)",
+                (email,),
+            ).scalar_one()
+
+    def _active_pending_count(self, email="ana@example.com"):
+        with self.engine.connect() as conn:
+            return conn.exec_driver_sql(
+                """
+                SELECT COUNT(*)
+                FROM pending_registrations
+                WHERE lower(email) = lower(?)
+                  AND usado_em IS NULL
+                """,
                 (email,),
             ).scalar_one()
 
@@ -256,6 +294,26 @@ class TestAuthRegistrationFlow(unittest.TestCase):
             self.assertNotIn(term, next_step.message.lower())
         self.assertEqual(self._pending_count(), 0)
         self.assertEqual(self._reactivation_token_count(), 0)
+
+    def test_smtp_falha_mostra_mensagem_segura_sem_generico_auth(self):
+        failing_email_service = FailingSmtpEmailService()
+        pending_service = PendingRegistrationService(self.engine, email_service=failing_email_service)
+        reactivation_service = AccountReactivationService(self.engine, email_service=failing_email_service)
+
+        next_step = handle_register_submit(
+            {},
+            pending_service,
+            reactivation_service,
+            nome="Ana Silva",
+            email="ana@example.com",
+            senha="nova-senha",
+            confirmar_senha="nova-senha",
+        )
+
+        self.assertEqual(next_step.status, "email_sending_failed")
+        self.assertEqual(next_step.message, REGISTRATION_PUBLIC_EMAIL_SEND_FAILED_MESSAGE)
+        self.assertNotEqual(next_step.message, AUTH_UNAVAILABLE_MESSAGE)
+        self.assertEqual(self._active_pending_count(), 0)
 
     def test_confirmacao_de_codigo_de_reativacao_usa_servico_de_reativacao(self):
         user = self.user_service.create_user("Ana Silva", "ana@example.com", "senha-forte", "senha-forte")

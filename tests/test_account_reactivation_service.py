@@ -149,6 +149,9 @@ class TestAccountReactivationService(unittest.TestCase):
         self.assertNotIn("123456", str(result))
 
     def test_codigo_valido_reativa_conta(self):
+        from src.audit.audit_log_service import AuditLogService
+
+        AuditLogService(self.engine)
         self._create_deleted_user()
         with patch("src.auth.account_reactivation_service.generate_reactivation_code", return_value="123456"):
             result = self.service.request_reactivation("ana@example.com")
@@ -169,6 +172,22 @@ class TestAccountReactivationService(unittest.TestCase):
         self.assertIsNotNone(user_row["email_verificado_em"])
         authenticated = self.user_service.authenticate("ana@example.com", "senha-forte")
         self.assertEqual(authenticated.email, "ana@example.com")
+        with self.engine.connect() as conn:
+            audit_row = conn.execute(
+                text(
+                    """
+                    SELECT evento, status, user_email, detalhe
+                    FROM audit_log
+                    WHERE evento = 'account_reactivated'
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """
+                )
+            ).mappings().first()
+        self.assertIsNotNone(audit_row)
+        self.assertEqual(audit_row["status"], "success")
+        self.assertEqual(audit_row["user_email"], "ana@example.com")
+        self.assertNotIn("123456", str(audit_row["detalhe"]))
 
     def test_codigo_invalido_incrementa_tentativas_e_bloqueia(self):
         self._create_deleted_user()

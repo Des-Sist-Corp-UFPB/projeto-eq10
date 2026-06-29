@@ -16,6 +16,7 @@ def public_user_payload(user: Any) -> dict[str, Any]:
             "nome": user["nome"],
             "email": user["email"],
             "role": user.get("role", "user"),
+            "can_view_audit": bool(user.get("can_view_audit", False)),
         }
 
     return {
@@ -23,6 +24,7 @@ def public_user_payload(user: Any) -> dict[str, Any]:
         "nome": user.nome,
         "email": user.email,
         "role": user.role,
+        "can_view_audit": bool(getattr(user, "can_view_audit", False)),
     }
 
 

@@ -89,6 +89,15 @@ def _coerce_datetime(value: Any) -> datetime:
     return parsed.replace(tzinfo=None)
 
 
+def _log_audit_event(engine: Any, evento: str, **kwargs: Any) -> None:
+    try:
+        from src.audit.audit_log_service import log_audit_event_safely
+
+        log_audit_event_safely(engine, evento, **kwargs)
+    except Exception:
+        logger.debug("audit_log nao disponivel ainda - ignorado em recuperacao_senha")
+
+
 def _validate_reset_password(new_password: str, confirmation: str) -> str:
     if not new_password:
         raise AuthValidationError("Informe a nova senha.")
@@ -251,6 +260,15 @@ class PasswordResetService:
                 _safe_error_summary(exc),
                 type(exc).__name__,
             )
+            _log_audit_event(
+                self.engine,
+                "database_connection_failure",
+                user_email=clean_email,
+                detalhe="operacao=password_reset_request",
+                status="failure",
+                source="auth",
+                action="database",
+            )
             return PasswordResetResult(False, "error", PASSWORD_RESET_NEUTRAL_MESSAGE)
 
         if user is None:
@@ -270,6 +288,16 @@ class PasswordResetService:
                 "Erro seguro recuperacao_senha | acao=request | causa=%s | tipo=%s",
                 _safe_error_summary(exc),
                 type(exc).__name__,
+            )
+            _log_audit_event(
+                self.engine,
+                "email_sending_failure",
+                user_id=int(user["id"]),
+                user_email=clean_email,
+                detalhe="message_type=password_reset; error_code=request_failed",
+                status="failure",
+                source="email",
+                action="password_reset",
             )
             return PasswordResetResult(
                 False,
@@ -294,6 +322,27 @@ class PasswordResetService:
             send_result.mode,
             send_result.success,
         )
+        _log_audit_event(
+            self.engine,
+            "password_reset_requested",
+            user_id=token.user_id,
+            user_email=token.email,
+            detalhe=f"status={status}; mode={send_result.mode}; sent={bool(send_result.sent)}",
+            status="info" if status != "send_failed" else "failure",
+            source="auth",
+            action="password_reset_request",
+        )
+        if status == "send_failed":
+            _log_audit_event(
+                self.engine,
+                "email_sending_failure",
+                user_id=token.user_id,
+                user_email=token.email,
+                detalhe=f"message_type=password_reset; mode={send_result.mode}; error_code={send_result.error_code or 'send_failed'}",
+                status="failure",
+                source="email",
+                action="password_reset",
+            )
         return PasswordResetResult(
             send_result.success,
             status,
@@ -377,8 +426,26 @@ class PasswordResetService:
                 _safe_error_summary(exc),
                 type(exc).__name__,
             )
+            _log_audit_event(
+                self.engine,
+                "database_connection_failure",
+                detalhe="operacao=password_reset_complete",
+                status="failure",
+                source="auth",
+                action="database",
+            )
             raise
 
+        _log_audit_event(
+            self.engine,
+            "password_reset_completed",
+            user_id=validation.user_id,
+            user_email=validation.email,
+            detalhe="resultado=senha_redefinida",
+            status="success",
+            source="auth",
+            action="password_reset_complete",
+        )
         return PasswordResetResult(
             True,
             "reset",

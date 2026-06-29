@@ -21,6 +21,7 @@ from src.auth.google_oauth_service import (
     clear_oauth_state,
     validate_oauth_state,
 )
+from src.auth.roles import can_view_audit_log
 from src.auth.session import can_access_chat, get_authenticated_user, login_session
 from src.auth.user_service import AuthValidationError, UserService, safe_auth_exception_summary
 from src.chat.chat_history_service import ChatHistoryService
@@ -50,6 +51,7 @@ EMAIL_VERIFICATION_QUERY_ERROR_MESSAGE = (
     "Tente novamente em alguns instantes."
 )
 GOOGLE_OAUTH_QUERY_ERROR_MESSAGE = GOOGLE_OAUTH_GENERIC_ERROR_MESSAGE
+ADMIN_ACCESS_DENIED_MESSAGE = "Voce nao tem permissao para acessar esta pagina."
 UNEXPECTED_FORMAT_ERROR_MESSAGE = (
     "A camada de IA respondeu com um formato inesperado. "
     "Tente uma pergunta mais específica."
@@ -89,6 +91,20 @@ def _get_email_verification_service() -> EmailVerificationService:
 @st.cache_resource(show_spinner=False)
 def _get_auth_user_service() -> UserService:
     return UserService.from_environment()
+
+
+def _log_audit_event(evento: str, **kwargs: Any) -> None:
+    try:
+        from src.audit.audit_log_service import log_audit_event_safely
+
+        log_audit_event_safely(_get_auth_user_service().engine, evento, **kwargs)
+    except Exception as exc:
+        logger.warning(
+            "Erro seguro audit_log_app | evento=%s | causa=%s | tipo=%s",
+            evento,
+            safe_auth_exception_summary(exc),
+            type(exc).__name__,
+        )
 
 
 @st.cache_resource(show_spinner=False)
@@ -336,6 +352,35 @@ def _render_google_oauth_feedback() -> None:
         st.error(message)
 
 
+def _resolve_authorized_page(current_page: str) -> str:
+    if current_page != ADMIN_PAGE:
+        return current_page
+
+    user = get_authenticated_user(st.session_state)
+    if can_view_audit_log(user):
+        return current_page
+
+    _log_audit_event(
+        "admin_access_denied",
+        user_id=int(user["id"]) if user and user.get("id") else None,
+        user_email=user.get("email") if user else None,
+        detalhe="page=auditoria",
+        status="blocked",
+        source="admin_page",
+        action="access_denied",
+    )
+    if user:
+        st.session_state.admin_access_feedback = ADMIN_ACCESS_DENIED_MESSAGE
+    set_current_page(DEFAULT_PAGE)
+    return DEFAULT_PAGE
+
+
+def _render_admin_access_feedback() -> None:
+    message = st.session_state.pop("admin_access_feedback", None)
+    if message:
+        st.warning(str(message))
+
+
 _SPECIAL_CHAR_TRANSLATION = str.maketrans(
     {
         "\u00a0": " ",
@@ -510,7 +555,8 @@ def _apply_style() -> None:
         }
 
         .st-key-sidebar-nav-estatisticas,
-        .st-key-sidebar-nav-chat-ia {
+        .st-key-sidebar-nav-chat-ia,
+        .st-key-sidebar-nav-auditoria {
             position: fixed;
             left: 1rem;
             z-index: 1002;
@@ -528,14 +574,20 @@ def _apply_style() -> None:
             top: 13rem;
         }
 
+        .st-key-sidebar-nav-auditoria {
+            top: 17.35rem;
+        }
+
         .st-key-sidebar-nav-estatisticas [data-testid="stButton"],
-        .st-key-sidebar-nav-chat-ia [data-testid="stButton"] {
+        .st-key-sidebar-nav-chat-ia [data-testid="stButton"],
+        .st-key-sidebar-nav-auditoria [data-testid="stButton"] {
             width: 100%;
             height: 100%;
         }
 
         .st-key-sidebar-nav-estatisticas [data-testid="stButton"] button,
-        .st-key-sidebar-nav-chat-ia [data-testid="stButton"] button {
+        .st-key-sidebar-nav-chat-ia [data-testid="stButton"] button,
+        .st-key-sidebar-nav-auditoria [data-testid="stButton"] button {
             width: 100%;
             height: 3.35rem;
             min-height: 3.35rem;
@@ -550,7 +602,9 @@ def _apply_style() -> None:
         .st-key-sidebar-nav-estatisticas [data-testid="stButton"] button:hover,
         .st-key-sidebar-nav-estatisticas [data-testid="stButton"] button:focus,
         .st-key-sidebar-nav-chat-ia [data-testid="stButton"] button:hover,
-        .st-key-sidebar-nav-chat-ia [data-testid="stButton"] button:focus {
+        .st-key-sidebar-nav-chat-ia [data-testid="stButton"] button:focus,
+        .st-key-sidebar-nav-auditoria [data-testid="stButton"] button:hover,
+        .st-key-sidebar-nav-auditoria [data-testid="stButton"] button:focus {
             border: 0;
             background: rgba(255, 255, 255, 0.08);
             color: transparent;
@@ -615,6 +669,7 @@ def _apply_style() -> None:
             width: 1.2rem;
             height: 1.2rem;
             flex: 0 0 1.2rem;
+            opacity: 1;
         }
 
         .nav-icon.chat::before {
@@ -661,6 +716,38 @@ def _apply_style() -> None:
         .nav-icon.stats::after {
             left: 0.72rem;
             height: 0.74rem;
+        }
+
+        .nav-icon.audit {
+            width: 1.35rem;
+            height: 1.35rem;
+            flex-basis: 1.35rem;
+        }
+
+        .nav-icon.audit::before {
+            content: "";
+            position: absolute;
+            inset: 0.02rem 0.13rem 0.02rem;
+            border: 2.5px solid currentColor;
+            border-radius: 0.4rem 0.4rem 0.55rem 0.55rem;
+            clip-path: polygon(50% 0, 100% 15%, 88% 70%, 50% 100%, 12% 70%, 0 15%);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .nav-icon.audit::after {
+            content: "";
+            position: absolute;
+            left: 0.45rem;
+            top: 0.47rem;
+            width: 0.4rem;
+            height: 0.2rem;
+            border-left: 2.5px solid currentColor;
+            border-bottom: 2.5px solid currentColor;
+            transform: rotate(-45deg);
+        }
+
+        .sidebar-link.active .nav-icon.audit::before {
+            background: rgba(109, 40, 217, 0.10);
         }
 
         .app-hero {
@@ -1401,7 +1488,8 @@ def _apply_style() -> None:
             }
 
             .st-key-sidebar-nav-estatisticas,
-            .st-key-sidebar-nav-chat-ia {
+            .st-key-sidebar-nav-chat-ia,
+            .st-key-sidebar-nav-auditoria {
                 left: 0.5rem;
                 width: calc(var(--sidebar-width) - 1rem);
             }
@@ -1412,6 +1500,10 @@ def _apply_style() -> None:
 
             .st-key-sidebar-nav-chat-ia {
                 top: 12.1rem;
+            }
+
+            .st-key-sidebar-nav-auditoria {
+                top: 16.45rem;
             }
 
             .sidebar-brand {
@@ -1927,6 +2019,16 @@ def _process_pending_prompt() -> bool:
             "Erro seguro app_ai_chat | operacao=processar_prompt | tipo=%s | fallback=mensagem_amigavel",
             type(exc).__name__,
         )
+        _log_audit_event(
+            "chat_processing_error",
+            user_id=user_id or None,
+            user_email=user.get("email") if user else None,
+            prompt_text=prompt,
+            detalhe=f"tipo={type(exc).__name__}",
+            status="failure",
+            source="chat_ia",
+            action="process_prompt",
+        )
         resposta = GENERIC_ERROR_MESSAGE
         assistant_status = "error"
 
@@ -1986,7 +2088,7 @@ def main() -> None:
     _handle_google_oauth_query_param()
     _handle_password_reset_query_param()
     _handle_email_verification_query_param()
-    current_page = get_current_page()
+    current_page = _resolve_authorized_page(get_current_page())
     if (
         current_page == CHAT_PAGE
         and not can_access_chat(st.session_state)
@@ -2002,6 +2104,7 @@ def main() -> None:
     _render_google_oauth_feedback()
     _render_email_verification_feedback()
     render_sidebar(current_page)
+    _render_admin_access_feedback()
 
     if current_page == CHAT_PAGE:
         _render_chat_page()

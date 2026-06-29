@@ -11,7 +11,9 @@ from src.auth.security import verify_password
 from src.auth.user_service import (
     AuthValidationError,
     UserService,
+    _get_auth_database_url,
     get_auth_engine,
+    normalize_email,
     safe_auth_exception_summary,
 )
 
@@ -100,6 +102,99 @@ class TestAuthUserService(unittest.TestCase):
                     self.assertEqual(authenticated_user.id, created_user.id)
                 finally:
                     engine.dispose()
+
+    def test_auth_db_env_tem_prioridade_sobre_database_url_generico(self):
+        env = {
+            "ENVIRONMENT": "test",
+            "AUTH_DB_HOST": "db.neon.tech",
+            "AUTH_DB_PORT": "5432",
+            "AUTH_DB_NAME": "neondb",
+            "AUTH_DB_USER": "auth_user",
+            "AUTH_DB_PASSWORD": "secret",
+            "DATABASE_URL": "postgresql+psycopg2://wrong:wrong@wrong.local/db",
+        }
+
+        with patch.dict(os.environ, env, clear=True):
+            database_url, source = _get_auth_database_url()
+
+        self.assertEqual(source, "AUTH_DB_*")
+        self.assertIn("auth_user", database_url)
+        self.assertIn("sslmode=require", database_url)
+        self.assertIn("channel_binding=require", database_url)
+        self.assertNotIn("wrong.local", database_url)
+
+    def test_normalize_email_remove_espacos_e_casefold(self):
+        self.assertEqual(normalize_email("  ANA@EXAMPLE.COM  "), "ana@example.com")
+
+    def test_ensure_schema_nao_quebra_com_duplicados_ativos_antigos(self):
+        engine = create_engine("sqlite+pysqlite:///:memory:")
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE usuarios (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nome TEXT NOT NULL,
+                        email TEXT NOT NULL,
+                        senha_hash TEXT NULL,
+                        role TEXT NOT NULL DEFAULT 'user',
+                        criado_em TIMESTAMP NOT NULL,
+                        atualizado_em TIMESTAMP NOT NULL,
+                        ultimo_login_em TIMESTAMP NULL,
+                        deleted_at TIMESTAMP NULL,
+                        deletado BOOLEAN NOT NULL DEFAULT false,
+                        deletado_em TIMESTAMP NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO usuarios (nome, email, senha_hash, criado_em, atualizado_em)
+                    VALUES
+                        ('Ana 1', 'ana@example.com', 'hash-1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                        ('Ana 2', 'ANA@example.com', 'hash-2', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """
+                )
+            )
+
+        service = UserService(engine)
+
+        self.assertTrue(service.active_email_exists("ana@example.com"))
+
+    def test_usuario_deletado_nao_bloqueia_novo_email_ativo_no_indice(self):
+        first = self.service.create_user(
+            "Ana Silva",
+            "ana@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+        self.service.soft_delete_user(first.id)
+
+        second = self.service.create_user(
+            "Ana Nova",
+            "ANA@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+
+        self.assertNotEqual(first.id, second.id)
+        self.assertEqual(second.email, "ana@example.com")
+
+    def test_falha_de_auditoria_nao_impede_cadastro_ou_login(self):
+        engine = create_engine("sqlite+pysqlite:///:memory:")
+        service = UserService(engine)
+
+        user = service.create_user(
+            "Ana Silva",
+            "ana@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+        authenticated = service.authenticate("ana@example.com", "senha-forte")
+
+        self.assertEqual(authenticated.id, user.id)
 
     def test_resumo_seguro_identifica_tabela_usuarios_ausente(self):
         exc = OperationalError(
@@ -374,6 +469,36 @@ class TestAuthUserService(unittest.TestCase):
 
         self.assertEqual(context.exception.public_message, "E-mail ou senha inválidos.")
 
+    def test_falha_login_registra_auditoria_segura(self):
+        self.service.create_user(
+            "Ana Silva",
+            "ana@example.com",
+            "senha-forte",
+            "senha-forte",
+        )
+
+        with self.assertRaises(AuthValidationError):
+            self.service.authenticate("ana@example.com", "senha-errada")
+
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT evento, status, user_email, detalhe
+                    FROM audit_log
+                    WHERE evento = 'login_failure'
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """
+                )
+            ).mappings().first()
+
+        self.assertIsNotNone(row)
+        self.assertEqual(row["status"], "failure")
+        self.assertEqual(row["user_email"], "ana@example.com")
+        self.assertIn("credenciais_invalidas", row["detalhe"])
+        self.assertNotIn("senha-errada", row["detalhe"])
+
     def test_falha_login_usuario_com_deleted_at(self):
         user = self.service.create_user(
             "Ana Silva",
@@ -563,7 +688,7 @@ class TestAuthUserService(unittest.TestCase):
 
         self.assertEqual(
             context.exception.public_message,
-            "JÃ¡ existe uma conta ativa com este e-mail.",
+            "Já existe uma conta ativa com este e-mail.",
         )
 
     def test_alterar_senha_exige_senha_atual(self):

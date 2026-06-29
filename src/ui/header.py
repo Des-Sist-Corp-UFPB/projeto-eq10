@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import logging
 from typing import Any
 
 import streamlit as st
@@ -10,6 +11,8 @@ import streamlit as st
 from src.auth.session import get_authenticated_user, logout_session
 from src.ui.auth_modal import open_auth_modal, set_auth_panel
 from src.ui.notifications import queue_toast
+
+logger = logging.getLogger(__name__)
 
 
 HEADER_CSS = """
@@ -174,6 +177,23 @@ def _render_header_style() -> None:
     st.markdown(HEADER_CSS, unsafe_allow_html=True)
 
 
+def _log_logout_audit(user: dict[str, Any]) -> None:
+    try:
+        from src.audit.audit_log_service import AuditLogService, EVENT_LOGOUT
+
+        AuditLogService.from_environment().log_event(
+            EVENT_LOGOUT,
+            user_id=int(user["id"]) if user.get("id") else None,
+            user_email=user.get("email"),
+            detalhe="logout_usuario",
+            status="info",
+            source="auth",
+            action="logout",
+        )
+    except Exception as exc:
+        logger.warning("Erro seguro audit_logout | tipo=%s", type(exc).__name__)
+
+
 def render_auth_header() -> None:
     _render_header_style()
     user = get_authenticated_user(st.session_state)
@@ -223,6 +243,7 @@ def render_auth_header() -> None:
                 set_auth_panel("profile")
                 st.rerun()
             if st.button("Sair", key="auth-menu-logout", use_container_width=True):
+                _log_logout_audit(user)
                 logout_session(st.session_state)
                 set_auth_panel(None)
                 queue_toast(st.session_state, "Sessão encerrada.")

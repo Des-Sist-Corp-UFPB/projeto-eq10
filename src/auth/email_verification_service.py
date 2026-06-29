@@ -109,6 +109,15 @@ def _coerce_datetime(value: Any) -> datetime:
     return parsed.replace(tzinfo=None)
 
 
+def _log_audit_event(engine: Any, evento: str, **kwargs: Any) -> None:
+    try:
+        from src.audit.audit_log_service import log_audit_event_safely
+
+        log_audit_event_safely(engine, evento, **kwargs)
+    except Exception:
+        logger.debug("audit_log nao disponivel ainda - ignorado em verificacao_email")
+
+
 def _resolve_public_base_url(explicit_url: str | None = None) -> str:
     return (
         explicit_url
@@ -280,6 +289,15 @@ class EmailVerificationService:
                 _safe_error_summary(exc),
                 type(exc).__name__,
             )
+            _log_audit_event(
+                self.engine,
+                "email_sending_failure",
+                user_id=user_id,
+                detalhe="message_type=email_verification; error_code=send_failed",
+                status="failure",
+                source="email",
+                action="email_verification",
+            )
             return EmailVerificationResult(
                 success=False,
                 status="send_failed",
@@ -296,6 +314,16 @@ class EmailVerificationService:
         else:
             message = EMAIL_VERIFICATION_SEND_FAILED_MESSAGE
             status = "send_failed"
+            _log_audit_event(
+                self.engine,
+                "email_sending_failure",
+                user_id=token.user_id,
+                user_email=token.email,
+                detalhe=f"message_type=email_verification; mode={send_result.mode}; error_code={send_result.error_code or 'send_failed'}",
+                status="failure",
+                source="email",
+                action="email_verification",
+            )
 
         logger.info(
             "Verificacao de e-mail solicitada | user_id=%s | destinatario=%s | modo=%s | sucesso=%s",
@@ -425,8 +453,26 @@ class EmailVerificationService:
                 _safe_error_summary(exc),
                 type(exc).__name__,
             )
+            _log_audit_event(
+                self.engine,
+                "database_connection_failure",
+                detalhe="operacao=email_verification",
+                status="failure",
+                source="auth",
+                action="database",
+            )
             raise
 
+        _log_audit_event(
+            self.engine,
+            "email_verification_completed",
+            user_id=int(row["user_id"]),
+            user_email=row["email"],
+            detalhe="resultado=email_verificado",
+            status="success",
+            source="auth",
+            action="email_verification",
+        )
         return EmailVerificationResult(
             True,
             "verified",

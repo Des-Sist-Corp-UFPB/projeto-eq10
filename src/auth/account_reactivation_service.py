@@ -96,6 +96,15 @@ def _coerce_datetime(value: Any) -> datetime:
     return parsed.replace(tzinfo=None)
 
 
+def _log_audit_event(engine: Any, evento: str, **kwargs: Any) -> None:
+    try:
+        from src.audit.audit_log_service import log_audit_event_safely
+
+        log_audit_event_safely(engine, evento, **kwargs)
+    except Exception:
+        logger.debug("audit_log nao disponivel ainda - ignorado em reativacao_conta")
+
+
 @dataclass(frozen=True)
 class AccountReactivationResult:
     success: bool
@@ -251,6 +260,16 @@ class AccountReactivationService:
         send_result = self._send_reactivation_code(clean_email, raw_code)
         if not send_result.sent:
             self._consume_reactivation_token(token_id)
+            _log_audit_event(
+                self.engine,
+                "email_sending_failure",
+                user_id=user_id,
+                user_email=clean_email,
+                detalhe=f"message_type=account_reactivation_code; mode={send_result.mode}; error_code={send_result.error_code or 'email_not_sent'}",
+                status="failure",
+                source="email",
+                action="account_reactivation",
+            )
             message = (
                 ACCOUNT_REACTIVATION_EMAIL_DISABLED_MESSAGE
                 if send_result.mode == "fake" or send_result.error_code == "email_disabled"
@@ -387,8 +406,27 @@ class AccountReactivationService:
                 safe_auth_exception_summary(exc),
                 type(exc).__name__,
             )
+            _log_audit_event(
+                self.engine,
+                "database_connection_failure",
+                user_email=clean_email,
+                detalhe="operacao=account_reactivation_confirm",
+                status="failure",
+                source="auth",
+                action="database",
+            )
             raise
 
+        _log_audit_event(
+            self.engine,
+            "account_reactivated",
+            user_id=user.id if user else None,
+            user_email=user.email if user else clean_email,
+            detalhe="resultado=conta_reativada",
+            status="success",
+            source="auth",
+            action="account_reactivation",
+        )
         return AccountReactivationResult(
             True,
             "reactivated",

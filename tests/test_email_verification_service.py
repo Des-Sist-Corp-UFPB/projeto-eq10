@@ -125,6 +125,32 @@ class TestEmailVerificationService(unittest.TestCase):
         self.assertTrue(row["email_verificado"])
         self.assertIsNotNone(row["email_verificado_em"])
 
+    def test_verificacao_valida_registra_auditoria(self):
+        from src.audit.audit_log_service import AuditLogService
+
+        AuditLogService(self.engine)
+        token = self.verification_service.create_email_verification_token(self.user.id)
+
+        self.verification_service.verify_email_token(token.raw_token)
+
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                text(
+                    """
+                    SELECT evento, status, user_email, detalhe
+                    FROM audit_log
+                    WHERE evento = 'email_verification_completed'
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """
+                )
+            ).mappings().first()
+
+        self.assertIsNotNone(row)
+        self.assertEqual(row["status"], "success")
+        self.assertEqual(row["user_email"], "ana@example.com")
+        self.assertNotIn(token.raw_token, str(row["detalhe"]))
+
     def test_token_invalido_falha_com_mensagem_segura(self):
         result = self.verification_service.verify_email_token("token-inexistente")
 

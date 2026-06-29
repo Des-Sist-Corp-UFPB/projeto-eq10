@@ -146,6 +146,52 @@ class TestPasswordResetService(unittest.TestCase):
         self.assertTrue(verify_password("nova-senha", self._senha_hash()))
         self.assertIsNotNone(self._reset_row()["usado_em"])
 
+    def test_reset_de_senha_registra_eventos_de_auditoria(self):
+        from src.audit.audit_log_service import AuditLogService
+
+        AuditLogService(self.engine)
+
+        request_result = self.reset_service.request_password_reset("ana@example.com")
+        token_row = self._reset_row()
+        self.assertTrue(request_result.token_created)
+
+        with self.engine.connect() as conn:
+            requested = conn.execute(
+                text(
+                    """
+                    SELECT evento, status, detalhe
+                    FROM audit_log
+                    WHERE evento = 'password_reset_requested'
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """
+                )
+            ).mappings().first()
+
+        self.assertIsNotNone(requested)
+        self.assertEqual(requested["status"], "info")
+        self.assertNotIn(str(token_row["token_hash"]), str(requested["detalhe"]))
+
+        raw_token = self.reset_service.create_password_reset_token(self.user.id).raw_token
+        self.reset_service.reset_password_with_token(raw_token, "nova-senha", "nova-senha")
+
+        with self.engine.connect() as conn:
+            completed = conn.execute(
+                text(
+                    """
+                    SELECT evento, status, detalhe
+                    FROM audit_log
+                    WHERE evento = 'password_reset_completed'
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """
+                )
+            ).mappings().first()
+
+        self.assertIsNotNone(completed)
+        self.assertEqual(completed["status"], "success")
+        self.assertNotIn(raw_token, str(completed["detalhe"]))
+
     def test_token_expirado_falha_sem_alterar_senha(self):
         token = self.reset_service.create_password_reset_token(self.user.id)
         with self.engine.begin() as conn:

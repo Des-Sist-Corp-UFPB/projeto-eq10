@@ -48,16 +48,17 @@ from src.auth.validation import validate_login_fields, validate_register_fields
 from src.ui.notifications import queue_toast
 from src.ui.sidebar import DEFAULT_PAGE, set_current_page
 
-AUTH_UNAVAILABLE_MESSAGE = (
-    "Não foi possível acessar a autenticação agora. Tente novamente em alguns instantes."
-)
+AUTH_UNAVAILABLE_MESSAGE = "Ocorreu um erro. Tente novamente mais tarde."
 
 GOOGLE_SIGN_IN_UNAVAILABLE_MESSAGE = GOOGLE_OAUTH_UNAVAILABLE_MESSAGE
 REGISTRATION_PUBLIC_NEUTRAL_MESSAGE = (
     "Se for possivel continuar com este e-mail, enviaremos instrucoes para ele."
 )
 REGISTRATION_PUBLIC_EMAIL_UNAVAILABLE_MESSAGE = (
-    "O envio de e-mail ainda nao esta configurado. Nao foi possivel continuar agora."
+    "O envio de e-mail ainda nao esta configurado. Nao foi possivel criar a conta agora."
+)
+REGISTRATION_PUBLIC_EMAIL_SEND_FAILED_MESSAGE = (
+    "Nao foi possivel enviar o e-mail de confirmacao agora. Tente novamente mais tarde."
 )
 CONFIRM_EMAIL_DESCRIPTION = "Digite o codigo enviado para seu e-mail para continuar."
 CONFIRM_EMAIL_INVALID_MESSAGE = "Codigo invalido ou expirado."
@@ -68,6 +69,19 @@ CONFIRM_EMAIL_REACTIVATION_SUCCESS_MESSAGE = (
 AUTH_MODAL_FEEDBACK_KEY = "auth_modal_feedback_message"
 AUTH_MODAL_FEEDBACK_KIND_KEY = "auth_modal_feedback_kind"
 AUTH_MODAL_PROCESSING_KEY = "auth_modal_processing_message"
+AUTH_MODAL_PROCESSING_STATE_KEYS = (
+    AUTH_MODAL_PROCESSING_KEY,
+    "auth_processing",
+    "login_processing",
+    "register_processing",
+    "forgot_password_processing",
+    "reset_password_processing",
+    "email_code_processing",
+    "google_processing",
+    "profile_processing",
+    "email_processing",
+    "reactivation_processing",
+)
 PROFILE_SUBPANELS = {
     "change_name",
     "change_email",
@@ -138,9 +152,14 @@ def resolve_registration_next_step(result: Any, submitted_email: str) -> Registr
     if status == "email_not_sent":
         error_code = getattr(getattr(result, "send_result", None), "error_code", None)
         next_status = "email_sending_disabled" if error_code == "email_disabled" else "email_sending_failed"
+        next_message = (
+            REGISTRATION_PUBLIC_EMAIL_UNAVAILABLE_MESSAGE
+            if next_status == "email_sending_disabled"
+            else REGISTRATION_PUBLIC_EMAIL_SEND_FAILED_MESSAGE
+        )
         return RegistrationNextStep(
             status=next_status,
-            message=REGISTRATION_PUBLIC_EMAIL_UNAVAILABLE_MESSAGE,
+            message=next_message,
             email=email,
         )
 
@@ -304,9 +323,20 @@ def handle_register_submit(
                         flow_kind="reactivation",
                     )
                 elif reactivation_result.status == "email_not_sent":
+                    send_result = getattr(reactivation_result, "send_result", None)
+                    error_code = getattr(send_result, "error_code", None)
+                    next_status = (
+                        "email_sending_disabled"
+                        if error_code == "email_disabled" or getattr(send_result, "mode", None) == "fake"
+                        else "email_sending_failed"
+                    )
                     next_step = RegistrationNextStep(
-                        status="email_sending_disabled",
-                        message=REGISTRATION_PUBLIC_EMAIL_UNAVAILABLE_MESSAGE,
+                        status=next_status,
+                        message=(
+                            REGISTRATION_PUBLIC_EMAIL_UNAVAILABLE_MESSAGE
+                            if next_status == "email_sending_disabled"
+                            else REGISTRATION_PUBLIC_EMAIL_SEND_FAILED_MESSAGE
+                        ),
                         email=reactivation_result.email or email.strip(),
                     )
                 else:
@@ -1343,6 +1373,7 @@ def open_auth_modal(
     redirect_on_close: str | None = None,
     target_page_on_success: str | None = None,
 ) -> None:
+    clear_auth_processing_state(st.session_state)
     st.session_state.auth_panel = "auth"
     st.session_state.auth_modal_mode = "register" if mode in {"signup", "register"} else "login"
     st.session_state.auth_redirect_on_close = redirect_on_close
@@ -1385,6 +1416,7 @@ def set_auth_panel(
     redirect_on_close: str | None = None,
     target_page_on_success: str | None = None,
 ) -> None:
+    clear_auth_processing_state(st.session_state)
     if panel in {"login", "signup", "register"}:
         open_auth_modal(
             str(panel),
@@ -1573,11 +1605,18 @@ def set_modal_feedback(session_state: Any, message: str, kind: str = "success") 
 
 
 def _start_modal_processing(message: str) -> None:
+    clear_auth_processing_state(st.session_state)
     st.session_state[AUTH_MODAL_PROCESSING_KEY] = message
 
 
+def clear_auth_processing_state(session_state: Any | None = None) -> None:
+    target_state = session_state if session_state is not None else st.session_state
+    for key in AUTH_MODAL_PROCESSING_STATE_KEYS:
+        target_state.pop(key, None)
+
+
 def _clear_modal_processing() -> None:
-    st.session_state.pop(AUTH_MODAL_PROCESSING_KEY, None)
+    clear_auth_processing_state(st.session_state)
 
 
 def _is_modal_processing(message: str | None = None) -> bool:
@@ -1593,6 +1632,16 @@ def _processing_label(default_label: str, processing_label: str) -> str:
 
 def _should_process(submitted: bool, processing_label: str) -> bool:
     return bool(submitted or _is_modal_processing(processing_label))
+
+
+def _first_error_message(errors: dict[str, str], fallback: str = AUTH_UNAVAILABLE_MESSAGE) -> str:
+    return next(iter(errors.values()), fallback)
+
+
+def _finish_modal_action_feedback(message: str, kind: str = "error") -> None:
+    clear_auth_processing_state(st.session_state)
+    set_modal_feedback(st.session_state, message, kind)
+    st.rerun()
 
 
 @contextmanager
@@ -1766,26 +1815,26 @@ def _render_login_panel() -> None:
         try:
             field_errors = validate_login_fields(email, senha)
             if field_errors:
-                _render_field_errors(field_error_slots, field_errors)
+                _finish_modal_action_feedback(_first_error_message(field_errors), "error")
                 return
 
             service = _get_auth_service_or_none()
             if service is None:
-                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+                _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
                 return
 
             try:
                 with modal_action_processing(login_processing_label):
                     user = service.authenticate(email, senha)
             except AuthValidationError as exc:
-                _render_global_error(global_error_slot, exc.public_message)
+                _finish_modal_action_feedback(exc.public_message, "error")
             except Exception as exc:
                 logger.warning(
                     "Erro seguro login | causa=%s | tipo=%s",
                     safe_auth_exception_summary(exc),
                     type(exc).__name__,
                 )
-                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+                _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
             else:
                 login_session(st.session_state, user)
                 _finish_auth_success()
@@ -1836,16 +1885,16 @@ def _render_signup_panel() -> None:
         try:
             field_errors = validate_register_fields(nome, email, senha, confirmar_senha)
             if field_errors:
-                _render_field_errors(field_error_slots, field_errors)
+                _finish_modal_action_feedback(_first_error_message(field_errors), "error")
                 return
 
             service = _get_pending_registration_service_or_none()
             if service is None:
-                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+                _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
                 return
             reactivation_service = _get_account_reactivation_service_or_none()
             if reactivation_service is None:
-                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+                _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
                 return
 
             with modal_action_processing(signup_processing_label):
@@ -1863,7 +1912,7 @@ def _render_signup_panel() -> None:
                 st.rerun()
                 return
 
-            _render_global_error(global_error_slot, next_step.message)
+            _finish_modal_action_feedback(next_step.message, "error")
         finally:
             _clear_modal_processing()
 
@@ -1916,13 +1965,13 @@ def _render_confirm_email_panel() -> None:
 
     try:
         if not (codigo or "").strip():
-            _render_field_errors(field_error_slots, {"codigo": "Informe o codigo enviado por e-mail."})
+            _finish_modal_action_feedback("Informe o codigo enviado por e-mail.", "error")
             return
 
         pending_service = _get_pending_registration_service_or_none()
         reactivation_service = _get_account_reactivation_service_or_none()
         if pending_service is None or reactivation_service is None:
-            _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+            _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
             return
 
         with modal_action_processing(confirm_processing_label):
@@ -1933,7 +1982,7 @@ def _render_confirm_email_panel() -> None:
                 code=codigo,
             )
         if not result.success:
-            _render_global_error(global_error_slot, result.message)
+            _finish_modal_action_feedback(result.message, "error")
             return
 
         if result.flow_kind == "pending_registration":
@@ -1949,7 +1998,7 @@ def _render_confirm_email_panel() -> None:
             st.rerun()
             return
 
-        _render_global_error(global_error_slot, CONFIRM_EMAIL_STALE_MESSAGE)
+        _finish_modal_action_feedback(CONFIRM_EMAIL_STALE_MESSAGE, "error")
     finally:
         _clear_modal_processing()
 
@@ -1996,12 +2045,12 @@ def _render_forgot_password_panel() -> None:
         try:
             field_errors = validate_login_fields(email, "senha-temporaria")
             if field_errors.get("email"):
-                _render_field_errors(field_error_slots, {"email": field_errors["email"]})
+                _finish_modal_action_feedback(field_errors["email"], "error")
                 return
 
             service = _get_password_reset_service_or_none()
             if service is None:
-                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+                _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
                 return
 
             try:
@@ -2013,9 +2062,9 @@ def _render_forgot_password_panel() -> None:
                     safe_auth_exception_summary(exc),
                     type(exc).__name__,
                 )
-                _render_global_info(global_info_slot, PASSWORD_RESET_NEUTRAL_MESSAGE)
+                _finish_modal_action_feedback(PASSWORD_RESET_NEUTRAL_MESSAGE, "info")
             else:
-                _render_global_info(global_info_slot, result.message)
+                _finish_modal_action_feedback(result.message, "info")
         finally:
             _clear_modal_processing()
 
@@ -2077,29 +2126,29 @@ def _render_reset_password_panel() -> None:
             if not confirmar_senha or nova_senha != confirmar_senha:
                 field_errors["confirmar_senha"] = "As senhas nao coincidem."
             if field_errors:
-                _render_field_errors(field_error_slots, field_errors)
+                _finish_modal_action_feedback(_first_error_message(field_errors), "error")
                 return
 
             service = _get_password_reset_service_or_none()
             if service is None:
-                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+                _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
                 return
 
             try:
                 with modal_action_processing(reset_password_processing_label):
                     result = service.reset_password_with_token(reset_token, nova_senha, confirmar_senha)
             except AuthValidationError as exc:
-                _render_global_error(global_error_slot, exc.public_message)
+                _finish_modal_action_feedback(exc.public_message, "error")
             except Exception as exc:
                 logger.warning(
                     "Erro seguro redefinir_senha | causa=%s | tipo=%s",
                     safe_auth_exception_summary(exc),
                     type(exc).__name__,
                 )
-                _render_global_error(global_error_slot, AUTH_UNAVAILABLE_MESSAGE)
+                _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
             else:
                 if not result.success:
-                    _render_global_error(global_error_slot, result.message)
+                    _finish_modal_action_feedback(result.message, "error")
                     return
                 st.session_state.pop("password_reset_token", None)
                 set_auth_panel("login")
@@ -2272,26 +2321,26 @@ def _render_change_name_panel() -> None:
     if _should_process(submitted, save_name_processing_label):
         try:
             if not (nome or "").strip():
-                _render_field_errors(field_error_slots, {"nome": "Informe o novo nome."})
+                _finish_modal_action_feedback("Informe o novo nome.", "error")
                 return
 
             service = _get_auth_service_or_none()
             if service is None:
-                _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+                _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
                 return
 
             try:
                 with modal_action_processing(save_name_processing_label):
                     updated_user = service.update_name(int(user["id"]), nome)
             except AuthValidationError as exc:
-                _render_global_error(global_slot, exc.public_message)
+                _finish_modal_action_feedback(exc.public_message, "error")
             except Exception as exc:
                 logger.warning(
                     "Erro seguro alterar_nome | causa=%s | tipo=%s",
                     safe_auth_exception_summary(exc),
                     type(exc).__name__,
                 )
-                _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+                _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
             else:
                 login_session(st.session_state, updated_user)
                 switch_profile_panel("profile")
@@ -2358,14 +2407,12 @@ def _render_change_password_panel() -> None:
         elif nova_senha and nova_senha != confirmar_senha:
             field_errors["confirmar_senha"] = "As senhas não coincidem."
         if field_errors:
-            _render_field_errors(field_error_slots, field_errors)
-            _clear_modal_processing()
+            _finish_modal_action_feedback(_first_error_message(field_errors), "error")
             return
 
         service = _get_auth_service_or_none()
         if service is None:
-            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
-            _clear_modal_processing()
+            _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
             return
 
         try:
@@ -2377,14 +2424,14 @@ def _render_change_password_panel() -> None:
                     confirmar_senha,
                 )
         except AuthValidationError as exc:
-            _render_global_error(global_slot, exc.public_message)
+            _finish_modal_action_feedback(exc.public_message, "error")
         except Exception as exc:
             logger.warning(
                 "Erro seguro alterar_senha | causa=%s | tipo=%s",
                 safe_auth_exception_summary(exc),
                 type(exc).__name__,
             )
-            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+            _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
         else:
             switch_profile_panel("profile")
             set_modal_feedback(st.session_state, "Senha alterada com sucesso.")
@@ -2445,24 +2492,20 @@ def _render_change_email_panel() -> None:
     if _should_process(submitted, save_email_processing_label):
         field_errors = validate_login_fields(novo_email, "senha-temporaria")
         if field_errors.get("email"):
-            _render_field_errors(field_error_slots, {"email": field_errors["email"]})
-            _clear_modal_processing()
+            _finish_modal_action_feedback(field_errors["email"], "error")
             return
         if not senha_atual:
-            _render_field_errors(field_error_slots, {"senha_atual": "Informe sua senha atual."})
-            _clear_modal_processing()
+            _finish_modal_action_feedback("Informe sua senha atual.", "error")
             return
 
         clean_email = novo_email.strip().casefold()
         if clean_email == str(user["email"]).strip().casefold():
-            _render_field_errors(field_error_slots, {"email": "Informe um e-mail diferente do atual."})
-            _clear_modal_processing()
+            _finish_modal_action_feedback("Informe um e-mail diferente do atual.", "error")
             return
 
         service = _get_email_change_service_or_none()
         if service is None:
-            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
-            _clear_modal_processing()
+            _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
             return
 
         try:
@@ -2473,14 +2516,14 @@ def _render_change_email_panel() -> None:
             normalized_message = public_message.casefold()
             if "existe" in normalized_message and "e-mail" in normalized_message:
                 public_message = EMAIL_CHANGE_DUPLICATE_MESSAGE
-            _render_global_error(global_slot, public_message)
+            _finish_modal_action_feedback(public_message, "error")
         except Exception as exc:
             logger.warning(
                 "Erro seguro alterar_email | causa=%s | tipo=%s",
                 safe_auth_exception_summary(exc),
                 type(exc).__name__,
             )
-            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+            _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
         else:
             if result.success:
                 st.session_state.pending_email_change_id = result.pending_change_id
@@ -2490,13 +2533,13 @@ def _render_change_email_panel() -> None:
                 set_auth_panel("confirm_email_change")
                 st.rerun()
             elif result.status == "duplicate_email":
-                _render_global_error(global_slot, EMAIL_CHANGE_DUPLICATE_MESSAGE)
+                _finish_modal_action_feedback(EMAIL_CHANGE_DUPLICATE_MESSAGE, "error")
             elif result.status == "email_disabled":
-                _render_global_error(global_slot, EMAIL_CHANGE_EMAIL_DISABLED_MESSAGE)
+                _finish_modal_action_feedback(EMAIL_CHANGE_EMAIL_DISABLED_MESSAGE, "error")
             elif result.status == "send_failed":
-                _render_global_error(global_slot, EMAIL_CHANGE_SEND_FAILED_MESSAGE)
+                _finish_modal_action_feedback(EMAIL_CHANGE_SEND_FAILED_MESSAGE, "error")
             else:
-                _render_global_error(global_slot, result.message)
+                _finish_modal_action_feedback(result.message, "error")
 
 
 def _render_confirm_email_change_panel() -> None:
@@ -2554,14 +2597,12 @@ def _render_confirm_email_change_panel() -> None:
 
     if _should_process(submitted, confirm_processing_label):
         if not (codigo or "").strip():
-            _render_field_errors(field_error_slots, {"codigo": "Informe o codigo enviado por e-mail."})
-            _clear_modal_processing()
+            _finish_modal_action_feedback("Informe o codigo enviado por e-mail.", "error")
             return
 
         service = _get_email_change_service_or_none()
         if service is None:
-            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
-            _clear_modal_processing()
+            _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
             return
 
         try:
@@ -2577,7 +2618,7 @@ def _render_confirm_email_change_panel() -> None:
                 safe_auth_exception_summary(exc),
                 type(exc).__name__,
             )
-            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+            _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
         else:
             if result.success and result.user is not None:
                 login_session(st.session_state, result.user)
@@ -2586,11 +2627,11 @@ def _render_confirm_email_change_panel() -> None:
                 set_modal_feedback(st.session_state, result.message)
                 st.rerun()
             elif result.status == "invalid_code":
-                _render_global_error(global_slot, EMAIL_CHANGE_INVALID_CODE_MESSAGE)
+                _finish_modal_action_feedback(EMAIL_CHANGE_INVALID_CODE_MESSAGE, "error")
             elif result.status == "expired":
-                _render_global_error(global_slot, EMAIL_CHANGE_EXPIRED_CODE_MESSAGE)
+                _finish_modal_action_feedback(EMAIL_CHANGE_EXPIRED_CODE_MESSAGE, "error")
             else:
-                _render_global_error(global_slot, result.message)
+                _finish_modal_action_feedback(result.message, "error")
 
 
 def _render_deactivate_account_panel() -> None:
@@ -2643,28 +2684,26 @@ def _render_deactivate_account_panel() -> None:
         expected_email = str(user["email"]).strip().casefold()
         typed_email = confirmar_email.strip().casefold()
         if typed_email != expected_email:
-            _render_field_errors(field_error_slots, {"email": "Digite seu e-mail para confirmar a desativacao."})
-            _clear_modal_processing()
+            _finish_modal_action_feedback("Digite seu e-mail para confirmar a desativacao.", "error")
             return
 
         service = _get_auth_service_or_none()
         if service is None:
-            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
-            _clear_modal_processing()
+            _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
             return
 
         try:
             with modal_action_processing(deactivate_processing_label):
                 service.soft_delete_user(int(user["id"]))
         except AuthValidationError as exc:
-            _render_global_error(global_slot, exc.public_message)
+            _finish_modal_action_feedback(exc.public_message, "error")
         except Exception as exc:
             logger.warning(
                 "Erro seguro desativar_conta | causa=%s | tipo=%s",
                 safe_auth_exception_summary(exc),
                 type(exc).__name__,
             )
-            _render_global_error(global_slot, AUTH_UNAVAILABLE_MESSAGE)
+            _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
         else:
             close_auth_panel(redirect=False)
             logout_session(st.session_state)

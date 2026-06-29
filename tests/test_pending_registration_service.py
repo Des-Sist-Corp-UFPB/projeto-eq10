@@ -163,6 +163,9 @@ class TestPendingRegistrationService(unittest.TestCase):
         self.assertEqual(row["codigo_hash"], hash_registration_code("123456"))
 
     def test_codigo_valido_cria_usuario_verificado(self):
+        from src.audit.audit_log_service import AuditLogService
+
+        AuditLogService(self.engine)
         with patch("src.auth.pending_registration_service.generate_registration_code", return_value="123456"):
             result = self.service.start_registration(
                 "Ana Silva",
@@ -190,6 +193,22 @@ class TestPendingRegistrationService(unittest.TestCase):
         self.assertEqual(pending_row["consumed_user_id"], user_row["id"])
         authenticated = self.user_service.authenticate("ana@example.com", "senha-forte")
         self.assertEqual(authenticated.email, "ana@example.com")
+        with self.engine.connect() as conn:
+            audit_row = conn.execute(
+                text(
+                    """
+                    SELECT evento, status, user_email, detalhe
+                    FROM audit_log
+                    WHERE evento = 'account_created'
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """
+                )
+            ).mappings().first()
+        self.assertIsNotNone(audit_row)
+        self.assertEqual(audit_row["status"], "success")
+        self.assertEqual(audit_row["user_email"], "ana@example.com")
+        self.assertIn("pending_registration", audit_row["detalhe"])
 
     def test_codigo_nao_pode_ser_reutilizado(self):
         with patch("src.auth.pending_registration_service.generate_registration_code", return_value="123456"):
@@ -326,6 +345,38 @@ class TestPendingRegistrationService(unittest.TestCase):
         second_confirm = self.service.confirm_registration_code(second.pending_registration_id, "ana@example.com", "222222")
         self.assertFalse(first_confirm.success)
         self.assertTrue(second_confirm.success)
+        self.assertEqual(self._user_count(), 1)
+
+    def test_pendente_expirado_nao_bloqueia_novo_cadastro(self):
+        with patch("src.auth.pending_registration_service.generate_registration_code", return_value="111111"):
+            first = self.service.start_registration(
+                "Ana Silva",
+                "ana@example.com",
+                "senha-forte",
+                "senha-forte",
+            )
+
+        with self.engine.begin() as conn:
+            conn.execute(
+                text("UPDATE pending_registrations SET expira_em = :expira_em WHERE id = :id"),
+                {"id": first.pending_registration_id, "expira_em": _now() - timedelta(minutes=1)},
+            )
+
+        with patch("src.auth.pending_registration_service.generate_registration_code", return_value="222222"):
+            second = self.service.start_registration(
+                "Ana Silva",
+                "ana@example.com",
+                "senha-forte",
+                "senha-forte",
+            )
+
+        self.assertTrue(second.success)
+        self.assertEqual(self._active_pending_count(), 1)
+        stale_confirm = self.service.confirm_registration_code(first.pending_registration_id, "ana@example.com", "111111")
+        fresh_confirm = self.service.confirm_registration_code(second.pending_registration_id, "ana@example.com", "222222")
+
+        self.assertFalse(stale_confirm.success)
+        self.assertTrue(fresh_confirm.success)
         self.assertEqual(self._user_count(), 1)
 
 

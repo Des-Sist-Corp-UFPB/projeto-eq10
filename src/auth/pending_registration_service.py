@@ -81,6 +81,15 @@ def _coerce_datetime(value: Any) -> datetime:
     return parsed.replace(tzinfo=None)
 
 
+def _log_audit_event(engine: Any, evento: str, **kwargs: Any) -> None:
+    try:
+        from src.audit.audit_log_service import log_audit_event_safely
+
+        log_audit_event_safely(engine, evento, **kwargs)
+    except Exception:
+        logger.debug("audit_log nao disponivel ainda - ignorado em cadastro_pendente")
+
+
 @dataclass(frozen=True)
 class PendingRegistrationResult:
     success: bool
@@ -251,11 +260,29 @@ class PendingRegistrationService:
                 safe_auth_exception_summary(exc),
                 type(exc).__name__,
             )
+            _log_audit_event(
+                self.engine,
+                "database_connection_failure",
+                user_email=clean_email,
+                detalhe="operacao=start_registration",
+                status="failure",
+                source="auth",
+                action="database",
+            )
             raise
 
         send_result = self._send_registration_code(clean_email, raw_code)
         if not send_result.sent:
             self._consume_pending_registration(pending_id)
+            _log_audit_event(
+                self.engine,
+                "email_sending_failure",
+                user_email=clean_email,
+                detalhe=f"message_type=registration_verification_code; mode={send_result.mode}; error_code={send_result.error_code or 'email_not_sent'}",
+                status="failure",
+                source="email",
+                action="registration_code",
+            )
             message = (
                 REGISTRATION_EMAIL_DISABLED_MESSAGE
                 if send_result.mode == "fake" or send_result.error_code == "email_disabled"
@@ -401,8 +428,27 @@ class PendingRegistrationService:
                 safe_auth_exception_summary(exc),
                 type(exc).__name__,
             )
+            _log_audit_event(
+                self.engine,
+                "database_connection_failure",
+                user_email=clean_email,
+                detalhe="operacao=confirm_registration_code",
+                status="failure",
+                source="auth",
+                action="database",
+            )
             raise
 
+        _log_audit_event(
+            self.engine,
+            "account_created",
+            user_id=user.id,
+            user_email=user.email,
+            detalhe="provider=password; flow=pending_registration",
+            status="success",
+            source="auth",
+            action="account_created",
+        )
         return PendingRegistrationResult(
             success=True,
             status="created",

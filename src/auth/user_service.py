@@ -27,7 +27,7 @@ DEFAULT_AUTH_SQLITE_PATH = BASE_DIR / "data" / "auth.sqlite3"
 
 AUTH_CONFIG_ERROR_MESSAGE = (
     "Configuracao incompleta da autenticacao: informe AUTH_DATABASE_URL, "
-    "DATABASE_URL, AUTH_DB_* ou use o fallback local em data/auth.sqlite3."
+    "AUTH_DB_*, DATABASE_URL ou use o fallback local em data/auth.sqlite3."
 )
 
 logger = logging.getLogger(__name__)
@@ -143,12 +143,12 @@ def _get_auth_database_url() -> tuple[str, str]:
     if os.getenv("AUTH_DATABASE_URL"):
         return os.environ["AUTH_DATABASE_URL"], "AUTH_DATABASE_URL"
 
-    if os.getenv("DATABASE_URL"):
-        return os.environ["DATABASE_URL"], "DATABASE_URL"
-
     auth_db_url = _build_database_url("AUTH_DB")
     if auth_db_url:
         return auth_db_url, "AUTH_DB_*"
+
+    if os.getenv("DATABASE_URL"):
+        return os.environ["DATABASE_URL"], "DATABASE_URL"
 
     legacy_db_url = _build_lowercase_database_url()
     if legacy_db_url:
@@ -176,8 +176,13 @@ def get_auth_engine():
     return create_engine(database_url)
 
 
-def _normalize_email(email: str) -> str:
+def normalize_email(email: str) -> str:
+    """Regra unica de normalizacao de e-mail para autenticacao."""
     return (email or "").strip().casefold()
+
+
+def _normalize_email(email: str) -> str:
+    return normalize_email(email)
 
 
 def _validate_name(nome: str) -> str:
@@ -438,6 +443,53 @@ def _log_database_error(action: str, exc: BaseException) -> None:
     )
 
 
+def _is_duplicate_index_creation_error(exc: BaseException) -> bool:
+    reason = safe_auth_exception_summary(exc)
+    message = str(getattr(exc, "orig", exc)).casefold()
+    return (
+        isinstance(exc, IntegrityError)
+        or reason == "duplicate or constraint violation"
+        or "could not create unique index" in message
+        or "unique constraint" in message
+        or "duplicate key" in message
+    )
+
+
+def _create_unique_index_safely(conn: Any, sql: str, index_name: str) -> None:
+    """Cria indice unico sem derrubar auth quando ha duplicatas antigas."""
+    if conn.dialect.name == "postgresql":
+        transaction = conn.begin_nested()
+        try:
+            conn.execute(text(sql))
+        except SQLAlchemyError as exc:
+            transaction.rollback()
+            if _is_duplicate_index_creation_error(exc):
+                logger.warning(
+                    "Aviso seguro autenticacao | acao=ensure_schema_index | index=%s | causa=%s | tipo=%s",
+                    index_name,
+                    safe_auth_exception_summary(exc),
+                    type(exc).__name__,
+                )
+                return
+            raise
+        else:
+            transaction.commit()
+            return
+
+    try:
+        conn.execute(text(sql))
+    except SQLAlchemyError as exc:
+        if _is_duplicate_index_creation_error(exc):
+            logger.warning(
+                "Aviso seguro autenticacao | acao=ensure_schema_index | index=%s | causa=%s | tipo=%s",
+                index_name,
+                safe_auth_exception_summary(exc),
+                type(exc).__name__,
+            )
+            return
+        raise
+
+
 class UserService:
     """Casos de uso de cadastro, login e perfil."""
 
@@ -482,16 +534,16 @@ class UserService:
                     ON usuarios (lower(email))
                     WHERE {active_condition}
                 """
-                conn.execute(text(create_index_sql))
+                _create_unique_index_safely(conn, create_index_sql, "ux_usuarios_email_ativo")
 
-                conn.execute(
-                    text(
-                        """
+                _create_unique_index_safely(
+                    conn,
+                    """
                         CREATE UNIQUE INDEX IF NOT EXISTS ux_usuarios_google_sub
                         ON usuarios (google_sub)
                         WHERE google_sub IS NOT NULL
-                        """
-                    )
+                    """,
+                    "ux_usuarios_google_sub",
                 )
         except SQLAlchemyError as exc:
             _log_database_error("ensure_schema", exc)
@@ -519,6 +571,33 @@ class UserService:
             raise
 
         return row is not None
+
+    def _log_audit_event(
+        self,
+        evento: str,
+        *,
+        user_id: int | None = None,
+        user_email: str | None = None,
+        detalhe: str | None = None,
+        status: str | None = None,
+        source: str | None = None,
+        action: str | None = None,
+    ) -> None:
+        try:
+            from src.audit.audit_log_service import log_audit_event_safely
+
+            log_audit_event_safely(
+                self.engine,
+                evento,
+                user_id=user_id,
+                user_email=user_email,
+                detalhe=detalhe,
+                status=status,
+                source=source,
+                action=action,
+            )
+        except Exception:
+            logger.debug("audit_log nao disponivel ainda - ignorado em %s", evento)
 
     def create_user(
         self,
@@ -611,7 +690,10 @@ class UserService:
                 EVENT_ACCOUNT_CREATED,
                 user_id=user.id,
                 user_email=user.email,
-                detalhe=f"role={user.role}",
+                detalhe=f"role={user.role}; provider=password",
+                status="success",
+                source="auth",
+                action="account_created",
             )
         except Exception:
             logger.debug("audit_log nao disponivel ainda — ignorado em create_user")
@@ -621,8 +703,17 @@ class UserService:
     def authenticate(self, email: str, senha: str) -> UserProfile:
         clean_email = _validate_email(email)
         if not senha:
+            self._log_audit_event(
+                "login_failure",
+                user_email=clean_email,
+                detalhe="motivo=senha_ausente",
+                status="failure",
+                source="auth",
+                action="login",
+            )
             raise AuthValidationError("Informe sua senha.")
 
+        failure_user_id: int | None = None
         try:
             with self.engine.begin() as conn:
                 columns = _get_usuario_columns(conn)
@@ -644,6 +735,7 @@ class UserService:
 
                 if not row:
                     raise AuthValidationError("E-mail ou senha inválidos.")
+                failure_user_id = int(row["id"])
                 if _is_soft_deleted(row):
                     raise AuthValidationError("E-mail ou senha inválidos.")
                 if not row["senha_hash"]:
@@ -676,8 +768,25 @@ class UserService:
                     {"id": row["id"]},
                 ).mappings().first()
         except AuthValidationError:
+            self._log_audit_event(
+                "login_failure",
+                user_id=failure_user_id,
+                user_email=clean_email,
+                detalhe="motivo=credenciais_invalidas",
+                status="failure",
+                source="auth",
+                action="login",
+            )
             raise
         except SQLAlchemyError as exc:
+            self._log_audit_event(
+                "database_connection_failure",
+                user_email=clean_email,
+                detalhe="operacao=login",
+                status="failure",
+                source="auth",
+                action="database",
+            )
             _log_database_error("authenticate", exc)
             raise
 
@@ -690,6 +799,10 @@ class UserService:
                 EVENT_LOGIN,
                 user_id=user.id,
                 user_email=user.email,
+                detalhe="provider=password",
+                status="success",
+                source="auth",
+                action="login",
             )
         except Exception:
             logger.debug("audit_log nao disponivel ainda — ignorado em authenticate")
@@ -708,15 +821,31 @@ class UserService:
         """Entra, vincula ou cria usuario a partir de uma identidade Google verificada."""
         clean_sub = (google_sub or "").strip()
         if not clean_sub:
+            self._log_audit_event(
+                "login_failure",
+                detalhe="provider=google; motivo=google_sub_ausente",
+                status="failure",
+                source="google_oauth",
+                action="login",
+            )
             raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
 
         clean_email = _validate_email(email)
         if not email_verified:
+            self._log_audit_event(
+                "login_failure",
+                user_email=clean_email,
+                detalhe="provider=google; motivo=email_nao_verificado",
+                status="failure",
+                source="google_oauth",
+                action="login",
+            )
             raise AuthValidationError(GOOGLE_EMAIL_NOT_VERIFIED_MESSAGE)
 
         clean_name = (name or "").strip() or clean_email.split("@", 1)[0] or "Usuario"
         clean_picture = (picture or "").strip() or None
 
+        authenticated_user: UserProfile | None = None
         try:
             with self.engine.begin() as conn:
                 columns = _get_usuario_columns(conn)
@@ -743,9 +872,10 @@ class UserService:
                     if _is_soft_deleted(google_row):
                         raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
                     self._touch_google_login(conn, int(google_row["id"]), clean_picture, now)
-                    return self._get_user_by_id_in_connection(conn, int(google_row["id"]))
+                    authenticated_user = self._get_user_by_id_in_connection(conn, int(google_row["id"]))
 
-                email_row = conn.execute(
+                if authenticated_user is None:
+                    email_row = conn.execute(
                     text(
                         f"""
                         SELECT id, google_sub, {soft_delete_columns}
@@ -756,24 +886,52 @@ class UserService:
                         """
                     ),
                     {"email": clean_email},
-                ).mappings().first()
+                    ).mappings().first()
 
-                if email_row:
-                    if _is_soft_deleted(email_row):
-                        raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
-                    existing_sub = str(email_row["google_sub"] or "").strip()
-                    if existing_sub and existing_sub != clean_sub:
-                        raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
-                    self._link_google_identity(conn, int(email_row["id"]), clean_sub, clean_picture, now)
-                    return self._get_user_by_id_in_connection(conn, int(email_row["id"]))
+                    if email_row:
+                        if _is_soft_deleted(email_row):
+                            raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
+                        existing_sub = str(email_row["google_sub"] or "").strip()
+                        if existing_sub and existing_sub != clean_sub:
+                            raise AuthValidationError(GOOGLE_ACCOUNT_UNAVAILABLE_MESSAGE)
+                        self._link_google_identity(conn, int(email_row["id"]), clean_sub, clean_picture, now)
+                        authenticated_user = self._get_user_by_id_in_connection(conn, int(email_row["id"]))
 
-                user_id = self._create_google_user(conn, clean_name, clean_email, clean_sub, clean_picture, now)
-                return self._get_user_by_id_in_connection(conn, user_id)
+                if authenticated_user is None:
+                    user_id = self._create_google_user(conn, clean_name, clean_email, clean_sub, clean_picture, now)
+                    authenticated_user = self._get_user_by_id_in_connection(conn, user_id)
         except AuthValidationError:
+            self._log_audit_event(
+                "login_failure",
+                user_email=clean_email,
+                detalhe="provider=google; motivo=credenciais_invalidas",
+                status="failure",
+                source="google_oauth",
+                action="login",
+            )
             raise
         except SQLAlchemyError as exc:
+            self._log_audit_event(
+                "database_connection_failure",
+                user_email=clean_email,
+                detalhe="operacao=google_login",
+                status="failure",
+                source="google_oauth",
+                action="database",
+            )
             _log_database_error("authenticate_google_identity", exc)
             raise
+
+        self._log_audit_event(
+            "login",
+            user_id=authenticated_user.id if authenticated_user else None,
+            user_email=authenticated_user.email if authenticated_user else clean_email,
+            detalhe="provider=google",
+            status="success",
+            source="google_oauth",
+            action="login",
+        )
+        return authenticated_user
 
     def get_user_by_google_sub(self, google_sub: str) -> UserProfile | None:
         clean_sub = (google_sub or "").strip()
@@ -1093,6 +1251,9 @@ class UserService:
                 user_id=target_user_id,
                 user_email=user.email,
                 detalhe=f"novo_role={new_role} | admin_id={acting_admin_id} | admin={acting_admin_email}",
+                status="info",
+                source="admin",
+                action="role_changed",
             )
         except Exception:
             logger.debug("audit_log nao disponivel — ignorado em set_role")
@@ -1138,6 +1299,9 @@ class UserService:
                 evento,
                 user_id=target_user_id,
                 detalhe=f"admin_id={acting_admin_id} | admin={acting_admin_email}",
+                status="success" if grant else "info",
+                source="admin",
+                action="audit_access",
             )
         except Exception:
             logger.debug("audit_log nao disponivel — ignorado em set_audit_access")
@@ -1347,6 +1511,9 @@ class UserService:
                 EVENT_ACCOUNT_DELETED,
                 user_id=user_id,
                 user_email=user_email_for_audit,
+                status="success",
+                source="auth",
+                action="account_deactivated",
             )
         except Exception:
             logger.debug("audit_log nao disponivel — ignorado em soft_delete_user")

@@ -14,16 +14,21 @@ from src.auth.session import get_authenticated_user
 
 DEFAULT_PAGE = "Estatísticas"
 CHAT_PAGE = "Chat IA"
-ADMIN_PAGE = "Uso Restrito"
+ADMIN_PAGE = "Auditoria"
 BASE_DIR = Path(__file__).resolve().parents[2]
 LOGO_PATH = BASE_DIR / "images" / "logo.png"
 
 PAGE_SLUGS = {
     "estatisticas": DEFAULT_PAGE,
     "chat-ia": CHAT_PAGE,
+    "auditoria": ADMIN_PAGE,
     "uso-restrito": ADMIN_PAGE,
 }
-PAGE_TO_SLUG = {page: slug for slug, page in PAGE_SLUGS.items()}
+PAGE_TO_SLUG = {
+    DEFAULT_PAGE: "estatisticas",
+    CHAT_PAGE: "chat-ia",
+    ADMIN_PAGE: "auditoria",
+}
 
 
 def _escape_text(value: Any) -> str:
@@ -72,19 +77,27 @@ def _sidebar_link(page_name: str, icon_class: str, active_page: str) -> str:
     )
 
 
+def _sidebar_nav_markup(active_page: str, *, show_admin: bool) -> str:
+    nav_items = [
+        f'<div class="sidebar-nav-item">{_sidebar_link(DEFAULT_PAGE, "stats", active_page)}</div>',
+        f'<div class="sidebar-nav-item">{_sidebar_link(CHAT_PAGE, "chat", active_page)}</div>',
+    ]
+    if show_admin:
+        nav_items.append(f'<div class="sidebar-nav-item">{_sidebar_link(ADMIN_PAGE, "audit", active_page)}</div>')
+    return "\n".join(nav_items)
+
+
 def render_sidebar(active_page: str = DEFAULT_PAGE) -> None:
     user = get_authenticated_user(st.session_state)
     show_admin = can_view_audit_log(user)
 
-    statistics_link = _sidebar_link(DEFAULT_PAGE, "stats", active_page)
-    chat_link = _sidebar_link(CHAT_PAGE, "chat", active_page)
-    admin_link = _sidebar_link(ADMIN_PAGE, "lock", active_page) if show_admin else ""
     logo_data_uri = _get_sidebar_logo_data_uri()
     logo_markup = (
         f'<img class="brand-logo" src="{logo_data_uri}" alt="Brasão de Mamanguape">'
         if logo_data_uri
         else '<span class="brand-logo-fallback">SM</span>'
     )
+    nav_markup = _sidebar_nav_markup(active_page, show_admin=show_admin)
     st.markdown(
         f"""
         <aside class="app-sidebar">
@@ -95,17 +108,15 @@ def render_sidebar(active_page: str = DEFAULT_PAGE) -> None:
                     <p class="brand-subtitle">Mamanguape</p>
                 </div>
             </div>
-            <nav class="sidebar-nav" aria-label="Navegação principal">
-                <div class="sidebar-nav-item">{statistics_link}</div>
-                <div class="sidebar-nav-item">{chat_link}</div>
-                {f'<div class="sidebar-nav-item">{admin_link}</div>' if show_admin else ''}
-            </nav>
+            <div class="sidebar-nav" role="navigation" aria-label="Navegação principal">
+                {nav_markup}
+            </div>
+            <div class="sidebar-click-targets" aria-hidden="true"></div>
         </aside>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="sidebar-click-targets">', unsafe_allow_html=True)
     if st.button("Estatísticas", key="sidebar-nav-estatisticas", use_container_width=True):
         set_current_page(DEFAULT_PAGE)
         st.rerun()
@@ -113,7 +124,6 @@ def render_sidebar(active_page: str = DEFAULT_PAGE) -> None:
         set_current_page(CHAT_PAGE)
         st.rerun()
     if show_admin:
-        if st.button("Uso Restrito", key="sidebar-nav-uso-restrito", use_container_width=True):
+        if st.button("Auditoria", key="sidebar-nav-auditoria", use_container_width=True):
             set_current_page(ADMIN_PAGE)
             st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)

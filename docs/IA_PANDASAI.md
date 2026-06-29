@@ -322,10 +322,12 @@ A persistencia de usuarios usa a tabela `usuarios`, com senha salva somente como
 - `atualizado_em`
 - `ultimo_login_em`
 - `deleted_at`
+- `deletado`
+- `deletado_em`
 
-Usuarios desativados devem receber `deleted_at` preenchido. Eles nao aparecem como ativos e nao podem fazer login. O sistema nao deve remover usuarios fisicamente.
+Usuarios desativados devem receber `deletado = true` e `deletado_em` preenchido. Quando `deleted_at` existir em bases antigas, ele tambem e tratado como indicador de conta inativa. Eles nao aparecem como ativos e nao podem fazer login. O sistema nao deve remover usuarios fisicamente no fluxo normal.
 
-A conexao de autenticacao pode usar `AUTH_DATABASE_URL`, `DATABASE_URL`, variaveis `AUTH_DB_*` ou as variaveis de banco ja existentes no ambiente. O usuario de banco usado para autenticacao precisa ter permissao para criar/usar a tabela `usuarios` e para inserir/atualizar esses registros. Isso e separado da permissao readonly usada pela camada de IA para consultar `vw_data_sus_ia`.
+A conexao de autenticacao deve preferir `AUTH_DATABASE_URL` ou as variaveis `AUTH_DB_*` (`AUTH_DB_HOST`, `AUTH_DB_PORT`, `AUTH_DB_NAME`, `AUTH_DB_USER`, `AUTH_DB_PASSWORD`, `AUTH_DB_SSLMODE`). Em Neon/PostgreSQL nao local, use `AUTH_DB_SSLMODE=require`. `DATABASE_URL` fica como fallback generico e as variaveis minusculas legadas (`host`, `database`, `user`, `password`, `port`) devem ser tratadas apenas como compatibilidade temporaria. O usuario de banco usado para autenticacao precisa ter permissao para criar/usar tabelas de aplicacao como `usuarios`, cadastros pendentes e auditoria. Isso e separado da permissao readonly usada pela camada de IA para consultar `vw_data_sus_ia`.
 
 As variaveis `AI_DB_*` sao somente leitura e nao devem ser usadas para cadastro/login. Se nenhuma conexao gravavel de autenticacao estiver configurada, a aplicacao usa um fallback SQLite local em `data/auth.sqlite3` e cria a tabela `usuarios` automaticamente. No Docker do chat, o diretorio `./data` e montado em `/app/data`, mantendo esse arquivo persistido entre reinicios do container.
 
