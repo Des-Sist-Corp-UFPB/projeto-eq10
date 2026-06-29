@@ -36,11 +36,29 @@ jobs:
 
       - name: Deploy no servidor
         run: |
+          set -Eeuo pipefail
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_DEPLOY_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           # Envia "actor:token" ao servidor. A chave é travada (command=),
           # então o servidor usa esse token efêmero só para puxar a imagem do GHCR.
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            "${{ secrets.SSH_USERNAME }}@dsc.rodrigor.com" \
-            "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}"
+          for attempt in 1 2 3; do
+            echo "Deploy attempt ${attempt}/3..."
+            echo "Pulling image on remote server and applying deploy..."
+
+            if ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+              "${{ secrets.SSH_USERNAME }}@dsc.rodrigor.com" \
+              "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}"; then
+              echo "Deploy completed."
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "Deploy failed after 3 attempts."
+              exit 1
+            fi
+
+            wait_seconds=$((attempt * 10))
+            echo "Deploy failed. Retrying in ${wait_seconds} seconds..."
+            sleep "$wait_seconds"
+          done
