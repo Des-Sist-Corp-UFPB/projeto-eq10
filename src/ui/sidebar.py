@@ -11,6 +11,7 @@ import streamlit as st
 
 from src.auth.roles import can_view_audit_log
 from src.auth.session import get_authenticated_user
+from src.ui.styles import get_configured_logo_url
 
 DEFAULT_PAGE = "Estatísticas"
 CHAT_PAGE = "Chat IA"
@@ -42,6 +43,23 @@ def _get_sidebar_logo_data_uri() -> str:
 
     encoded_logo = base64.b64encode(LOGO_PATH.read_bytes()).decode("ascii")
     return f"data:image/png;base64,{encoded_logo}"
+
+
+def _get_sidebar_logo_source() -> str:
+    return get_configured_logo_url() or _get_sidebar_logo_data_uri()
+
+
+def _sidebar_logo_markup() -> str:
+    logo_source = _get_sidebar_logo_source()
+    if not logo_source:
+        return '<span class="brand-logo-fallback">SM</span>'
+
+    safe_logo_source = html.escape(logo_source, quote=True)
+    return (
+        f'<img class="brand-logo" src="{safe_logo_source}" alt="Brasao de Mamanguape" '
+        'onerror="this.hidden=true;this.nextElementSibling.hidden=false;">'
+        '<span class="brand-logo-fallback" hidden>SM</span>'
+    )
 
 
 def get_current_page() -> str:
@@ -91,12 +109,7 @@ def render_sidebar(active_page: str = DEFAULT_PAGE) -> None:
     user = get_authenticated_user(st.session_state)
     show_admin = can_view_audit_log(user)
 
-    logo_data_uri = _get_sidebar_logo_data_uri()
-    logo_markup = (
-        f'<img class="brand-logo" src="{logo_data_uri}" alt="Brasão de Mamanguape">'
-        if logo_data_uri
-        else '<span class="brand-logo-fallback">SM</span>'
-    )
+    logo_markup = _sidebar_logo_markup()
     nav_markup = _sidebar_nav_markup(active_page, show_admin=show_admin)
     st.markdown(
         f"""

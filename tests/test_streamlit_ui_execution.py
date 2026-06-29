@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import app_ai_chat as app
 from src.auth import roles
-from src.ui import header, notifications, protected_chat, sidebar, statistics_page
+from src.ui import header, notifications, protected_chat, sidebar, statistics_page, styles
 
 
 class _State(dict):
@@ -127,6 +127,38 @@ class TestStreamlitUiExecution(unittest.TestCase):
         self.assertNotIn("Auditoria", rendered)
         self.assertEqual(fake_st.session_state.current_page, sidebar.CHAT_PAGE)
         self.assertEqual(fake_st.query_params["page"], "chat-ia")
+
+    def test_sidebar_prefers_configured_public_logo_url(self):
+        fake_st = _FakeSt()
+        logo_url = "https://minio.example.test/public/logo.png"
+
+        with (
+            patch.object(sidebar, "st", fake_st),
+            patch.object(sidebar, "get_authenticated_user", return_value=None),
+            patch.object(sidebar, "_get_sidebar_logo_data_uri", return_value="data:image/png;base64,old"),
+            patch.dict("os.environ", {"APP_LOGO_URL": logo_url}, clear=False),
+        ):
+            sidebar.render_sidebar(sidebar.DEFAULT_PAGE)
+
+        rendered = "\n".join(body for body, _ in fake_st.markdowns)
+        self.assertIn(logo_url, rendered)
+        self.assertIn('<img class="brand-logo"', rendered)
+        self.assertIn("brand-logo-fallback", rendered)
+        self.assertIn("onerror=", rendered)
+
+    def test_logo_url_config_accepts_only_safe_public_urls(self):
+        self.assertEqual(
+            styles.get_configured_logo_url({"APP_LOGO_URL": "https://minio.example.test/logo.png"}),
+            "https://minio.example.test/logo.png",
+        )
+        self.assertEqual(styles.get_configured_logo_url({"APP_LOGO_URL": "javascript:alert(1)"}), "")
+        self.assertEqual(styles.get_configured_logo_url({"APP_LOGO_URL": "file:///tmp/logo.png"}), "")
+
+    def test_shared_light_styles_cover_deployed_dark_widget_overrides(self):
+        self.assertIn("GLOBAL_LIGHT_THEME_CSS", styles.__dict__)
+        self.assertIn("color-scheme: light", styles.GLOBAL_LIGHT_THEME_CSS)
+        self.assertIn('[data-testid="stSelectbox"] div[data-baseweb="select"] > div', styles.GLOBAL_LIGHT_THEME_CSS)
+        self.assertIn('[data-testid="stDataFrame"]', styles.GLOBAL_LIGHT_THEME_CSS)
 
     def test_header_logged_out_opens_login_and_logged_in_logout_queues_toast(self):
         fake_st = _FakeSt()

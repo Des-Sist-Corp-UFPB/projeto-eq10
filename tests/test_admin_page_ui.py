@@ -8,6 +8,7 @@ import src.ui.admin_page as admin_page
 
 
 ADMIN_PAGE_PATH = Path("src/ui/admin_page.py")
+STYLES_PATH = Path("src/ui/styles.py")
 STREAMLIT_CONFIG_PATH = Path(".streamlit/config.toml")
 
 
@@ -138,14 +139,17 @@ class TestAdminPageUi(unittest.TestCase):
     def test_audit_page_forces_light_streamlit_widgets(self):
         config_source = STREAMLIT_CONFIG_PATH.read_text(encoding="utf-8")
         admin_source = ADMIN_PAGE_PATH.read_text(encoding="utf-8")
+        styles_source = STYLES_PATH.read_text(encoding="utf-8")
+        combined_source = admin_source + styles_source
 
         self.assertIn('base = "light"', config_source)
         self.assertIn('backgroundColor = "#F8FAFC"', config_source)
         self.assertIn('secondaryBackgroundColor = "#FFFFFF"', config_source)
-        self.assertIn('[data-testid="stDataFrame"]', admin_source)
-        self.assertIn('[data-testid="stDateInput"] input', admin_source)
-        self.assertIn('[data-testid="stSelectbox"] div[data-baseweb="select"] > div', admin_source)
-        self.assertIn("background: #FFFFFF !important", admin_source)
+        self.assertIn("apply_audit_light_styles", admin_source)
+        self.assertIn('[data-testid="stDataFrame"]', combined_source)
+        self.assertIn('[data-testid="stDateInput"] input', combined_source)
+        self.assertIn('[data-testid="stSelectbox"] div[data-baseweb="select"] > div', combined_source)
+        self.assertIn("background: #FFFFFF !important", combined_source)
 
     def test_audit_status_labels_and_colors_are_standardized(self):
         cases = {

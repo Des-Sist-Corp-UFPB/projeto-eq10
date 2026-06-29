@@ -30,6 +30,7 @@ from src.ui.header import render_auth_header
 from src.ui.notifications import queue_toast, render_pending_toast
 from src.ui.protected_chat import render_chat_auth_gate, render_chat_email_verification_gate
 from src.ui.sidebar import ADMIN_PAGE, CHAT_PAGE, DEFAULT_PAGE, get_current_page, render_sidebar, set_current_page
+from src.ui.styles import apply_global_light_styles
 from src.ui.statistics_page import render_statistics_page
 from src.ui.admin_page import render_admin_page
 
@@ -427,6 +428,7 @@ _UNSAFE_RESPONSE_PATTERNS = (
 
 
 def _apply_style() -> None:
+    apply_global_light_styles(st)
     st.markdown(
         """
         <style>
@@ -529,6 +531,10 @@ def _apply_style() -> None:
             font-weight: 850;
         }
 
+        .brand-logo-fallback[hidden] {
+            display: none;
+        }
+
         .brand-title {
             margin: 0;
             color: #FFFFFF;
@@ -592,11 +598,25 @@ def _apply_style() -> None:
             height: 3.35rem;
             min-height: 3.35rem;
             padding: 0;
-            border: 0;
+            border: 0 !important;
+            border-color: transparent !important;
             border-radius: 0.9rem;
-            background: transparent;
-            color: transparent;
-            box-shadow: none;
+            background: transparent !important;
+            color: transparent !important;
+            box-shadow: none !important;
+            text-shadow: none !important;
+            font-size: 0 !important;
+            line-height: 0 !important;
+            opacity: 1;
+        }
+
+        .st-key-sidebar-nav-estatisticas [data-testid="stButton"] button *,
+        .st-key-sidebar-nav-chat-ia [data-testid="stButton"] button *,
+        .st-key-sidebar-nav-auditoria [data-testid="stButton"] button * {
+            color: transparent !important;
+            font-size: 0 !important;
+            line-height: 0 !important;
+            text-shadow: none !important;
         }
 
         .st-key-sidebar-nav-estatisticas [data-testid="stButton"] button:hover,
@@ -605,10 +625,10 @@ def _apply_style() -> None:
         .st-key-sidebar-nav-chat-ia [data-testid="stButton"] button:focus,
         .st-key-sidebar-nav-auditoria [data-testid="stButton"] button:hover,
         .st-key-sidebar-nav-auditoria [data-testid="stButton"] button:focus {
-            border: 0;
-            background: rgba(255, 255, 255, 0.08);
-            color: transparent;
-            box-shadow: none;
+            border: 0 !important;
+            background: transparent !important;
+            color: transparent !important;
+            box-shadow: none !important;
         }
 
         .sidebar-link {
