@@ -1,0 +1,22 @@
+[run]
+include =
+    app_ai_chat.py
+    src/*
+omit =
+    tests/*
+    .venv/*
+    venv/*
+    */__pycache__/*
+    build/*
+    dist/*
+
+[report]
+show_missing = True
+skip_empty = True
+fail_under = 85
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+
+[html]
+directory = htmlcov

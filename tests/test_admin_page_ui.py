@@ -2,7 +2,7 @@ from types import SimpleNamespace
 import unittest
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import src.ui.admin_page as admin_page
 
@@ -28,6 +28,9 @@ class _FakeStreamlit:
         self.session_state = {}
         self.clicked_keys = set()
         self.rerun_called = False
+        self.badges = []
+        self.dialogs = []
+        self.cache_resource = SimpleNamespace(clear=MagicMock())
 
     def markdown(self, body, unsafe_allow_html=False):
         self.markdowns.append((body, unsafe_allow_html))
@@ -72,6 +75,12 @@ class _FakeStreamlit:
     def subheader(self, text):
         self.subheaders.append(text)
 
+    def title(self, text):
+        self.texts.append(text)
+
+    def divider(self):
+        self.texts.append("---")
+
     def container(self, **kwargs):
         return self
 
@@ -84,8 +93,28 @@ class _FakeStreamlit:
     def write(self, value):
         self.writes.append(value)
 
+    def badge(self, label, **kwargs):
+        self.badges.append((label, kwargs))
+
+    def dialog(self, title, **kwargs):
+        self.dialogs.append((title, kwargs))
+
+        def decorator(func):
+            def wrapper():
+                return func()
+
+            return wrapper
+
+        return decorator
+
+    def text_input(self, label, value="", **kwargs):
+        return value
+
     def date_input(self, label, value=None, **kwargs):
         return value
+
+    def stop(self):
+        raise RuntimeError("streamlit stop")
 
     def rerun(self):
         self.rerun_called = True
@@ -306,6 +335,259 @@ class TestAdminPageUi(unittest.TestCase):
         self.assertEqual(text, "Erro tecnico registrado com seguranca.")
         self.assertNotIn("postgresql://", text)
         self.assertNotIn("Traceback", text)
+
+    def test_render_admin_page_authorized_loads_summary_filters_and_table(self):
+        fake_st = _FakeStreamlit()
+        user = {"id": 1, "nome": "Heloisa", "email": "admin@example.com", "role": "admin", "can_view_audit": True}
+        entries = [
+            SimpleNamespace(
+                id=1,
+                evento="login_success",
+                user_email="admin@example.com",
+                user_id=1,
+                prompt_text=None,
+                detalhe="ok",
+                status="success",
+                criado_em=datetime(2026, 6, 29, 10, 0),
+            ),
+            SimpleNamespace(
+                id=2,
+                evento="prompt_guard_block",
+                user_email="user@example.com",
+                user_id=2,
+                prompt_text="prompt sensivel token=abc",
+                detalhe="bloqueado",
+                status="blocked",
+                criado_em=datetime(2026, 6, 29, 11, 0),
+            ),
+        ]
+        audit_service = SimpleNamespace(get_recent_logs=lambda limit: entries)
+
+        with (
+            patch.object(admin_page, "st", fake_st),
+            patch.object(admin_page, "get_authenticated_user", return_value=user),
+            patch.object(admin_page, "_get_audit_service", return_value=audit_service),
+        ):
+            admin_page.render_admin_page()
+
+        self.assertIn("Painel de Auditoria", fake_st.texts)
+        self.assertEqual(fake_st.metrics[0], ("Total de eventos", 2))
+        self.assertTrue(fake_st.dataframes)
+        table_rendered = str(_dataframe_records(fake_st.dataframes[0][0]))
+        self.assertIn("Login realizado", table_rendered)
+        self.assertIn("Prompt bloqueado", table_rendered)
+        self.assertNotIn("token=abc", table_rendered)
+
+    def test_render_admin_page_blocks_unauthorized_user(self):
+        fake_st = _FakeStreamlit()
+        user = {"id": 2, "nome": "User", "email": "user@example.com", "role": "user", "can_view_audit": False}
+
+        with (
+            patch.object(admin_page, "st", fake_st),
+            patch.object(admin_page, "get_authenticated_user", return_value=user),
+        ):
+            with self.assertRaises(RuntimeError):
+                admin_page.render_admin_page()
+
+        self.assertEqual(fake_st.errors[-1], "Acesso restrito. Esta area e exclusiva para administradores autorizados.")
+
+    def test_render_admin_page_super_admin_user_management_does_not_crash(self):
+        fake_st = _FakeStreamlit()
+        user = {"id": 1, "nome": "Root", "email": "root@example.com", "role": "super_admin", "can_view_audit": True}
+        managed_users = [
+            SimpleNamespace(id=1, nome="Root", email="root@example.com", role="super_admin", can_view_audit=True),
+            SimpleNamespace(id=2, nome="Ana", email="ana@example.com", role="user", can_view_audit=False),
+        ]
+        user_service = SimpleNamespace(get_all_users=lambda: managed_users)
+        audit_service = SimpleNamespace(get_recent_logs=lambda limit: [])
+
+        with (
+            patch.object(admin_page, "st", fake_st),
+            patch.object(admin_page, "get_authenticated_user", return_value=user),
+            patch.object(admin_page, "_get_user_service", return_value=user_service),
+            patch.object(admin_page, "_get_audit_service", return_value=audit_service),
+        ):
+            admin_page.render_admin_page()
+
+        self.assertIn("Gestao de Usuarios", fake_st.subheaders)
+        self.assertIn("Nenhum evento encontrado com os filtros selecionados.", fake_st.infos)
+
+    def test_admin_helpers_cover_labels_dates_limits_and_buttons(self):
+        self.assertEqual(admin_page._safe_admin_error_summary(RuntimeError("boom")), "RuntimeError")
+        self.assertEqual(admin_page._truncate_display("abcdef", max_len=4), "abc...")
+        self.assertEqual(admin_page._audit_status("admin_access_denied"), "blocked")
+        self.assertEqual(admin_page._audit_status("login", "failed"), "failure")
+        self.assertEqual(admin_page._audit_status("login"), "success")
+        self.assertEqual(admin_page._normalize_status("misterio"), "info")
+
+        entry = SimpleNamespace(evento="login_failure", detalhe="falha", status="sucesso", criado_em="2026-06-29T10:00:00")
+        self.assertEqual(admin_page._entry_status(entry), "success")
+        self.assertEqual(admin_page._coerce_entry_date(entry.criado_em).isoformat(), "2026-06-29")
+        self.assertIsNone(admin_page._coerce_entry_date("data-invalida"))
+        self.assertEqual(admin_page._available_event_types([entry, SimpleNamespace(evento="account_created")]), ["account_created", "login_failure"])
+        self.assertEqual(admin_page._event_category("logout"), "Login")
+        self.assertEqual(admin_page._event_category("role_changed"), "Administracao")
+        self.assertEqual(admin_page._event_category("email_change_requested"), "Conta")
+        self.assertTrue(admin_page._matches_event_filter(entry, "login_failure"))
+        self.assertFalse(admin_page._matches_event_filter(entry, "account_created"))
+        self.assertEqual(admin_page._limit_audit_entries([1, 2, 3], 999), [1, 2, 3])
+        self.assertEqual(admin_page._event_label(SimpleNamespace(evento="login", detalhe="failed", status="failure")), "Falha no login")
+
+        class WeirdDate:
+            def strftime(self, fmt):
+                raise RuntimeError("bad")
+
+            def __str__(self):
+                return "weird-date"
+
+        self.assertEqual(admin_page._format_dt(WeirdDate()), "weird-date")
+        user_obj = SimpleNamespace(nome="Ana Maria", email="ana@example.com", role="admin")
+        self.assertEqual(admin_page._user_value(user_obj, "email"), "ana@example.com")
+        self.assertEqual(admin_page._user_value({"email": "root@example.com"}, "email"), "root@example.com")
+        self.assertEqual(admin_page._user_value(None, "email", "x"), "x")
+        self.assertEqual(admin_page._user_initials(user_obj), "AM")
+        self.assertEqual(admin_page._user_initials({"email": "root@example.com"}), "RO")
+
+        with patch.object(admin_page.st, "button", side_effect=[TypeError("icon"), True]) as button:
+            self.assertTrue(admin_page._safe_button("Atualizar", icon="refresh"))
+        self.assertEqual(button.call_count, 2)
+
+    def test_status_and_event_badges_use_native_components_with_fallbacks(self):
+        fake_st = _FakeStreamlit()
+        with patch.object(admin_page, "st", fake_st):
+            admin_page._render_status_badge("success")
+            admin_page._render_status_badge("failure")
+            admin_page._render_status_badge("blocked")
+            admin_page._render_status_badge("info")
+            admin_page._render_event_badge("Login realizado")
+
+        self.assertEqual([label for label, _ in fake_st.badges[:4]], ["Sucesso", "Falha", "Bloqueado", "Informativo"])
+        self.assertEqual(fake_st.badges[-1][0], "Login realizado")
+
+        fake_st = _FakeStreamlit()
+        fake_st.badge = MagicMock(side_effect=RuntimeError("badge unavailable"))
+        with patch.object(admin_page, "st", fake_st):
+            admin_page._render_status_badge("success")
+            admin_page._render_status_badge("failure")
+            admin_page._render_status_badge("blocked")
+            admin_page._render_status_badge("info")
+            admin_page._render_event_badge("Conta criada")
+
+        self.assertEqual(fake_st.successes, ["Sucesso"])
+        self.assertEqual(fake_st.errors, ["Falha"])
+        self.assertEqual(fake_st.warnings, ["Bloqueado"])
+        self.assertEqual(fake_st.infos, ["Informativo"])
+        self.assertIn("Conta criada", fake_st.writes[-1])
+
+    def test_filter_buttons_refresh_clear_and_apply_rerun_safely(self):
+        for key in ["audit-refresh", "audit-clear-filters", "audit-apply-filters"]:
+            fake_st = _FakeStreamlit()
+            fake_st.clicked_keys.add(key)
+            fake_st.session_state.update(
+                {
+                    "audit-filter-event-type": "Login",
+                    "audit-filter-user-search": "ana",
+                    "audit-filter-status": "failure",
+                    "audit-result-limit": 20,
+                    admin_page.AUDIT_SUMMARY_FILTER_KEY: admin_page.AUDIT_SUMMARY_FILTER_FAILURES,
+                }
+            )
+            with self.subTest(key=key):
+                with patch.object(admin_page, "st", fake_st):
+                    filters = admin_page._render_audit_filters([])
+                self.assertTrue(fake_st.rerun_called)
+                self.assertIn("limit", filters)
+                if key == "audit-clear-filters":
+                    self.assertNotIn("audit-filter-event-type", fake_st.session_state)
+
+    def test_selected_audit_event_dialog_uses_native_dialog_and_close(self):
+        fake_st = _FakeStreamlit()
+        fake_st.session_state[admin_page.AUDIT_SELECTED_EVENT_KEY] = {
+            "Evento": "Login realizado",
+            "StatusKey": "success",
+            "Data/Hora": "29/06/2026 10:00:00",
+            "E-mail": "ana@example.com",
+            "Prompt": "-",
+            "Detalhe": "ok",
+            "Metadados": "ID do evento: 1",
+        }
+        with patch.object(admin_page, "st", fake_st):
+            admin_page._render_selected_audit_event_dialog()
+
+        self.assertEqual(fake_st.dialogs[0][0], "Detalhes do evento")
+        self.assertIn("Login realizado", fake_st.writes)
+        self.assertIn("ok", fake_st.writes)
+
+        fake_st.clicked_keys.add("audit-detail-close")
+        with patch.object(admin_page, "st", fake_st):
+            admin_page._render_audit_event_dialog_body(fake_st.session_state[admin_page.AUDIT_SELECTED_EVENT_KEY])
+        self.assertNotIn(admin_page.AUDIT_SELECTED_EVENT_KEY, fake_st.session_state)
+        self.assertTrue(fake_st.rerun_called)
+
+    def test_user_management_error_empty_and_action_paths(self):
+        admin = {"id": 1, "email": "root@example.com"}
+
+        fake_st = _FakeStreamlit()
+        service = SimpleNamespace(get_all_users=lambda: (_ for _ in ()).throw(RuntimeError("db")))
+        with patch.object(admin_page, "st", fake_st):
+            admin_page._render_user_management(admin, service)
+        self.assertEqual(fake_st.errors[-1], "Nao foi possivel carregar os usuarios agora.")
+
+        fake_st = _FakeStreamlit()
+        service = SimpleNamespace(get_all_users=lambda: [])
+        with patch.object(admin_page, "st", fake_st):
+            admin_page._render_user_management(admin, service)
+        self.assertEqual(fake_st.infos[-1], "Nenhum usuario encontrado.")
+
+        managed = [
+            SimpleNamespace(id=1, nome="Root", email="root@example.com", role="super_admin", can_view_audit=True),
+            SimpleNamespace(id=2, nome="Ana", email="ana@example.com", role="user", can_view_audit=False),
+        ]
+        fake_st = _FakeStreamlit()
+        fake_st.session_state["role_select_2"] = "admin"
+        fake_st.clicked_keys.update({"save_role_2", "grant_audit_2", "delete_user_2"})
+        service = SimpleNamespace(
+            get_all_users=lambda: managed,
+            set_role=MagicMock(),
+            set_audit_access=MagicMock(),
+            soft_delete_user=MagicMock(),
+        )
+        with patch.object(admin_page, "st", fake_st):
+            admin_page._render_user_management(admin, service)
+
+        service.set_role.assert_called_once()
+        service.set_audit_access.assert_called_once_with(2, True, acting_admin_id=1, acting_admin_email="root@example.com")
+        self.assertTrue(fake_st.session_state["confirm_delete_2"])
+
+        fake_st = _FakeStreamlit()
+        fake_st.session_state["confirm_delete_2"] = True
+        fake_st.clicked_keys.add("confirm_yes_2")
+        service.soft_delete_user.reset_mock()
+        with patch.object(admin_page, "st", fake_st):
+            admin_page._render_user_management(admin, service)
+        service.soft_delete_user.assert_called_once_with(2)
+
+        managed[1] = SimpleNamespace(id=2, nome="Ana", email="ana@example.com", role="user", can_view_audit=True)
+        fake_st = _FakeStreamlit()
+        fake_st.clicked_keys.add("revoke_audit_2")
+        service.set_audit_access.reset_mock()
+        with patch.object(admin_page, "st", fake_st):
+            admin_page._render_user_management(admin, service)
+        service.set_audit_access.assert_called_once_with(2, False, acting_admin_id=1, acting_admin_email="root@example.com")
+
+    def test_render_admin_page_handles_audit_loading_failure_safely(self):
+        fake_st = _FakeStreamlit()
+        user = {"id": 1, "nome": "Heloisa", "email": "admin@example.com", "role": "admin", "can_view_audit": True}
+        audit_service = SimpleNamespace(get_recent_logs=lambda limit: (_ for _ in ()).throw(RuntimeError("db")))
+
+        with (
+            patch.object(admin_page, "st", fake_st),
+            patch.object(admin_page, "get_authenticated_user", return_value=user),
+            patch.object(admin_page, "_get_audit_service", return_value=audit_service),
+        ):
+            admin_page.render_admin_page()
+
+        self.assertEqual(fake_st.errors[-1], "Nao foi possivel carregar os logs agora. Tente novamente mais tarde.")
 
 
 if __name__ == "__main__":
