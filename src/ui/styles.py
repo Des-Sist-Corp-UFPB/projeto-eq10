@@ -6,7 +6,18 @@ import os
 from typing import Any
 from urllib.parse import urlparse
 
-LOGO_URL_ENV_VARS = ("APP_LOGO_URL", "SIDEBAR_LOGO_URL", "MINIO_LOGO_URL")
+LOGO_URL_ENV_VARS = (
+    "APP_LOGO_URL",
+    "APP_LOGO_PUBLIC_URL",
+    "APP_BRAND_LOGO_URL",
+    "SIDEBAR_LOGO_URL",
+    "PUBLIC_LOGO_URL",
+    "MINIO_LOGO_URL",
+    "MINIO_PUBLIC_LOGO_URL",
+    "MINIO_APP_LOGO_URL",
+    "LOGO_URL",
+)
+AUDIT_PAGE_SCOPE = ".st-key-audit-page-shell"
 
 GLOBAL_LIGHT_THEME_CSS = """
 <style>
@@ -25,210 +36,82 @@ body,
     color: #111827 !important;
 }
 
-[data-testid="stMarkdownContainer"],
-[data-testid="stCaptionContainer"],
-[data-testid="stText"],
-[data-testid="stMetric"],
-[data-testid="stWidgetLabel"],
-[data-testid="stExpander"],
-[data-testid="stDataFrame"],
-[data-testid="stTable"],
-[data-testid="stForm"],
-[data-testid="stVerticalBlock"],
-[data-testid="stHorizontalBlock"] {
-    color: #111827 !important;
-}
-
-[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
-[data-testid="stTextInput"] input,
-[data-testid="stDateInput"] input,
-[data-testid="stNumberInput"] input,
-[data-testid="stTextArea"] textarea,
-[data-testid="stMultiSelect"] div[data-baseweb="select"] > div {
-    background-color: #FFFFFF !important;
-    color: #111827 !important;
-    border-color: #CBD5E1 !important;
-    box-shadow: none !important;
-}
-
-[data-testid="stSelectbox"] div[data-baseweb="select"] span,
-[data-testid="stMultiSelect"] div[data-baseweb="select"] span,
-[data-testid="stTextInput"] input::placeholder,
-[data-testid="stDateInput"] input::placeholder,
-[data-testid="stNumberInput"] input::placeholder,
-[data-testid="stTextArea"] textarea::placeholder {
-    color: #64748B !important;
-}
-
-[data-testid="stSelectbox"] label,
-[data-testid="stTextInput"] label,
-[data-testid="stDateInput"] label,
-[data-testid="stNumberInput"] label,
-[data-testid="stTextArea"] label,
-[data-testid="stMultiSelect"] label {
-    color: #111827 !important;
-}
-
-[data-testid="stSelectbox"] svg,
-[data-testid="stDateInput"] svg,
-[data-testid="stMultiSelect"] svg {
-    color: #64748B !important;
-    fill: #64748B !important;
-}
-
-div[data-baseweb="popover"] [role="listbox"],
-div[data-baseweb="popover"] [role="listbox"] *,
-div[data-baseweb="popover"] [data-baseweb="menu"],
-div[data-baseweb="popover"] [data-baseweb="menu"] *,
-div[data-baseweb="popover"] [data-baseweb="calendar"],
-div[data-baseweb="popover"] [data-baseweb="calendar"] *,
-[role="listbox"],
-[role="listbox"] *,
-[role="option"] {
-    background-color: #FFFFFF !important;
-    color: #111827 !important;
-}
-
-div[data-baseweb="popover"] [role="listbox"],
-div[data-baseweb="popover"] [data-baseweb="menu"],
-div[data-baseweb="popover"] [data-baseweb="calendar"] {
-    border: 1px solid #E2E8F0 !important;
-    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12) !important;
-}
-
-[role="option"]:hover,
-[role="option"][aria-selected="true"] {
-    background-color: #F1F5F9 !important;
-}
-
-[data-testid="stExpander"] details,
-[data-testid="stForm"],
-[data-testid="stDataFrame"],
-[data-testid="stTable"] {
-    background-color: #FFFFFF !important;
-    border-color: #E2E8F0 !important;
-    color: #111827 !important;
-}
-
-[data-testid="stDataFrame"] div,
-[data-testid="stDataFrame"] span,
-[data-testid="stDataFrame"] canvas,
-[data-testid="stTable"] div,
-[data-testid="stTable"] span,
-[data-testid="stTable"] table,
-[data-testid="stTable"] th,
-[data-testid="stTable"] td {
-    color: #111827 !important;
-}
-
-[data-testid="stDataFrame"] [role="grid"],
-[data-testid="stDataFrame"] [role="row"],
-[data-testid="stDataFrame"] [role="columnheader"],
-[data-testid="stDataFrame"] [role="gridcell"],
-[data-testid="stTable"] table,
-[data-testid="stTable"] thead,
-[data-testid="stTable"] tbody,
-[data-testid="stTable"] tr,
-[data-testid="stTable"] th,
-[data-testid="stTable"] td {
-    background-color: #FFFFFF !important;
-}
-
+/* Widget-level overrides such as [data-testid="stSelectbox"] div[data-baseweb="select"] > div
+   and [data-testid="stDataFrame"]
+   are intentionally scoped to page-specific CSS below. */
 </style>
 """
 
 AUDIT_PAGE_CSS = """
 <style>
 /* Audit page polish for native Streamlit controls. Dynamic data is rendered by Streamlit widgets. */
-[data-testid="stAppViewContainer"],
-.stApp {
-    background: #F8FAFC !important;
-    color: #111827 !important;
-}
-
-[data-testid="stMetric"] {
+.st-key-audit-page-shell [data-testid="stMetric"] {
     background: #FFFFFF !important;
     border: 1px solid #E2E8F0;
     border-radius: 0.75rem;
     padding: 0.72rem 0.85rem;
     box-shadow: 0 8px 18px rgba(15, 23, 42, 0.045);
 }
-[data-testid="stMetric"] label,
-[data-testid="stMetric"] div,
-[data-testid="stMetric"] p {
+.st-key-audit-page-shell [data-testid="stMetric"] label,
+.st-key-audit-page-shell [data-testid="stMetric"] div,
+.st-key-audit-page-shell [data-testid="stMetric"] p {
     color: #111827 !important;
 }
 
-[data-testid="stExpander"] details {
+.st-key-audit-page-shell [data-testid="stExpander"] details {
     background: #FFFFFF !important;
     border-color: #E2E8F0 !important;
     border-radius: 0.75rem !important;
     box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
 }
-[data-testid="stExpander"] summary,
-[data-testid="stExpander"] summary p,
-[data-testid="stExpander"] label,
-[data-testid="stExpander"] span,
-[data-testid="stExpander"] p {
+.st-key-audit-page-shell [data-testid="stExpander"] summary,
+.st-key-audit-page-shell [data-testid="stExpander"] summary p,
+.st-key-audit-page-shell [data-testid="stExpander"] label,
+.st-key-audit-page-shell [data-testid="stExpander"] span,
+.st-key-audit-page-shell [data-testid="stExpander"] p {
     color: #111827 !important;
 }
 
-[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
-[data-testid="stTextInput"] input,
-[data-testid="stDateInput"] input {
+.st-key-audit-page-shell [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+.st-key-audit-page-shell [data-testid="stTextInput"] input,
+.st-key-audit-page-shell [data-testid="stDateInput"] input {
     background: #FFFFFF !important;
     border-color: #CBD5E1 !important;
     color: #111827 !important;
     box-shadow: none !important;
 }
-[data-testid="stSelectbox"] div[data-baseweb="select"] span,
-[data-testid="stTextInput"] input::placeholder,
-[data-testid="stDateInput"] input::placeholder {
+.st-key-audit-page-shell [data-testid="stSelectbox"] div[data-baseweb="select"] span,
+.st-key-audit-page-shell [data-testid="stTextInput"] input::placeholder,
+.st-key-audit-page-shell [data-testid="stDateInput"] input::placeholder {
     color: #64748B !important;
 }
-[data-testid="stSelectbox"] label,
-[data-testid="stTextInput"] label,
-[data-testid="stDateInput"] label {
+.st-key-audit-page-shell [data-testid="stSelectbox"] label,
+.st-key-audit-page-shell [data-testid="stTextInput"] label,
+.st-key-audit-page-shell [data-testid="stDateInput"] label {
     color: #111827 !important;
 }
-[data-testid="stSelectbox"] svg,
-[data-testid="stDateInput"] svg {
+.st-key-audit-page-shell [data-testid="stSelectbox"] svg,
+.st-key-audit-page-shell [data-testid="stDateInput"] svg {
     color: #64748B !important;
     fill: #64748B !important;
 }
-[data-baseweb="popover"] [role="listbox"],
-[data-baseweb="popover"] ul,
-[data-baseweb="menu"] {
-    background: #FFFFFF !important;
-    color: #111827 !important;
-    border: 1px solid #E2E8F0 !important;
-}
-[data-baseweb="popover"] [role="option"],
-[data-baseweb="popover"] li {
-    background: #FFFFFF !important;
-    color: #111827 !important;
-}
-[data-baseweb="popover"] [role="option"]:hover,
-[data-baseweb="popover"] li:hover {
-    background: #F1F5F9 !important;
-}
 
-[data-testid="stDataFrame"] {
+.st-key-audit-page-shell [data-testid="stDataFrame"] {
     background: #FFFFFF !important;
     border: 1px solid #E2E8F0 !important;
     border-radius: 0.75rem !important;
     box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
     color: #111827 !important;
 }
-[data-testid="stDataFrame"] div,
-[data-testid="stDataFrame"] span,
-[data-testid="stDataFrame"] canvas {
+.st-key-audit-page-shell [data-testid="stDataFrame"] div,
+.st-key-audit-page-shell [data-testid="stDataFrame"] span,
+.st-key-audit-page-shell [data-testid="stDataFrame"] canvas {
     color: #111827 !important;
 }
-[data-testid="stDataFrame"] [role="grid"],
-[data-testid="stDataFrame"] [role="row"],
-[data-testid="stDataFrame"] [role="columnheader"],
-[data-testid="stDataFrame"] [role="gridcell"] {
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="grid"],
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="row"],
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="columnheader"],
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="gridcell"] {
     background: #FFFFFF !important;
     color: #111827 !important;
 }

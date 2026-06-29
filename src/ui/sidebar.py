@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import html
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,8 @@ import streamlit as st
 from src.auth.roles import can_view_audit_log
 from src.auth.session import get_authenticated_user
 from src.ui.styles import get_configured_logo_url
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_PAGE = "Estatísticas"
 CHAT_PAGE = "Chat IA"
@@ -46,7 +49,14 @@ def _get_sidebar_logo_data_uri() -> str:
 
 
 def _get_sidebar_logo_source() -> str:
-    return get_configured_logo_url() or _get_sidebar_logo_data_uri()
+    configured_logo_url = get_configured_logo_url()
+    if configured_logo_url:
+        return configured_logo_url
+
+    local_logo = _get_sidebar_logo_data_uri()
+    if not local_logo:
+        logger.debug("Sidebar logo URL not configured or invalid; using text fallback.")
+    return local_logo
 
 
 def _sidebar_logo_markup() -> str:

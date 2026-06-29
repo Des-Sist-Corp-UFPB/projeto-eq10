@@ -578,9 +578,45 @@ def _style_audit_table_data(table_data: Any) -> Any:
         return table_data
 
     try:
-        return table_data.style.map(_get_status_badge_style, subset=["Status"])
+        styler = table_data.style.set_properties(
+            **{
+                "background-color": "#FFFFFF",
+                "color": "#111827",
+                "border-color": "#E2E8F0",
+            }
+        ).set_table_styles(
+            [
+                {
+                    "selector": "th",
+                    "props": [
+                        ("background-color", "#F8FAFC"),
+                        ("color", "#334155"),
+                        ("font-weight", "700"),
+                        ("border-color", "#E2E8F0"),
+                    ],
+                },
+                {
+                    "selector": "td",
+                    "props": [
+                        ("background-color", "#FFFFFF"),
+                        ("color", "#111827"),
+                        ("border-color", "#E2E8F0"),
+                    ],
+                },
+            ]
+        )
+        return styler.map(_get_status_badge_style, subset=["Status"])
     except AttributeError:
-        return table_data.style.applymap(_get_status_badge_style, subset=["Status"])
+        try:
+            return table_data.style.set_properties(
+                **{
+                    "background-color": "#FFFFFF",
+                    "color": "#111827",
+                    "border-color": "#E2E8F0",
+                }
+            ).applymap(_get_status_badge_style, subset=["Status"])
+        except Exception:
+            return table_data
     except Exception:
         return table_data
 
@@ -846,7 +882,16 @@ def _render_user_management(user: dict, service) -> None:
 def render_admin_page() -> None:
     """Renderiza a pagina de administracao restrita."""
     apply_audit_light_styles(st)
+    try:
+        audit_container = st.container(key="audit-page-shell")
+    except TypeError:
+        audit_container = st.container()
 
+    with audit_container:
+        _render_admin_page_body()
+
+
+def _render_admin_page_body() -> None:
     user = get_authenticated_user(st.session_state)
 
     if not user or not can_view_audit_log(user):
