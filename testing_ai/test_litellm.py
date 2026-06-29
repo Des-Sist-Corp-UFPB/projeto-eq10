@@ -1,15 +1,16 @@
+import os
 import litellm
-litellm.set_verbose = True
+
+# Sua chave do OpenRouter
+os.environ["OPENROUTER_API_KEY"] = "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"
 litellm._turn_on_debug()
 
-from pandasai_litellm.litellm import LiteLLM
-import os
-
-os.environ["GEMINI_API_KEY"] = "AIzaSyB18RhBigW10p_qSLhVvkndkyMRwRyKYAI"
-
+print("Testando comunicação direta com o OpenRouter...")
 try:
-    llm = LiteLLM(model='gemini/gemini-2.0-flash')
-    response = llm.call(instruction='Respond YES')
-    print("RESPONSE:", response)
+    response = litellm.completion(
+        model="openrouter/auto",
+        messages=[{"role": "user", "content": "Diga apenas 'Conectado!'"}]
+    )
+    print("\n✅ SUCESSO!", response.choices[0].message.content)
 except Exception as e:
-    print("ERROR:", e)
+    print("\n❌ ERRO DETALHADO:", str(e))

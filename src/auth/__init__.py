@@ -18,6 +18,14 @@ from src.auth.email_verification_service import (
 )
 from src.auth.password_reset_service import PasswordResetResult, PasswordResetService, PasswordResetToken
 from src.auth.user_service import AuthValidationError, UserProfile, UserService
+from src.auth.roles import (
+    ROLE_USER,
+    ROLE_SUPER_ADMIN,
+    VALID_ROLES,
+    is_super_admin,
+    can_view_audit_log,
+    role_display_name,
+)
 
 __all__ = [
     "AUTH_SESSION_KEY",
@@ -40,8 +48,14 @@ __all__ = [
     "UserProfile",
     "UserService",
     "can_access_chat",
+    "can_view_audit_log",
     "get_authenticated_user",
     "is_email_verification_required",
+    "is_super_admin",
     "login_session",
     "logout_session",
+    "role_display_name",
+    "ROLE_SUPER_ADMIN",
+    "ROLE_USER",
+    "VALID_ROLES",
 ]

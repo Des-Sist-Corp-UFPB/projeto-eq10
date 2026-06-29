@@ -28,8 +28,9 @@ from src.ui.auth_modal import close_auth_modal, open_auth_modal, render_auth_pan
 from src.ui.header import render_auth_header
 from src.ui.notifications import queue_toast, render_pending_toast
 from src.ui.protected_chat import render_chat_auth_gate, render_chat_email_verification_gate
-from src.ui.sidebar import CHAT_PAGE, DEFAULT_PAGE, get_current_page, render_sidebar, set_current_page
+from src.ui.sidebar import ADMIN_PAGE, CHAT_PAGE, DEFAULT_PAGE, get_current_page, render_sidebar, set_current_page
 from src.ui.statistics_page import render_statistics_page
+from src.ui.admin_page import render_admin_page
 
 APP_TITLE = "Assistente Estatístico SIA/DATASUS"
 APP_SUBTITLE = "Converse com os dados disponíveis do SIA/DATASUS"
@@ -1920,7 +1921,7 @@ def _process_pending_prompt() -> bool:
     assistant_status = "ok"
     try:
         perguntar_datasus = _get_datasus_question_runner()
-        resposta = perguntar_datasus(prompt)
+        resposta = perguntar_datasus(prompt, user_context=get_authenticated_user(st.session_state))
     except Exception as exc:
         logger.warning(
             "Erro seguro app_ai_chat | operacao=processar_prompt | tipo=%s | fallback=mensagem_amigavel",
@@ -2004,6 +2005,8 @@ def main() -> None:
 
     if current_page == CHAT_PAGE:
         _render_chat_page()
+    elif current_page == ADMIN_PAGE:
+        render_admin_page()
     else:
         render_statistics_page()
 
