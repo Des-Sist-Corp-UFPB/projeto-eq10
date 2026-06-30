@@ -6,5 +6,6 @@ backgroundColor = "#F8FAFC"
 secondaryBackgroundColor = "#FFFFFF"
 textColor = "#111827"
 font = "sans serif"
+# Keep dataframe headers/toolbars readable on deployments that inherit browser/system dark styling.
 dataframeHeaderBackgroundColor = "#FFFFFF"
 dataframeBorderColor = "#E2E8F0"

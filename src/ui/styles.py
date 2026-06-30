@@ -151,6 +151,14 @@ AUDIT_PAGE_CSS = """
     color: #334155 !important;
     border-color: #E2E8F0 !important;
 }
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="columnheader"] *,
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="columnheader"] button,
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="columnheader"] svg,
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="columnheader"] path {
+    background-color: transparent !important;
+    color: #334155 !important;
+    fill: #334155 !important;
+}
 .st-key-audit-page-shell [data-testid="stDataFrame"] [data-testid="stElementToolbar"],
 .st-key-audit-page-shell [data-testid="stDataFrame"] [data-testid="stElementToolbar"] button,
 .st-key-audit-page-shell [data-testid="stElementToolbar"],
@@ -159,7 +167,9 @@ AUDIT_PAGE_CSS = """
 .st-key-audit-page-shell .stElementToolbar button,
 .st-key-audit-page-shell [data-testid="stElementToolbarButton"],
 .st-key-audit-page-shell [data-testid="stElementToolbarButton"] button,
-.st-key-audit-page-shell [data-testid="stElementToolbarButton"] [role="button"] {
+.st-key-audit-page-shell [data-testid="stElementToolbarButton"] [role="button"],
+.st-key-audit-page-shell [data-testid="stDataFrame"] button[title],
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="button"] {
     background: #FFFFFF !important;
     background-color: #FFFFFF !important;
     color: #334155 !important;
@@ -174,7 +184,11 @@ AUDIT_PAGE_CSS = """
 .st-key-audit-page-shell .stElementToolbar path,
 .st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"],
 .st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"] svg,
-.st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"] path {
+.st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"] path,
+.st-key-audit-page-shell [data-testid="stDataFrame"] button[title] svg,
+.st-key-audit-page-shell [data-testid="stDataFrame"] button[title] path,
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="button"] svg,
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="button"] path {
     color: #334155 !important;
     fill: #334155 !important;
 }
@@ -185,7 +199,11 @@ AUDIT_PAGE_CSS = """
 .st-key-audit-page-shell [data-testid="stElementToolbarButton"] button:hover,
 .st-key-audit-page-shell [data-testid="stElementToolbarButton"] button:focus,
 .st-key-audit-page-shell [data-testid="stElementToolbarButton"] [role="button"]:hover,
-.st-key-audit-page-shell [data-testid="stElementToolbarButton"] [role="button"]:focus {
+.st-key-audit-page-shell [data-testid="stElementToolbarButton"] [role="button"]:focus,
+.st-key-audit-page-shell [data-testid="stDataFrame"] button[title]:hover,
+.st-key-audit-page-shell [data-testid="stDataFrame"] button[title]:focus,
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="button"]:hover,
+.st-key-audit-page-shell [data-testid="stDataFrame"] [role="button"]:focus {
     background: #F8FAFC !important;
     background-color: #F8FAFC !important;
     color: #4C1D95 !important;
@@ -241,7 +259,7 @@ def apply_audit_light_styles(st_module: Any) -> None:
 
 
 def get_configured_logo_url(environ: dict[str, str] | None = None) -> str:
-    """Return a safe public logo URL from the supported environment variables."""
+    """Return the configured public/signed logo URL without exposing MinIO credentials."""
     env = environ if environ is not None else os.environ
     for name in LOGO_URL_ENV_VARS:
         value = str(env.get(name) or "").strip()

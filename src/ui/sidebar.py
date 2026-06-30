@@ -48,6 +48,11 @@ def _get_sidebar_logo_data_uri() -> str:
     return f"data:image/png;base64,{encoded_logo}"
 
 
+def _get_sidebar_logo_source() -> str:
+    """Return the first configured logo source for tests and fallback-aware callers."""
+    return get_configured_logo_url() or _get_sidebar_logo_data_uri()
+
+
 def _sidebar_logo_markup() -> str:
     configured_logo_url = get_configured_logo_url()
     local_logo = _get_sidebar_logo_data_uri()

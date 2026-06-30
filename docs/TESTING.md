@@ -84,3 +84,6 @@ O app nao deve expor credenciais do MinIO no frontend ou nos logs. Se
 `APP_LOGO_URL` estiver ausente ou o navegador nao conseguir carregar a imagem,
 a interface usa o arquivo local `images/logo.png`. Se o arquivo local tambem
 falhar, a sidebar mostra o fallback textual com as iniciais.
+
+Para ambientes com bucket privado, mantenha o bucket privado e publique apenas
+uma URL assinada/temporaria ou uma rota publica controlada em `APP_LOGO_URL`.
