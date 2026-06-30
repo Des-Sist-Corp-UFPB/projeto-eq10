@@ -159,55 +159,76 @@ AUDIT_PAGE_CSS = """
     color: #334155 !important;
     fill: #334155 !important;
 }
-.st-key-audit-page-shell [data-testid="stDataFrame"] [data-testid="stElementToolbar"],
-.st-key-audit-page-shell [data-testid="stDataFrame"] [data-testid="stElementToolbar"] button,
 .st-key-audit-page-shell [data-testid="stElementToolbar"],
-.st-key-audit-page-shell [data-testid="stElementToolbar"] button,
-.st-key-audit-page-shell .stElementToolbar,
-.st-key-audit-page-shell .stElementToolbar button,
+.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbar"] {
+    background: rgba(255, 255, 255, 0.98) !important;
+    background-color: rgba(255, 255, 255, 0.98) !important;
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 0.7rem !important;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12) !important;
+    color: #334155 !important;
+    padding: 0.18rem !important;
+}
+.st-key-audit-page-shell [data-testid="stElementToolbarButtonContainer"],
+.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbarButtonContainer"],
 .st-key-audit-page-shell [data-testid="stElementToolbarButton"],
-.st-key-audit-page-shell [data-testid="stElementToolbarButton"] button,
-.st-key-audit-page-shell [data-testid="stElementToolbarButton"] [role="button"],
-.st-key-audit-page-shell [data-testid="stDataFrame"] button[title],
-.st-key-audit-page-shell [data-testid="stDataFrame"] [role="button"] {
+.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbarButton"] {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #334155 !important;
+}
+.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"],
+.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"],
+.st-key-audit-page-shell button[kind="elementToolbar"],
+.stApp:has(.st-key-audit-page-shell) button[kind="elementToolbar"] {
     background: #FFFFFF !important;
     background-color: #FFFFFF !important;
     color: #334155 !important;
     border: 1px solid #CBD5E1 !important;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08) !important;
+    border-radius: 0.52rem !important;
+    box-shadow: none !important;
+    min-height: 1.85rem !important;
 }
-.st-key-audit-page-shell [data-testid="stDataFrame"] [data-testid="stElementToolbar"] svg,
 .st-key-audit-page-shell [data-testid="stElementToolbar"] svg,
-.st-key-audit-page-shell [data-testid="stDataFrame"] [data-testid="stElementToolbar"] path,
+.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbar"] svg,
 .st-key-audit-page-shell [data-testid="stElementToolbar"] path,
-.st-key-audit-page-shell .stElementToolbar svg,
-.st-key-audit-page-shell .stElementToolbar path,
+.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbar"] path,
 .st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"],
+.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbarButtonIcon"],
 .st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"] svg,
+.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbarButtonIcon"] svg,
 .st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"] path,
-.st-key-audit-page-shell [data-testid="stDataFrame"] button[title] svg,
-.st-key-audit-page-shell [data-testid="stDataFrame"] button[title] path,
-.st-key-audit-page-shell [data-testid="stDataFrame"] [role="button"] svg,
-.st-key-audit-page-shell [data-testid="stDataFrame"] [role="button"] path {
+.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbarButtonIcon"] path,
+.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"] svg,
+.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"] svg,
+.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"] path,
+.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"] path {
     color: #334155 !important;
     fill: #334155 !important;
 }
-.st-key-audit-page-shell [data-testid="stElementToolbar"] button:hover,
-.st-key-audit-page-shell [data-testid="stElementToolbar"] button:focus,
-.st-key-audit-page-shell .stElementToolbar button:hover,
-.st-key-audit-page-shell .stElementToolbar button:focus,
-.st-key-audit-page-shell [data-testid="stElementToolbarButton"] button:hover,
-.st-key-audit-page-shell [data-testid="stElementToolbarButton"] button:focus,
-.st-key-audit-page-shell [data-testid="stElementToolbarButton"] [role="button"]:hover,
-.st-key-audit-page-shell [data-testid="stElementToolbarButton"] [role="button"]:focus,
-.st-key-audit-page-shell [data-testid="stDataFrame"] button[title]:hover,
-.st-key-audit-page-shell [data-testid="stDataFrame"] button[title]:focus,
-.st-key-audit-page-shell [data-testid="stDataFrame"] [role="button"]:hover,
-.st-key-audit-page-shell [data-testid="stDataFrame"] [role="button"]:focus {
+.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"]:hover,
+.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"]:hover,
+.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"]:focus,
+.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"]:focus,
+.st-key-audit-page-shell button[kind="elementToolbar"]:hover,
+.stApp:has(.st-key-audit-page-shell) button[kind="elementToolbar"]:hover,
+.st-key-audit-page-shell button[kind="elementToolbar"]:focus,
+.stApp:has(.st-key-audit-page-shell) button[kind="elementToolbar"]:focus {
     background: #F8FAFC !important;
     background-color: #F8FAFC !important;
     color: #4C1D95 !important;
     border-color: #A78BFA !important;
+}
+.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"]:hover svg,
+.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"]:hover svg,
+.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"]:focus svg,
+.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"]:focus svg,
+.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"]:hover path,
+.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"]:hover path,
+.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"]:focus path,
+.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"]:focus path {
+    color: #4C1D95 !important;
+    fill: #4C1D95 !important;
 }
 
 .st-key-audit-refresh [data-testid="stButton"] button,
