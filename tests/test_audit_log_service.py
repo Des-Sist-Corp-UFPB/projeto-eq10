@@ -1,6 +1,7 @@
 import unittest
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 
 from src.audit.audit_log_service import AuditLogService, EVENT_CHAT_PROMPT, EVENT_LOGIN
 
@@ -97,6 +98,38 @@ class TestAuditLogService(unittest.TestCase):
         entries = service.get_recent_logs(limit=1)
         self.assertEqual(len(entries), 1)
         self.assertIsNone(entries[0].status)
+
+    def test_auditoria_repete_apos_falha_transiente_de_conexao(self):
+        real_engine = create_engine("sqlite+pysqlite:///:memory:")
+        AuditLogService(real_engine)
+
+        class FlakyEngine:
+            dialect = real_engine.dialect
+
+            def __init__(self):
+                self.begin_calls = 0
+
+            def begin(self):
+                self.begin_calls += 1
+                if self.begin_calls == 1:
+                    raise OperationalError("INSERT", {}, Exception("connection reset by peer"))
+                return real_engine.begin()
+
+            def connect(self):
+                return real_engine.connect()
+
+        flaky_engine = FlakyEngine()
+
+        AuditLogService(flaky_engine, initialize_schema=False).log_event(
+            EVENT_LOGIN,
+            user_id=1,
+            user_email="ana@example.com",
+        )
+
+        entries = AuditLogService(real_engine, initialize_schema=False).get_recent_logs(limit=1)
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0].evento, EVENT_LOGIN)
+        self.assertEqual(flaky_engine.begin_calls, 2)
 
 
 if __name__ == "__main__":

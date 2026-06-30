@@ -11,9 +11,12 @@ from src.auth.security import verify_password
 from src.auth.user_service import (
     AuthValidationError,
     UserService,
+    _auth_engine_options,
     _get_auth_database_url,
     get_auth_engine,
+    is_transient_database_error,
     normalize_email,
+    run_transient_db_operation,
     safe_auth_exception_summary,
 )
 
@@ -102,6 +105,44 @@ class TestAuthUserService(unittest.TestCase):
                     self.assertEqual(authenticated_user.id, created_user.id)
                 finally:
                     engine.dispose()
+
+    def test_auth_engine_usa_pool_pre_ping_e_recycle_sem_pool_timeout_no_sqlite(self):
+        sqlite_options = _auth_engine_options("sqlite+pysqlite:///:memory:")
+        postgres_options = _auth_engine_options("postgresql+psycopg2://user:pass@db/neondb")
+
+        self.assertTrue(sqlite_options["pool_pre_ping"])
+        self.assertEqual(sqlite_options["pool_recycle"], 1800)
+        self.assertNotIn("pool_timeout", sqlite_options)
+        self.assertTrue(postgres_options["pool_pre_ping"])
+        self.assertEqual(postgres_options["pool_recycle"], 1800)
+        self.assertEqual(postgres_options["pool_timeout"], 10)
+
+    def test_retry_transiente_tenta_novamente_sem_retry_para_validacao(self):
+        attempts = {"count": 0}
+
+        def flaky_operation():
+            attempts["count"] += 1
+            if attempts["count"] == 1:
+                raise OperationalError("SELECT 1", {}, Exception("connection reset by peer"))
+            return "ok"
+
+        result = run_transient_db_operation("teste", flaky_operation, sleep_func=lambda _: None)
+
+        self.assertEqual(result, "ok")
+        self.assertEqual(attempts["count"], 2)
+
+        duplicate_error = OperationalError("SELECT 1", {}, Exception("no such table: usuarios"))
+        self.assertFalse(is_transient_database_error(duplicate_error))
+
+        validation_attempts = {"count": 0}
+
+        def validation_failure():
+            validation_attempts["count"] += 1
+            raise AuthValidationError("Mensagem segura")
+
+        with self.assertRaises(AuthValidationError):
+            run_transient_db_operation("validacao", validation_failure, sleep_func=lambda _: None)
+        self.assertEqual(validation_attempts["count"], 1)
 
     def test_auth_db_env_tem_prioridade_sobre_database_url_generico(self):
         env = {

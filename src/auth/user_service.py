@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import logging
 import os
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 from urllib.parse import quote_plus
 
 from sqlalchemy import text
@@ -31,6 +33,40 @@ AUTH_CONFIG_ERROR_MESSAGE = (
 )
 
 logger = logging.getLogger(__name__)
+T = TypeVar("T")
+
+AUTH_DB_POOL_RECYCLE_SECONDS = 1800
+AUTH_DB_POOL_TIMEOUT_SECONDS = 10
+AUTH_DB_RETRY_ATTEMPTS = 3
+AUTH_DB_RETRY_BASE_DELAY_SECONDS = 0.2
+
+TRANSIENT_DB_ERROR_MARKERS = (
+    "connection reset",
+    "connection refused",
+    "connection timed out",
+    "could not connect",
+    "server closed the connection",
+    "terminating connection",
+    "connection already closed",
+    "closed connection",
+    "ssl syscall error",
+    "ssl connection has been closed",
+    "broken pipe",
+    "network is unreachable",
+    "timeout expired",
+    "timeout",
+)
+
+NON_TRANSIENT_DB_ERROR_MARKERS = (
+    "does not exist",
+    "no such table",
+    "syntax error",
+    "permission denied",
+    "insufficient privilege",
+    "duplicate key",
+    "unique constraint",
+    "foreign key constraint",
+)
 
 
 class AuthValidationError(ValueError):
@@ -173,7 +209,18 @@ def get_auth_engine():
     from sqlalchemy import create_engine
 
     logger.info("Auth database source selected | source=%s", source)
-    return create_engine(database_url)
+    return create_engine(database_url, **_auth_engine_options(database_url))
+
+
+def _auth_engine_options(database_url: str) -> dict[str, Any]:
+    """Pool options safe for auth/audit engines without breaking SQLite tests."""
+    options: dict[str, Any] = {
+        "pool_pre_ping": True,
+        "pool_recycle": AUTH_DB_POOL_RECYCLE_SECONDS,
+    }
+    if not database_url.strip().lower().startswith("sqlite"):
+        options["pool_timeout"] = AUTH_DB_POOL_TIMEOUT_SECONDS
+    return options
 
 
 def normalize_email(email: str) -> str:
@@ -418,6 +465,56 @@ def _safe_database_error_reason(exc: BaseException) -> str:
     return type(exc).__name__
 
 
+def is_transient_database_error(exc: BaseException) -> bool:
+    """Return True only for retryable connection/pool/network database failures."""
+    if not isinstance(exc, SQLAlchemyError):
+        return False
+    if isinstance(exc, (IntegrityError, ProgrammingError)):
+        return False
+
+    original = getattr(exc, "orig", exc)
+    message = str(original).casefold()
+    if any(marker in message for marker in NON_TRANSIENT_DB_ERROR_MARKERS):
+        return False
+
+    if isinstance(exc, DBAPIError) and getattr(exc, "connection_invalidated", False):
+        return True
+    if isinstance(exc, OperationalError):
+        return any(marker in message for marker in TRANSIENT_DB_ERROR_MARKERS) or not message
+
+    return any(marker in message for marker in TRANSIENT_DB_ERROR_MARKERS)
+
+
+def run_transient_db_operation(
+    action: str,
+    operation: Callable[[], T],
+    *,
+    attempts: int = AUTH_DB_RETRY_ATTEMPTS,
+    base_delay_seconds: float = AUTH_DB_RETRY_BASE_DELAY_SECONDS,
+    sleep_func: Callable[[float], None] = time.sleep,
+) -> T:
+    """Run a DB operation with short retry only for transient connection errors."""
+    max_attempts = max(1, int(attempts or 1))
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return operation()
+        except SQLAlchemyError as exc:
+            if not is_transient_database_error(exc) or attempt >= max_attempts:
+                raise
+            delay = min(base_delay_seconds * attempt, 1.0)
+            logger.warning(
+                "Erro transitorio autenticacao | acao=%s | tentativa=%s/%s | causa=%s | tipo=%s",
+                action,
+                attempt,
+                max_attempts,
+                safe_auth_exception_summary(exc),
+                type(exc).__name__,
+            )
+            sleep_func(delay)
+
+    raise RuntimeError("unreachable database retry state")
+
+
 def safe_auth_exception_summary(exc: BaseException) -> str:
     """Resumo tecnico seguro para logs de autenticacao."""
     if isinstance(exc, SQLAlchemyError):
@@ -506,7 +603,7 @@ class UserService:
         dialect = self.engine.dialect.name
         create_table_sql = _usuarios_create_table_sql(dialect)
 
-        try:
+        def operation() -> None:
             with self.engine.begin() as conn:
                 conn.execute(text(create_table_sql))
                 _drop_password_hash_not_null_if_needed(conn)
@@ -545,13 +642,17 @@ class UserService:
                     """,
                     "ux_usuarios_google_sub",
                 )
+
+        try:
+            run_transient_db_operation("ensure_schema", operation)
         except SQLAlchemyError as exc:
             _log_database_error("ensure_schema", exc)
             raise
 
     def active_email_exists(self, email: str) -> bool:
         clean_email = _validate_email(email)
-        try:
+
+        def operation() -> bool:
             with self.engine.connect() as conn:
                 active_condition = _active_user_condition(_get_usuario_columns(conn))
                 row = conn.execute(
@@ -566,11 +667,13 @@ class UserService:
                     ),
                     {"email": clean_email},
                 ).mappings().first()
+            return row is not None
+
+        try:
+            return run_transient_db_operation("active_email_exists", operation)
         except SQLAlchemyError as exc:
             _log_database_error("active_email_exists", exc)
             raise
-
-        return row is not None
 
     def _log_audit_event(
         self,
@@ -612,7 +715,7 @@ class UserService:
         clean_password = _validate_new_password(senha, confirmar_senha)
         clean_role = (role or "user").strip() or "user"
 
-        try:
+        def operation() -> Any:
             with self.engine.begin() as conn:
                 columns = _get_usuario_columns(conn)
                 active_condition = _active_user_condition(columns)
@@ -675,6 +778,10 @@ class UserService:
                     ),
                     {"email": clean_email},
                 ).mappings().first()
+            return row
+
+        try:
+            row = run_transient_db_operation("create_user", operation)
         except AuthValidationError:
             raise
         except SQLAlchemyError as exc:
@@ -714,7 +821,9 @@ class UserService:
             raise AuthValidationError("Informe sua senha.")
 
         failure_user_id: int | None = None
-        try:
+
+        def operation() -> Any:
+            nonlocal failure_user_id
             with self.engine.begin() as conn:
                 columns = _get_usuario_columns(conn)
                 soft_delete_columns = _soft_delete_select_columns(columns)
@@ -767,6 +876,10 @@ class UserService:
                     ),
                     {"id": row["id"]},
                 ).mappings().first()
+            return active_row
+
+        try:
+            active_row = run_transient_db_operation("authenticate", operation)
         except AuthValidationError:
             self._log_audit_event(
                 "login_failure",
@@ -845,8 +958,8 @@ class UserService:
         clean_name = (name or "").strip() or clean_email.split("@", 1)[0] or "Usuario"
         clean_picture = (picture or "").strip() or None
 
-        authenticated_user: UserProfile | None = None
-        try:
+        def operation() -> UserProfile:
+            authenticated_user: UserProfile | None = None
             with self.engine.begin() as conn:
                 columns = _get_usuario_columns(conn)
                 active_condition = _active_user_condition(columns)
@@ -900,6 +1013,10 @@ class UserService:
                 if authenticated_user is None:
                     user_id = self._create_google_user(conn, clean_name, clean_email, clean_sub, clean_picture, now)
                     authenticated_user = self._get_user_by_id_in_connection(conn, user_id)
+            return authenticated_user
+
+        try:
+            authenticated_user = run_transient_db_operation("authenticate_google_identity", operation)
         except AuthValidationError:
             self._log_audit_event(
                 "login_failure",
@@ -938,7 +1055,7 @@ class UserService:
         if not clean_sub:
             return None
 
-        try:
+        def operation() -> UserProfile | None:
             with self.engine.connect() as conn:
                 columns = _get_usuario_columns(conn)
                 if "google_sub" not in columns:
@@ -957,15 +1074,18 @@ class UserService:
                     ),
                     {"google_sub": clean_sub},
                 ).mappings().first()
+            return _row_to_user(row) if row else None
+
+        try:
+            return run_transient_db_operation("get_user_by_google_sub", operation)
         except SQLAlchemyError as exc:
             _log_database_error("get_user_by_google_sub", exc)
             raise
 
-        return _row_to_user(row) if row else None
-
     def get_active_user_by_email(self, email: str) -> UserProfile | None:
         clean_email = _validate_email(email)
-        try:
+
+        def operation() -> UserProfile | None:
             with self.engine.connect() as conn:
                 columns = _get_usuario_columns(conn)
                 active_condition = _active_user_condition(columns)
@@ -982,14 +1102,16 @@ class UserService:
                     ),
                     {"email": clean_email},
                 ).mappings().first()
+            return _row_to_user(row) if row else None
+
+        try:
+            return run_transient_db_operation("get_active_user_by_email", operation)
         except SQLAlchemyError as exc:
             _log_database_error("get_active_user_by_email", exc)
             raise
 
-        return _row_to_user(row) if row else None
-
     def get_user_by_id(self, user_id: int) -> UserProfile | None:
-        try:
+        def operation() -> UserProfile | None:
             with self.engine.connect() as conn:
                 active_condition = _active_user_condition(_get_usuario_columns(conn))
                 row = conn.execute(
@@ -1005,11 +1127,13 @@ class UserService:
                     ),
                     {"id": user_id},
                 ).mappings().first()
+            return _row_to_user(row) if row else None
+
+        try:
+            return run_transient_db_operation("get_user_by_id", operation)
         except SQLAlchemyError as exc:
             _log_database_error("get_user_by_id", exc)
             raise
-
-        return _row_to_user(row) if row else None
 
     def _get_user_by_id_in_connection(self, conn: Any, user_id: int) -> UserProfile:
         row = conn.execute(

@@ -11,6 +11,8 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from src.auth.user_service import run_transient_db_operation
+
 logger = logging.getLogger(__name__)
 
 # Tipos de evento suportados.
@@ -257,7 +259,7 @@ class AuditLogService:
                 criado_em    TIMESTAMP   NOT NULL
             )
         """
-        try:
+        def operation() -> None:
             with self.engine.begin() as conn:
                 conn.execute(text(sql))
                 columns = _get_audit_columns(conn, dialect)
@@ -269,6 +271,9 @@ class AuditLogService:
                     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_evento ON audit_log (evento)"))
                     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_status ON audit_log (status)"))
                     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_criado_em ON audit_log (criado_em DESC)"))
+
+        try:
+            run_transient_db_operation("audit_log.ensure_schema", operation)
         except SQLAlchemyError as exc:
             logger.warning(
                 "audit_log: falha ao criar schema | causa=%s | tipo=%s",
@@ -309,7 +314,7 @@ class AuditLogService:
             "criado_em": _now(),
         }
 
-        try:
+        def operation() -> None:
             with self.engine.begin() as conn:
                 dialect = self.engine.dialect.name
                 columns = _get_audit_columns(conn, dialect)
@@ -322,6 +327,9 @@ class AuditLogService:
                     text(f"INSERT INTO audit_log ({', '.join(insert_columns)}) VALUES ({values})"),
                     params,
                 )
+
+        try:
+            run_transient_db_operation("audit_log.log_event", operation)
         except SQLAlchemyError as exc:
             logger.warning(
                 "audit_log: falha ao registrar evento | evento=%s | user_id=%s | causa=%s | tipo=%s",
@@ -340,7 +348,7 @@ class AuditLogService:
 
     def get_recent_logs(self, limit: int = 200) -> list[AuditEntry]:
         """Retorna os eventos mais recentes em ordem decrescente."""
-        try:
+        def operation() -> list[Any]:
             with self.engine.connect() as conn:
                 fields = _select_columns(conn, self.engine.dialect.name)
                 rows = conn.execute(
@@ -354,6 +362,10 @@ class AuditLogService:
                     ),
                     {"limit": limit},
                 ).mappings().all()
+            return rows
+
+        try:
+            rows = run_transient_db_operation("audit_log.get_recent_logs", operation)
         except SQLAlchemyError as exc:
             logger.warning(
                 "audit_log: falha ao buscar logs recentes | causa=%s | tipo=%s",
@@ -366,7 +378,7 @@ class AuditLogService:
 
     def get_logs_by_user(self, user_id: int, limit: int = 100) -> list[AuditEntry]:
         """Retorna eventos associados a um usuario especifico."""
-        try:
+        def operation() -> list[Any]:
             with self.engine.connect() as conn:
                 fields = _select_columns(conn, self.engine.dialect.name)
                 rows = conn.execute(
@@ -381,6 +393,10 @@ class AuditLogService:
                     ),
                     {"user_id": user_id, "limit": limit},
                 ).mappings().all()
+            return rows
+
+        try:
+            rows = run_transient_db_operation("audit_log.get_logs_by_user", operation)
         except SQLAlchemyError as exc:
             logger.warning(
                 "audit_log: falha ao buscar logs do usuario | user_id=%s | causa=%s | tipo=%s",
