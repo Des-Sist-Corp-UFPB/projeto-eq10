@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import logging
+from contextlib import nullcontext
 from typing import Any
 
 import streamlit as st
@@ -17,7 +18,10 @@ logger = logging.getLogger(__name__)
 
 HEADER_CSS = """
 <style>
-    [data-testid="stPopover"] > button {
+    .st-key-auth-header-actions [data-testid="stPopover"] > button,
+    .st-key-auth-header-actions [data-testid="stPopover"] button,
+    .st-key-auth-header-actions [data-testid="stPopover"] [role="button"],
+    .st-key-auth-header-actions [data-testid="stPopover"] [data-testid="baseButton-secondary"] {
         border: 1px solid rgba(123, 44, 191, 0.20) !important;
         border-radius: 0.85rem !important;
         background: #FFFFFF !important;
@@ -28,12 +32,21 @@ HEADER_CSS = """
         min-height: 2.45rem !important;
     }
 
-    [data-testid="stPopover"] > button * {
+    .st-key-auth-header-actions [data-testid="stPopover"] > button *,
+    .st-key-auth-header-actions [data-testid="stPopover"] button *,
+    .st-key-auth-header-actions [data-testid="stPopover"] [role="button"] *,
+    .st-key-auth-header-actions [data-testid="stPopover"] [data-testid="baseButton-secondary"] * {
         color: #4C1D95 !important;
     }
 
-    [data-testid="stPopover"] > button:hover,
-    [data-testid="stPopover"] > button:focus {
+    .st-key-auth-header-actions [data-testid="stPopover"] > button:hover,
+    .st-key-auth-header-actions [data-testid="stPopover"] > button:focus,
+    .st-key-auth-header-actions [data-testid="stPopover"] button:hover,
+    .st-key-auth-header-actions [data-testid="stPopover"] button:focus,
+    .st-key-auth-header-actions [data-testid="stPopover"] [role="button"]:hover,
+    .st-key-auth-header-actions [data-testid="stPopover"] [role="button"]:focus,
+    .st-key-auth-header-actions [data-testid="stPopover"] [data-testid="baseButton-secondary"]:hover,
+    .st-key-auth-header-actions [data-testid="stPopover"] [data-testid="baseButton-secondary"]:focus {
         border-color: rgba(37, 99, 235, 0.34) !important;
         background: #F8FAFC !important;
         background-color: #F8FAFC !important;
@@ -157,6 +170,13 @@ def _render_header_style() -> None:
     st.markdown(HEADER_CSS, unsafe_allow_html=True)
 
 
+def _auth_header_actions_container():
+    try:
+        return st.container(key="auth-header-actions")
+    except (AttributeError, TypeError):
+        return nullcontext()
+
+
 def _log_logout_audit(user: dict[str, Any]) -> None:
     try:
         from src.audit.audit_log_service import AuditLogService, EVENT_LOGOUT
@@ -206,26 +226,27 @@ def render_auth_header() -> None:
             )
 
     with right_column:
-        if not user:
-            if st.button("Entrar", key="auth-header-login", use_container_width=True):
-                open_auth_modal(mode="login")
-                st.rerun()
-            return
+        with _auth_header_actions_container():
+            if not user:
+                if st.button("Entrar", key="auth-header-login", use_container_width=True):
+                    open_auth_modal(mode="login")
+                    st.rerun()
+                return
 
-        profile_label = _escape_text(user.get("nome") or "Perfil")
-        with st.popover(f"Perfil · {profile_label}", use_container_width=True):
-            st.markdown('<div class="profile-menu">', unsafe_allow_html=True)
-            st.markdown(
-                f'<p class="profile-menu-email">{_escape_text(user["email"])}</p>',
-                unsafe_allow_html=True,
-            )
-            if st.button("Meu perfil", key="auth-menu-profile", use_container_width=True):
-                set_auth_panel("profile")
-                st.rerun()
-            if st.button("Sair", key="auth-menu-logout", use_container_width=True):
-                _log_logout_audit(user)
-                logout_session(st.session_state)
-                set_auth_panel(None)
-                queue_toast(st.session_state, "Sessão encerrada.")
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+            profile_label = _escape_text(user.get("nome") or "Perfil")
+            with st.popover(f"Perfil · {profile_label}", use_container_width=True):
+                st.markdown('<div class="profile-menu">', unsafe_allow_html=True)
+                st.markdown(
+                    f'<p class="profile-menu-email">{_escape_text(user["email"])}</p>',
+                    unsafe_allow_html=True,
+                )
+                if st.button("Meu perfil", key="auth-menu-profile", use_container_width=True):
+                    set_auth_panel("profile")
+                    st.rerun()
+                if st.button("Sair", key="auth-menu-logout", use_container_width=True):
+                    _log_logout_audit(user)
+                    logout_session(st.session_state)
+                    set_auth_panel(None)
+                    queue_toast(st.session_state, "Sessão encerrada.")
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
