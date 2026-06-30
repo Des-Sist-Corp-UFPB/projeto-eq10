@@ -69,3 +69,18 @@ python scripts\coverage_unittest.py --fail-under 85
 - Nao depender de internet.
 - Usar mocks, fakes e bancos SQLite temporarios ou em memoria.
 - Nao validar cobertura excluindo codigo importante apenas para inflar percentual.
+
+## Logo da aplicacao
+
+O logo exibido na interface deve vir, preferencialmente, de `APP_LOGO_URL`.
+Esse valor precisa apontar para uma URL publica de leitura ou para uma URL
+assinada valida do objeto, por exemplo um link direto para `logo.png`.
+
+O bucket MinIO pode continuar privado para uploads e administracao. Nesse caso,
+nao use a URL do console/browser privado como logo publico. Gere uma URL
+assinada ou configure uma URL publica segura em `APP_LOGO_URL`.
+
+O app nao deve expor credenciais do MinIO no frontend ou nos logs. Se
+`APP_LOGO_URL` estiver ausente ou o navegador nao conseguir carregar a imagem,
+a interface usa o arquivo local `images/logo.png`. Se o arquivo local tambem
+falhar, a sidebar mostra o fallback textual com as iniciais.

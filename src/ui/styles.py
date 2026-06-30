@@ -17,21 +17,12 @@ LOGO_URL_ENV_VARS = (
     "MINIO_APP_LOGO_URL",
     "LOGO_URL",
 )
-MINIO_LOGO_ENDPOINT_ENV_VARS = (
-    "MINIO_LOGO_ENDPOINT",
-    "MINIO_PUBLIC_ENDPOINT",
-    "MINIO_ENDPOINT",
-)
-MINIO_LOGO_BUCKET_ENV_VARS = (
-    "MINIO_LOGO_BUCKET",
-    "MINIO_BUCKET",
-)
+MINIO_LOGO_ENDPOINT_ENV_VARS = ("MINIO_LOGO_ENDPOINT",)
+MINIO_LOGO_BUCKET_ENV_VARS = ("MINIO_LOGO_BUCKET",)
 MINIO_LOGO_OBJECT_ENV_VARS = (
     "MINIO_LOGO_OBJECT",
     "MINIO_LOGO_FILENAME",
-    "MINIO_OBJECT_NAME",
 )
-DEFAULT_MINIO_LOGO_BROWSER_URL = "https://minio.dsc.rodrigor.com/browser/eq10/logo.png"
 DEFAULT_MINIO_LOGO_BUCKET = "eq10"
 DEFAULT_MINIO_LOGO_OBJECT = "logo.png"
 AUDIT_PAGE_SCOPE = ".st-key-audit-page-shell"
@@ -155,14 +146,20 @@ AUDIT_PAGE_CSS = """
     color: #111827 !important;
 }
 .st-key-audit-page-shell [data-testid="stDataFrame"] [role="columnheader"] {
-    background: #F8FAFC !important;
+    background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
     color: #334155 !important;
     border-color: #E2E8F0 !important;
 }
 .st-key-audit-page-shell [data-testid="stDataFrame"] [data-testid="stElementToolbar"],
 .st-key-audit-page-shell [data-testid="stDataFrame"] [data-testid="stElementToolbar"] button,
 .st-key-audit-page-shell [data-testid="stElementToolbar"],
-.st-key-audit-page-shell [data-testid="stElementToolbar"] button {
+.st-key-audit-page-shell [data-testid="stElementToolbar"] button,
+.st-key-audit-page-shell .stElementToolbar,
+.st-key-audit-page-shell .stElementToolbar button,
+.st-key-audit-page-shell [data-testid="stElementToolbarButton"],
+.st-key-audit-page-shell [data-testid="stElementToolbarButton"] button,
+.st-key-audit-page-shell [data-testid="stElementToolbarButton"] [role="button"] {
     background: #FFFFFF !important;
     background-color: #FFFFFF !important;
     color: #334155 !important;
@@ -172,9 +169,27 @@ AUDIT_PAGE_CSS = """
 .st-key-audit-page-shell [data-testid="stDataFrame"] [data-testid="stElementToolbar"] svg,
 .st-key-audit-page-shell [data-testid="stElementToolbar"] svg,
 .st-key-audit-page-shell [data-testid="stDataFrame"] [data-testid="stElementToolbar"] path,
-.st-key-audit-page-shell [data-testid="stElementToolbar"] path {
+.st-key-audit-page-shell [data-testid="stElementToolbar"] path,
+.st-key-audit-page-shell .stElementToolbar svg,
+.st-key-audit-page-shell .stElementToolbar path,
+.st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"],
+.st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"] svg,
+.st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"] path {
     color: #334155 !important;
     fill: #334155 !important;
+}
+.st-key-audit-page-shell [data-testid="stElementToolbar"] button:hover,
+.st-key-audit-page-shell [data-testid="stElementToolbar"] button:focus,
+.st-key-audit-page-shell .stElementToolbar button:hover,
+.st-key-audit-page-shell .stElementToolbar button:focus,
+.st-key-audit-page-shell [data-testid="stElementToolbarButton"] button:hover,
+.st-key-audit-page-shell [data-testid="stElementToolbarButton"] button:focus,
+.st-key-audit-page-shell [data-testid="stElementToolbarButton"] [role="button"]:hover,
+.st-key-audit-page-shell [data-testid="stElementToolbarButton"] [role="button"]:focus {
+    background: #F8FAFC !important;
+    background-color: #F8FAFC !important;
+    color: #4C1D95 !important;
+    border-color: #A78BFA !important;
 }
 
 .st-key-audit-refresh [data-testid="stButton"] button,
@@ -237,9 +252,6 @@ def get_configured_logo_url(environ: dict[str, str] | None = None) -> str:
     built_url = _build_minio_logo_url(env)
     if built_url:
         return built_url
-
-    if environ is None:
-        return _normalize_logo_url(DEFAULT_MINIO_LOGO_BROWSER_URL)
 
     return ""
 

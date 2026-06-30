@@ -48,26 +48,35 @@ def _get_sidebar_logo_data_uri() -> str:
     return f"data:image/png;base64,{encoded_logo}"
 
 
-def _get_sidebar_logo_source() -> str:
-    configured_logo_url = get_configured_logo_url()
-    if configured_logo_url:
-        return configured_logo_url
-
-    local_logo = _get_sidebar_logo_data_uri()
-    if not local_logo:
-        logger.debug("Sidebar logo URL not configured or invalid; using text fallback.")
-    return local_logo
-
-
 def _sidebar_logo_markup() -> str:
-    logo_source = _get_sidebar_logo_source()
-    if not logo_source:
+    configured_logo_url = get_configured_logo_url()
+    local_logo = _get_sidebar_logo_data_uri()
+
+    if not configured_logo_url and not local_logo:
+        logger.debug("Sidebar logo URL/local logo not available; using text fallback.")
         return '<span class="brand-logo-fallback">SM</span>'
 
-    safe_logo_source = html.escape(logo_source, quote=True)
+    if not configured_logo_url:
+        safe_local_logo = html.escape(local_logo, quote=True)
+        return (
+            f'<img class="brand-logo" src="{safe_local_logo}" alt="Brasao de Mamanguape" '
+            'onerror="this.hidden=true;this.nextElementSibling.hidden=false;">'
+            '<span class="brand-logo-fallback" hidden>SM</span>'
+        )
+
+    safe_logo_source = html.escape(configured_logo_url, quote=True)
+    if not local_logo:
+        return (
+            f'<img class="brand-logo" src="{safe_logo_source}" alt="Brasao de Mamanguape" '
+            'onerror="this.hidden=true;this.nextElementSibling.hidden=false;">'
+            '<span class="brand-logo-fallback" hidden>SM</span>'
+        )
+
+    safe_local_logo = html.escape(local_logo, quote=True)
     return (
         f'<img class="brand-logo" src="{safe_logo_source}" alt="Brasao de Mamanguape" '
-        'onerror="this.hidden=true;this.nextElementSibling.hidden=false;">'
+        f'onerror="this.onerror=function(){{this.hidden=true;this.nextElementSibling.hidden=false;}};'
+        f'this.src=\'{safe_local_logo}\';">'
         '<span class="brand-logo-fallback" hidden>SM</span>'
     )
 
