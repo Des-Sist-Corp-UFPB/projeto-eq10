@@ -149,10 +149,12 @@ class TestAdminPageUi(unittest.TestCase):
         self.assertIn('[data-testid="stDataFrame"]', combined_source)
         self.assertIn('[data-testid="stDateInput"] input', combined_source)
         self.assertIn('[data-testid="stSelectbox"] div[data-baseweb="select"] > div', combined_source)
+        self.assertIn('key="audit-logs-dataframe"', admin_source)
+        self.assertIn(".st-key-audit-logs-dataframe", styles_source)
         self.assertIn('[data-testid="stElementToolbar"]', combined_source)
-        self.assertIn('button[data-testid="stBaseButton-elementToolbar"]', combined_source)
-        self.assertIn('button[kind="elementToolbar"]', combined_source)
-        self.assertIn(".stApp:has(.st-key-audit-page-shell)", combined_source)
+        self.assertIn("display: none !important", styles_source)
+        self.assertNotIn('button[data-testid="stBaseButton-elementToolbar"]', styles_source)
+        self.assertNotIn('button[kind="elementToolbar"]', styles_source)
         self.assertIn("background: #FFFFFF !important", combined_source)
 
     def test_audit_status_labels_and_colors_are_standardized(self):

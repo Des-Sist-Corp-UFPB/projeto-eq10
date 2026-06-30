@@ -159,76 +159,10 @@ AUDIT_PAGE_CSS = """
     color: #334155 !important;
     fill: #334155 !important;
 }
-.st-key-audit-page-shell [data-testid="stElementToolbar"],
-.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbar"] {
-    background: rgba(255, 255, 255, 0.98) !important;
-    background-color: rgba(255, 255, 255, 0.98) !important;
-    border: 1px solid #CBD5E1 !important;
-    border-radius: 0.7rem !important;
-    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12) !important;
-    color: #334155 !important;
-    padding: 0.18rem !important;
-}
-.st-key-audit-page-shell [data-testid="stElementToolbarButtonContainer"],
-.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbarButtonContainer"],
-.st-key-audit-page-shell [data-testid="stElementToolbarButton"],
-.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbarButton"] {
-    background: transparent !important;
-    background-color: transparent !important;
-    color: #334155 !important;
-}
-.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"],
-.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"],
-.st-key-audit-page-shell button[kind="elementToolbar"],
-.stApp:has(.st-key-audit-page-shell) button[kind="elementToolbar"] {
-    background: #FFFFFF !important;
-    background-color: #FFFFFF !important;
-    color: #334155 !important;
-    border: 1px solid #CBD5E1 !important;
-    border-radius: 0.52rem !important;
-    box-shadow: none !important;
-    min-height: 1.85rem !important;
-}
-.st-key-audit-page-shell [data-testid="stElementToolbar"] svg,
-.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbar"] svg,
-.st-key-audit-page-shell [data-testid="stElementToolbar"] path,
-.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbar"] path,
-.st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"],
-.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbarButtonIcon"],
-.st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"] svg,
-.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbarButtonIcon"] svg,
-.st-key-audit-page-shell [data-testid="stElementToolbarButtonIcon"] path,
-.stApp:has(.st-key-audit-page-shell) [data-testid="stElementToolbarButtonIcon"] path,
-.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"] svg,
-.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"] svg,
-.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"] path,
-.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"] path {
-    color: #334155 !important;
-    fill: #334155 !important;
-}
-.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"]:hover,
-.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"]:hover,
-.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"]:focus,
-.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"]:focus,
-.st-key-audit-page-shell button[kind="elementToolbar"]:hover,
-.stApp:has(.st-key-audit-page-shell) button[kind="elementToolbar"]:hover,
-.st-key-audit-page-shell button[kind="elementToolbar"]:focus,
-.stApp:has(.st-key-audit-page-shell) button[kind="elementToolbar"]:focus {
-    background: #F8FAFC !important;
-    background-color: #F8FAFC !important;
-    color: #4C1D95 !important;
-    border-color: #A78BFA !important;
-}
-.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"]:hover svg,
-.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"]:hover svg,
-.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"]:focus svg,
-.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"]:focus svg,
-.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"]:hover path,
-.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"]:hover path,
-.st-key-audit-page-shell button[data-testid="stBaseButton-elementToolbar"]:focus path,
-.stApp:has(.st-key-audit-page-shell) button[data-testid="stBaseButton-elementToolbar"]:focus path {
-    color: #4C1D95 !important;
-    fill: #4C1D95 !important;
+.st-key-audit-logs-dataframe [data-testid="stElementToolbar"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 .st-key-audit-refresh [data-testid="stButton"] button,
@@ -330,9 +264,8 @@ def _normalize_logo_url(value: str) -> str:
 
     parsed = urlparse(value)
     path_parts = [part for part in parsed.path.split("/") if part]
-    if len(path_parts) >= 3 and path_parts[0] == "browser":
-        path = "/" + "/".join(path_parts[1:])
-        return urlunparse(parsed._replace(path=path, params="", query="", fragment=""))
+    if path_parts and path_parts[0] == "browser":
+        return ""
 
     return value
 

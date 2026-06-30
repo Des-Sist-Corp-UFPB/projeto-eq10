@@ -737,12 +737,13 @@ def _render_audit_table(entries: list) -> None:
 
     table_height = max(150, min(460, 38 * (len(entries) + 1)))
     table_data = _audit_table_data(entries)
-    st.dataframe(
-        _style_audit_table_data(table_data),
-        use_container_width=True,
-        hide_index=True,
-        height=table_height,
-    )
+    with st.container(key="audit-logs-dataframe"):
+        st.dataframe(
+            _style_audit_table_data(table_data),
+            use_container_width=True,
+            hide_index=True,
+            height=table_height,
+        )
 
     detail_cols = st.columns([3, 1])
     with detail_cols[0]:

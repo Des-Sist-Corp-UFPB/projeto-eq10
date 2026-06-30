@@ -87,3 +87,5 @@ falhar, a sidebar mostra o fallback textual com as iniciais.
 
 Para ambientes com bucket privado, mantenha o bucket privado e publique apenas
 uma URL assinada/temporaria ou uma rota publica controlada em `APP_LOGO_URL`.
+O arquivo `images/logo.png` e um fallback estatico versionado no repositorio,
+entao a producao nao depende de credenciais MinIO para exibir o logo.

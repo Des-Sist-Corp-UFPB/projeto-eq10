@@ -131,20 +131,45 @@ class TestStreamlitUiExecution(unittest.TestCase):
     def test_sidebar_prefers_configured_public_logo_url(self):
         fake_st = _FakeSt()
         logo_url = "https://minio.example.test/public/logo.png"
+        local_logo = "data:image/png;base64,old"
 
         with (
             patch.object(sidebar, "st", fake_st),
             patch.object(sidebar, "get_authenticated_user", return_value=None),
-            patch.object(sidebar, "_get_sidebar_logo_data_uri", return_value="data:image/png;base64,old"),
+            patch.object(sidebar, "_get_sidebar_logo_data_uri", return_value=local_logo),
             patch.dict("os.environ", {"APP_LOGO_URL": logo_url}, clear=False),
         ):
             sidebar.render_sidebar(sidebar.DEFAULT_PAGE)
 
         rendered = "\n".join(body for body, _ in fake_st.markdowns)
         self.assertIn(logo_url, rendered)
+        self.assertIn(f'src="{local_logo}"', rendered)
+        self.assertIn(f'data-remote-logo="{logo_url}"', rendered)
         self.assertIn('<img class="brand-logo"', rendered)
         self.assertIn("brand-logo-fallback", rendered)
         self.assertIn("onerror=", rendered)
+        self.assertIn("logoRemoteTried", rendered)
+
+    def test_sidebar_uses_local_logo_when_public_url_is_missing_or_invalid(self):
+        fake_st = _FakeSt()
+        local_logo = "data:image/png;base64,committed"
+
+        with (
+            patch.object(sidebar, "st", fake_st),
+            patch.object(sidebar, "get_authenticated_user", return_value=None),
+            patch.object(sidebar, "_get_sidebar_logo_data_uri", return_value=local_logo),
+            patch.dict(
+                "os.environ",
+                {"APP_LOGO_URL": "https://minio.example.test/browser/eq10/logo.png"},
+                clear=False,
+            ),
+        ):
+            sidebar.render_sidebar(sidebar.DEFAULT_PAGE)
+
+        rendered = "\n".join(body for body, _ in fake_st.markdowns)
+        self.assertIn(f'src="{local_logo}"', rendered)
+        self.assertNotIn("data-remote-logo", rendered)
+        self.assertIn("brand-logo-fallback", rendered)
 
     def test_logo_url_config_accepts_only_safe_public_urls(self):
         self.assertEqual(
@@ -153,6 +178,7 @@ class TestStreamlitUiExecution(unittest.TestCase):
         )
         self.assertEqual(styles.get_configured_logo_url({"APP_LOGO_URL": "javascript:alert(1)"}), "")
         self.assertEqual(styles.get_configured_logo_url({"APP_LOGO_URL": "file:///tmp/logo.png"}), "")
+        self.assertEqual(styles.get_configured_logo_url({"APP_LOGO_URL": "https://minio.example.test/browser/eq10/logo.png"}), "")
 
     def test_shared_light_styles_cover_deployed_dark_widget_overrides(self):
         self.assertIn("GLOBAL_LIGHT_THEME_CSS", styles.__dict__)

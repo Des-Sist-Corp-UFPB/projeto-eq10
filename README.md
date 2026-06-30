@@ -87,7 +87,8 @@ O projeto usa integracoes externas reais ou configuraveis, sempre por variaveis 
 - Uso: exibir o logo institucional da aplicacao quando houver uma URL publica ou assinada.
 - Implementacao: `src/ui/styles.py` e `src/ui/sidebar.py`.
 - Variavel preferida: `APP_LOGO_URL`.
-- O bucket MinIO pode permanecer privado para upload/administracao; nesse caso use uma URL assinada ou uma rota publica controlada. Credenciais MinIO nao devem ser expostas no app.
+- Fallback local versionado: `images/logo.png`.
+- O bucket MinIO pode permanecer privado para upload/administracao; nesse caso use uma URL assinada ou uma rota publica controlada. Se a URL nao estiver publica/acessivel, o app usa `images/logo.png`. Credenciais MinIO nao devem ser expostas no app.
 
 ## Cobertura de Testes
 

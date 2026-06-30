@@ -79,9 +79,13 @@ def _sidebar_logo_markup() -> str:
 
     safe_local_logo = html.escape(local_logo, quote=True)
     return (
-        f'<img class="brand-logo" src="{safe_logo_source}" alt="Brasao de Mamanguape" '
-        f'onerror="this.onerror=function(){{this.hidden=true;this.nextElementSibling.hidden=false;}};'
-        f'this.src=\'{safe_local_logo}\';">'
+        f'<img class="brand-logo" src="{safe_local_logo}" data-remote-logo="{safe_logo_source}" '
+        'alt="Brasao de Mamanguape" '
+        'onload="if(this.dataset.remoteLogo&&!this.dataset.logoRemoteTried){'
+        "this.dataset.logoRemoteTried='1';var localLogo=this.src;"
+        "this.onerror=function(){this.onerror=null;this.src=localLogo;};"
+        'this.src=this.dataset.remoteLogo;}" '
+        'onerror="this.hidden=true;this.nextElementSibling.hidden=false;">'
         '<span class="brand-logo-fallback" hidden>SM</span>'
     )
 
