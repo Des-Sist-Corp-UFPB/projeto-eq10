@@ -26,6 +26,81 @@ Veja detalhes em: [docs/IA_PANDASAI.md](docs/IA_PANDASAI.md)
 
 Interface experimental: `streamlit run app_ai_chat.py`
 
+## Log de Auditoria
+
+O projeto possui um modulo de log de auditoria para registrar eventos de seguranca, autenticacao, administracao e uso do Chat IA sem expor senhas, tokens ou segredos.
+
+O que e auditado:
+
+- autenticacao: login, falha de login e logout;
+- contas: criacao, desativacao, reativacao, troca de e-mail e redefinicao de senha;
+- autorizacao/admin: acesso negado a area de auditoria, alteracao de papel e concessao/revogacao de permissao de auditoria;
+- Chat IA: prompt enviado, prompt bloqueado pelo guardrail e erro seguro de processamento;
+- sistema: falha resumida de conexao com banco ou envio de e-mail.
+
+Onde fica armazenado:
+
+- tabela de aplicacao `audit_log`;
+- principais campos: `id`, `evento`, `status`, `user_id`, `user_email`, `prompt_text`, `detalhe`, `source`, `action`, `criado_em`.
+
+Como foi implementado:
+
+- servico dedicado em `src/audit/audit_log_service.py`;
+- chamadas seguras e nao bloqueantes a partir de fluxos do app, como `app_ai_chat.py`, `src/ui/header.py`, `src/auth/user_service.py`, `src/auth/pending_registration_service.py`, `src/auth/password_reset_service.py` e `src/auth/email_verification_service.py`;
+- a visualizacao administrativa fica em `src/ui/admin_page.py` e a permissao de acesso e controlada por `src/auth/roles.py` e `src/ui/sidebar.py`.
+
+Como visualizar/usar:
+
+- execute `streamlit run app_ai_chat.py`;
+- entre com um usuario autorizado (`role` igual a `admin` ou `super_admin`, ou `can_view_audit=true`);
+- acesse a pagina **Auditoria** na sidebar;
+- usuarios nao autenticados ou sem permissao nao veem nem acessam a pagina de auditoria.
+
+## Integracoes Externas
+
+O projeto usa integracoes externas reais ou configuraveis, sempre por variaveis de ambiente e sem versionar credenciais.
+
+### Chat IA / Provedor LLM
+
+- Uso: responder perguntas analiticas controladas sobre a view somente leitura `vw_data_sus_ia`.
+- Implementacao: `src/ai/pandasai_runner.py`, `src/ai/datasus_ai.py`, `src/ai/prompt_guard.py`, `src/ai/simple_stats_runner.py`.
+- Provedores suportados/configuraveis: OpenAI, Gemini e OpenRouter via PandasAI/LiteLLM.
+- Variaveis principais: `AI_USE_LLM`, `AI_LLM_PROVIDER`, `AI_LLM_MODEL`, `AI_LLM_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`.
+- Modo seguro/local: `AI_USE_LLM=false` usa respostas estatisticas simples sem chamar API externa.
+
+### E-mail SMTP
+
+- Uso: envio de codigo/link para cadastro, verificacao, alteracao de e-mail, recuperacao de senha e reativacao de conta.
+- Implementacao: `src/auth/email_service.py`, integrado por `src/auth/pending_registration_service.py`, `src/auth/password_reset_service.py`, `src/auth/email_change_service.py`, `src/auth/email_verification_service.py` e `src/auth/account_reactivation_service.py`.
+- Variaveis principais: `EMAIL_ENABLED`, `EMAIL_PROVIDER`, `EMAIL_FROM`, `EMAIL_SMTP_HOST`, `EMAIL_SMTP_PORT`, `EMAIL_SMTP_USERNAME`, `EMAIL_SMTP_PASSWORD`, `EMAIL_USE_TLS`, `APP_PUBLIC_BASE_URL`.
+- Padrao seguro: `EMAIL_ENABLED=false`, sem envio real.
+
+### Google OAuth / OpenID Connect
+
+- Uso: login/cadastro com Google quando habilitado.
+- Implementacao: `src/auth/google_oauth_service.py`, com integracao de usuario em `src/auth/user_service.py` e callback tratado em `app_ai_chat.py`.
+- Variaveis principais: `GOOGLE_OAUTH_ENABLED`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`.
+- O sistema usa `google_sub` como identificador estavel e exige e-mail verificado pelo Google.
+
+### MinIO / Object Storage para logo
+
+- Uso: exibir o logo institucional da aplicacao quando houver uma URL publica ou assinada.
+- Implementacao: `src/ui/styles.py` e `src/ui/sidebar.py`.
+- Variavel preferida: `APP_LOGO_URL`.
+- O bucket MinIO pode permanecer privado para upload/administracao; nesse caso use uma URL assinada ou uma rota publica controlada. Credenciais MinIO nao devem ser expostas no app.
+
+## Cobertura de Testes
+
+A cobertura automatizada da avaliacao esta registrada em `cobertura/coverage-report.txt`.
+
+Comando usado para gerar o relatorio:
+
+```powershell
+python scripts/coverage_unittest.py --fail-under 85
+```
+
+Resultado atual do relatorio em `cobertura/coverage-report.txt`: **85,5%** de cobertura total de linhas.
+
 ## Execucao rapida
 
 Requisitos principais:
