@@ -19,6 +19,7 @@ RUN python -m pip install --upgrade pip \
 RUN apt-get update && apt-get install -y nginx && rm -rf /var/lib/apt/lists/*
 
 COPY app_ai_chat.py ./
+COPY loadtest ./loadtest
 COPY scripts ./scripts
 COPY src ./src
 COPY nginx.conf /etc/nginx/nginx.conf

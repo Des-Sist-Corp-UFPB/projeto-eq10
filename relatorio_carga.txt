@@ -1,0 +1,107 @@
+Relatorio de teste de carga Streamlit
+Gerado em: 2026-07-01 13:22:02 +0000
+URL base testada: http://localhost:8080
+Operacoes por usuario simultaneo: 3
+Timeout HTTP por operacao: 3s
+Parada por p95: >= 1.0s
+Parada por taxa de erro alta: >= 20%
+Escritas internas habilitadas: sim
+
+Interpretacao:
+- Testes HTTP medem acesso concorrente a interface Streamlit por GET.
+- Testes internos chamam servicos Python do projeto e medem logica/banco, nao renderizacao do navegador.
+- Streamlit nao expoe endpoints REST diretos para formularios; por isso cadastro/login/chat real nao sao testados via POST HTTP.
+- O chat interno usa resposta mockada local e nao chama IA externa real.
+- O script nao registra senhas, tokens ou segredos no relatorio.
+- Rode preferencialmente contra ambiente local, nunca contra producao compartilhada.
+
+## Cenario: Servico interno: criacao de usuario (user_create)
+Grupo: internal
+Objetivo: Chamar UserService.create_user com e-mails ficticios unicos.
+Tipo: servico interno/logica+banco
+Escrita no banco: sim
+
+usuarios | operacoes | erros | erro_% | status | media_s | p95_s | p99_s | max_s | observacao
+---------|-----------|-------|--------|--------|---------|-------|-------|-------|-----------
+       1 |         3 |     0 |   0.0% | CREATED=3 |   0.163 | 0.163 | 0.163 | 0.163 | 
+       2 |         6 |     0 |   0.0% | CREATED=6 |   0.178 | 0.172 | 0.172 | 0.211 | 
+       5 |        15 |     0 |   0.0% | CREATED=15 |   0.269 | 0.349 | 0.349 | 0.394 | 
+
+O p95 nao passou de 1s nas cargas testadas.
+Maior carga estavel abaixo de 1s: 5 usuarios simultaneos (p95=0.349s, erros=0.0%).
+
+Alvos/operações realizadas:
+- 1 usuarios: servico interno/logica+banco -> CREATED=3
+- 2 usuarios: servico interno/logica+banco -> CREATED=6
+- 5 usuarios: servico interno/logica+banco -> CREATED=15
+
+## Cenario: Servico interno: login/autenticacao (auth_login)
+Grupo: internal
+Objetivo: Chamar UserService.authenticate com usuario de teste criado pelo script.
+Tipo: servico interno/logica+banco
+Escrita no banco: sim
+Observacao: A senha de teste e gerada em memoria por execucao e nunca e gravada no relatorio.
+
+usuarios | operacoes | erros | erro_% | status | media_s | p95_s | p99_s | max_s | observacao
+---------|-----------|-------|--------|--------|---------|-------|-------|-------|-----------
+       1 |         3 |     0 |   0.0% | AUTH_OK=3 |   0.164 | 0.163 | 0.163 | 0.170 | 
+       2 |         6 |     0 |   0.0% | AUTH_OK=6 |   0.183 | 0.193 | 0.193 | 0.214 | 
+       5 |        15 |     0 |   0.0% | AUTH_OK=15 |   0.267 | 0.344 | 0.344 | 0.386 | 
+
+O p95 nao passou de 1s nas cargas testadas.
+Maior carga estavel abaixo de 1s: 5 usuarios simultaneos (p95=0.344s, erros=0.0%).
+
+Alvos/operações realizadas:
+- 1 usuarios: servico interno/logica+banco -> AUTH_OK=3
+- 2 usuarios: servico interno/logica+banco -> AUTH_OK=6
+- 5 usuarios: servico interno/logica+banco -> AUTH_OK=15
+
+## Cenario: Servico interno: leitura de auditoria (audit_read)
+Grupo: internal
+Objetivo: Chamar AuditLogService.get_recent_logs para medir leitura de auditoria.
+Tipo: servico interno/leitura banco
+Escrita no banco: nao
+
+usuarios | operacoes | erros | erro_% | status | media_s | p95_s | p99_s | max_s | observacao
+---------|-----------|-------|--------|--------|---------|-------|-------|-------|-----------
+       1 |         3 |     0 |   0.0% | READ_OK=3 |   0.005 | 0.005 | 0.005 | 0.005 | 
+       2 |         6 |     0 |   0.0% | READ_OK=6 |   0.004 | 0.004 | 0.004 | 0.005 | 
+       5 |        15 |     0 |   0.0% | READ_OK=15 |   0.051 | 0.084 | 0.084 | 0.090 | 
+
+O p95 nao passou de 1s nas cargas testadas.
+Maior carga estavel abaixo de 1s: 5 usuarios simultaneos (p95=0.084s, erros=0.0%).
+
+Alvos/operações realizadas:
+- 1 usuarios: servico interno/leitura banco -> READ_OK=3
+- 2 usuarios: servico interno/leitura banco -> READ_OK=6
+- 5 usuarios: servico interno/leitura banco -> READ_OK=15
+
+## Cenario: Servico interno: chat com provider mockado (chat_mock)
+Grupo: internal
+Objetivo: Criar sessao e mensagens de chat com resposta mockada, sem chamar IA externa.
+Tipo: servico interno/logica+banco
+Escrita no banco: sim
+Observacao: Nao chama LLM nem provider externo. O teste exercita persistencia de historico com uma resposta local fixa.
+Nota: Limpeza: 24/24 sessoes de chat marcadas como deletadas.
+Nota: Limpeza: 26/26 usuarios de teste marcados como deletados.
+
+usuarios | operacoes | erros | erro_% | status | media_s | p95_s | p99_s | max_s | observacao
+---------|-----------|-------|--------|--------|---------|-------|-------|-------|-----------
+       1 |         3 |     0 |   0.0% | CHAT_MOCK_OK=3 |   0.056 | 0.056 | 0.056 | 0.058 | 
+       2 |         6 |     0 |   0.0% | CHAT_MOCK_OK=6 |   0.115 | 0.065 | 0.065 | 0.401 | 
+       5 |        15 |     0 |   0.0% | CHAT_MOCK_OK=15 |   0.262 | 0.702 | 0.702 | 0.908 | 
+
+O p95 nao passou de 1s nas cargas testadas.
+Maior carga estavel abaixo de 1s: 5 usuarios simultaneos (p95=0.702s, erros=0.0%).
+
+Alvos/operações realizadas:
+- 1 usuarios: servico interno/logica+banco -> CHAT_MOCK_OK=3
+- 2 usuarios: servico interno/logica+banco -> CHAT_MOCK_OK=6
+- 5 usuarios: servico interno/logica+banco -> CHAT_MOCK_OK=15
+
+Como rodar:
+python loadtest/streamlit_load_test.py --url http://localhost:8080 --scenario http
+python loadtest/streamlit_load_test.py --scenario internal --allow-internal-writes
+python loadtest/streamlit_load_test.py --scenario audit_read
+python loadtest/streamlit_load_test.py --scenario all --users 1,2,5 --allow-internal-writes
+python loadtest/streamlit_load_test.py --scenario http --max-users 1000 --step 100

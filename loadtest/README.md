@@ -115,3 +115,103 @@ No README principal do projeto, descreva brevemente:
 - Quais rotas foram testadas e com quantos usuários virtuais;
 - O `p(95)` e a taxa de erro obtidos;
 - Gargalos identificados e o que foi (ou seria) feito para melhorar.
+
+---
+
+## Teste Streamlit sem instalar dependencias
+
+Para ambientes restritos, como maquinas de laboratorio, tambem existe um teste
+de carga em Python usando apenas biblioteca padrao:
+
+```bash
+python loadtest/streamlit_load_test.py --url http://localhost:8080
+```
+
+Para rodar o mesmo script dentro do container `chat-ai`, reconstrua a imagem
+depois de alterar o Dockerfile:
+
+```bash
+docker compose -f docker-compose.chat.yml down
+docker compose -f docker-compose.chat.yml up --build -d
+docker compose -f docker-compose.chat.yml exec chat-ai \
+  python loadtest/streamlit_load_test.py --scenario all --url http://localhost:8080
+```
+
+Para rodar apenas os cenarios internos com escrita controlada:
+
+```bash
+docker compose -f docker-compose.chat.yml exec chat-ai \
+  python loadtest/streamlit_load_test.py --scenario internal --allow-internal-writes --users 1,2,5
+```
+
+O script gera um relatorio consolidado em `relatorio_carga.txt`, calcula total
+de operacoes, erros, status agregados, media, p95, p99 e maior tempo.
+
+Como Streamlit usa `session_state` e WebSocket para formularios, o teste fica
+separado em dois blocos:
+
+1. **HTTP/interface:** mede concorrencia de acesso a paginas Streamlit por GET.
+2. **Interno/servicos:** chama servicos Python do projeto para medir logica e
+   banco, sem automacao de navegador e sem chamar IA externa real.
+
+Por padrao, o teste usa timeout curto, para quando o p95 chega a 1 segundo ou
+quando a taxa de erro fica alta. Para continuar mesmo apos esse limite:
+
+```bash
+python loadtest/streamlit_load_test.py --url http://localhost:8080 --continue-after-limit
+```
+
+### Cenarios HTTP da interface
+
+```bash
+# GET / e GET /?page=chat-ia
+python loadtest/streamlit_load_test.py --scenario http --url http://localhost:8080
+
+# Apenas GET /
+python loadtest/streamlit_load_test.py --scenario home --url http://localhost:8080
+
+# Apenas GET /?page=chat-ia
+python loadtest/streamlit_load_test.py --scenario chat_page --url http://localhost:8080
+```
+
+### Cenarios internos de servico
+
+```bash
+# Leitura de auditoria, sem escrita no banco
+python loadtest/streamlit_load_test.py --scenario audit_read
+
+# Todos os cenarios internos, incluindo escrita controlada
+python loadtest/streamlit_load_test.py --scenario internal --allow-internal-writes --users 1,2,5,10
+
+# Cenarios internos individuais
+python loadtest/streamlit_load_test.py --scenario user_create --allow-internal-writes --users 1,2,5
+python loadtest/streamlit_load_test.py --scenario auth_login --allow-internal-writes --users 1,2,5
+python loadtest/streamlit_load_test.py --scenario chat_mock --allow-internal-writes --users 1,2,5
+```
+
+Resumo dos cenarios:
+
+| Cenario | O que faz | Escrita no banco |
+|---------|-----------|------------------|
+| `home` | Faz `GET` na URL base, medindo carregamento da interface. | Nao |
+| `chat_page` | Faz `GET` em `?page=chat-ia`, medindo carregamento da pagina/gate do Chat IA. | Nao |
+| `user_create` | Chama `UserService.create_user` com e-mails ficticios unicos `example.invalid`. | Sim |
+| `auth_login` | Cria um usuario de teste e chama `UserService.authenticate`. A senha de teste nao aparece no relatorio. | Sim |
+| `audit_read` | Chama `AuditLogService.get_recent_logs`. | Nao |
+| `chat_mock` | Chama `ChatHistoryService`, cria sessao/mensagens com resposta mockada local. | Sim |
+
+Os cenarios com escrita interna exigem `--allow-internal-writes` para reduzir o
+risco de escrita acidental em ambiente errado. Rode preferencialmente contra
+ambiente local. Nao rode contra producao compartilhada.
+
+O teste de chat interno nao chama LLM, PandasAI, OpenAI ou qualquer provedor
+externo; ele grava uma resposta mockada fixa apenas para exercitar o caminho de
+persistencia do historico.
+
+Parametros uteis:
+
+```bash
+python loadtest/streamlit_load_test.py --max-users 1000 --step 100
+python loadtest/streamlit_load_test.py --requests-per-user 2 --timeout 2
+python loadtest/streamlit_load_test.py --scenario all --users 1,2,5 --allow-internal-writes
+```
