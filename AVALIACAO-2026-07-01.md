@@ -18,7 +18,7 @@
 
 - ✅ **OpenAI** — declarado no README e comprovado no código (23 ocorrência(s)).
   - Evidência: `src/ai/pandasai_runner.py:14:DEFAULT_LLM_MODEL = "gpt-4.1-mini"`
-- ✅ **MinIO** — declarado no README e comprovado no código (6 ocorrência(s)).
+- ✅ **Object Storage (S3/MinIO)** — declarado no README e comprovado no código (6 ocorrência(s)).
   - Evidência: `src/ui/styles.py:217:    """Return the configured public/signed logo URL without exposing MinIO credentials."""`
 - ✅ **SMTP / e-mail** — declarado no README e comprovado no código (5 ocorrência(s)).
   - Evidência: `src/auth/email_service.py:138:    EMAIL_ENABLED=true e EMAIL_PROVIDER=smtp.`
