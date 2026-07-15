@@ -57,8 +57,12 @@ def get_engine():
         params += "&channel_binding=require"
 
     # Cria e retorna o engine usando SQLAlchemy
+    # pool_size=5 + max_overflow=0 = máximo de 5 conexões simultâneas
+    # (equivalente ao spring.datasource.hikari.maximum-pool-size=5)
     return create_engine(
-        f"postgresql+psycopg2://{user}:{safe_password}@{host}/{database}?{params}"
+        f"postgresql+psycopg2://{user}:{safe_password}@{host}/{database}?{params}",
+        pool_size=5,
+        max_overflow=0,
     )
     
 # Cria o engine chamando a função
