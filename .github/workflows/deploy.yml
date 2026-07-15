@@ -26,6 +26,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Libera espaço em disco (remove imagens e cache antigos)
+        run: docker system prune -af --volumes || true
+
       - name: Configura Docker Buildx
         uses: docker/setup-buildx-action@v3
 

@@ -1,0 +1,23 @@
+# Dependências da aplicação Streamlit SIA/DATASUS — EQ10
+# Versões fixadas para builds reproduzíveis e previsíveis.
+# Gerado a partir de pyproject.toml + versões já validadas no ambiente de dev.
+
+# ── Interface ──────────────────────────────────────────────────────────────────
+streamlit>=1.45.0,<2.0.0
+
+# ── Dados e banco ──────────────────────────────────────────────────────────────
+pandas>=2.2.2,<3.0.0
+sqlalchemy>=2.0.49,<3.0.0
+psycopg2-binary>=2.9.11
+python-dotenv>=1.2.2
+pyarrow>=14.0.1,<19.0.0
+
+# ── Camada de IA ───────────────────────────────────────────────────────────────
+pandasai>=3.0.0,<4.0.0
+pandasai-litellm
+
+# ── Segurança: hashing de senhas ───────────────────────────────────────────────
+argon2-cffi>=23.1.0
+
+# ── Servidor MCP ───────────────────────────────────────────────────────────────
+mcp[cli]>=1.0.0

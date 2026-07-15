@@ -1,23 +1,35 @@
 FROM python:3.11-slim
 
+# Evita arquivos .pyc e força saída sem buffer.
+# PIP_NO_CACHE_DIR garante que wheels baixados não sejam mantidos em disco.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 
-RUN python -m pip install --upgrade pip \
-    && python -m pip install \
-        streamlit \
-        pandas \
-        sqlalchemy \
-        psycopg2-binary \
-        python-dotenv \
-        pandasai \
-        pandasai-litellm
+# ── Dependências de sistema ────────────────────────────────────────────────────
+# Instalamos nginx aqui para aproveitar o cache de camada junto com apt.
+# O `rm -rf /var/lib/apt/lists/*` remove o índice de pacotes depois do install,
+# liberando ~50 MB de disco.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nginx \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y nginx && rm -rf /var/lib/apt/lists/*
+# ── Dependências Python ────────────────────────────────────────────────────────
+# Copiamos só o requirements.txt antes do resto do código para que o Docker
+# possa reaproveitar a camada de pip quando o código mudar mas as dependências
+# não. O --no-cache-dir é redundante com a ENV acima mas é explícito por
+# clareza. O `find … -delete` remove bytecache e dist-info para reduzir
+# o tamanho final da imagem.
+COPY requirements.txt ./
+RUN pip install --upgrade pip --no-cache-dir \
+    && pip install --no-cache-dir -r requirements.txt \
+    && find /usr/local/lib/python3.11 -name "*.dist-info" -type d -exec rm -rf {} + 2>/dev/null || true \
+    && find /usr/local/lib/python3.11 -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
+# ── Código da aplicação ────────────────────────────────────────────────────────
 COPY app_ai_chat.py ./
 COPY loadtest ./loadtest
 COPY scripts ./scripts
