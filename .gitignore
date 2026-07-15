@@ -15,6 +15,7 @@ ENV/
 
 # Environment variables e credenciais
 .env
+.env.prod
 .env.local
 .env.*.local
 config/.env
