@@ -48,10 +48,17 @@ def get_engine():
     
     # Usamos quote_plus para escapar caracteres especiais na senha
     safe_password = quote_plus(password) if password else ""
-    
+
+    # Modo SSL: 'require' para Neon/cloud, 'disable' para PostgreSQL interno (Docker/localhost)
+    sslmode = (os.getenv('AI_DB_SSLMODE') or 'require').strip().lower()
+    params = f"sslmode={sslmode}"
+    # channel_binding só é suportado pelo Neon com sslmode=require
+    if sslmode == 'require':
+        params += "&channel_binding=require"
+
     # Cria e retorna o engine usando SQLAlchemy
     return create_engine(
-        f"postgresql+psycopg2://{user}:{safe_password}@{host}/{database}?sslmode=require&channel_binding=require"
+        f"postgresql+psycopg2://{user}:{safe_password}@{host}/{database}?{params}"
     )
     
 # Cria o engine chamando a função

@@ -4,7 +4,14 @@ services:
     ports:
       - "127.0.0.1:8110:8080"
     environment:
-      # ── Banco de dados analítico (PostgreSQL interno do professor) ────────────
+      # ── Banco de dados analítico + ETL (PostgreSQL interno do professor) ─────
+      # Variáveis no formato original do ETL (src/load.py)
+      - user=eq10
+      - password=9eHKqhJIJGUy4ZjDStWQ
+      - host=postgres
+      - database=eq10
+
+      # Variáveis no formato AI_DB_* usadas pela camada de IA e auth
       - AI_DB_HOST=postgres
       - AI_DB_USER=eq10
       - AI_DB_PASSWORD=9eHKqhJIJGUy4ZjDStWQ
@@ -16,7 +23,7 @@ services:
       - AI_USE_LLM=true
       - AI_LLM_PROVIDER=openai
       - AI_LLM_MODEL=gpt-4o-mini
-      - AI_LLM_BASE_URL=https://llm.rodrigor.com
+      - AI_LLM_BASE_URL=https://llm.rodrigor.com/v1
       - AI_FALLBACK_TO_SIMPLE=true
 
     env_file:
