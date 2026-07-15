@@ -13,6 +13,31 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 AI_DB_ENV_VARS = ["AI_DB_USER", "AI_DB_PASSWORD", "AI_DB_HOST", "AI_DB_NAME"]
 AI_CONFIG_ERROR_MESSAGE = "Configuração incompleta da camada de IA: variáveis AI_DB_* ausentes."
 
+# SSL: 'require' para Neon/cloud, 'prefer' ou 'disable' para PostgreSQL interno (Docker)
+_DEFAULT_SSLMODE = "require"
+
+
+def _build_db_url(user: str, password: str, host: str, dbname: str) -> str:
+    """Monta a URL de conexão PostgreSQL respeitando AI_DB_SSLMODE.
+
+    Variavel AI_DB_SSLMODE:
+      - 'require'  (padrão) — exige SSL; compatível com Neon e RDS
+      - 'prefer'   — usa SSL se disponível; compatível com PostgreSQL interno
+      - 'disable'  — sem SSL; adequado para redes Docker internas sem TLS
+    """
+    encoded_password = quote_plus(password)
+    sslmode = (os.getenv("AI_DB_SSLMODE") or _DEFAULT_SSLMODE).strip().lower()
+
+    params = f"?sslmode={sslmode}"
+    # channel_binding só funciona com sslmode=require e drivers compatíveis (Neon)
+    if sslmode == "require":
+        params += "&channel_binding=require"
+
+    return (
+        f"postgresql+psycopg2://{user}:{encoded_password}"
+        f"@{host}/{dbname}{params}"
+    )
+
 
 def _load_env_files() -> None:
     if os.getenv("ENVIRONMENT", "").strip().lower() == "test":
@@ -41,10 +66,8 @@ def get_readonly_engine():
         raise RuntimeError(AI_CONFIG_ERROR_MESSAGE)
 
     encoded_password = quote_plus(env["AI_DB_PASSWORD"])
-    database_url = (
-        f"postgresql+psycopg2://{env['AI_DB_USER']}:{encoded_password}"
-        f"@{env['AI_DB_HOST']}/{env['AI_DB_NAME']}"
-        "?sslmode=require&channel_binding=require"
+    database_url = _build_db_url(
+        env["AI_DB_USER"], env["AI_DB_PASSWORD"], env["AI_DB_HOST"], env["AI_DB_NAME"]
     )
 
     from sqlalchemy import create_engine

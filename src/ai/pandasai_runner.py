@@ -197,6 +197,30 @@ def is_simple_fallback_enabled() -> bool:
     return _is_env_flag_enabled("AI_FALLBACK_TO_SIMPLE", default=True)
 
 
+def _get_llm():
+    _load_env_files()
+    provider = (os.getenv("AI_LLM_PROVIDER") or DEFAULT_LLM_PROVIDER).strip().lower()
+    model = os.getenv("AI_LLM_MODEL") or _default_model(provider)
+    api_key = _get_api_key(provider)
+    base_url = (os.getenv("AI_LLM_BASE_URL") or "").strip()
+
+    logger.info("Criando LLM: provider=%s model=%s base_url=%s", provider, model, base_url or "(padrao)")
+
+    if provider == "gemini":
+        from pandasai_google_genai import GoogleGenAI
+        return GoogleGenAI(api_token=api_key, model=model)
+
+    from pandasai_litellm import LiteLLM
+
+    kwargs: dict = {"model": model, "api_key": api_key}
+    if base_url:
+        # Permite usar qualquer endpoint compatível com a API da OpenAI,
+        # como o proxy do professor (https://llm.rodrigor.com) ou LM Studio.
+        kwargs["api_base"] = base_url
+
+    return LiteLLM(**kwargs)
+
+
 def _provider_name() -> str:
     return (os.getenv("AI_LLM_PROVIDER") or DEFAULT_LLM_PROVIDER).strip().lower()
 

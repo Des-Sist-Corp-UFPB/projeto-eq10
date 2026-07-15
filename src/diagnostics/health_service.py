@@ -324,6 +324,7 @@ class HealthService:
         fallback_to_simple = _env_flag("AI_FALLBACK_TO_SIMPLE", default=True)
         provider = (os.getenv("AI_LLM_PROVIDER") or DEFAULT_LLM_PROVIDER).strip().lower()
         model = (os.getenv("AI_LLM_MODEL") or _default_model_for_provider(provider)).strip()
+        base_url = (os.getenv("AI_LLM_BASE_URL") or "").strip()
         key_names = _provider_key_names(provider)
         api_key_configured = any(_is_present(os.getenv(key_name)) for key_name in key_names)
         provider_supported = provider in {"openai", "gemini", "openrouter"}
@@ -334,6 +335,7 @@ class HealthService:
             "provider_supported": provider_supported,
             "model_configured": bool(model),
             "api_key_configured": api_key_configured,
+            "base_url_configured": bool(base_url),
             "fallback_to_simple": fallback_to_simple,
         }
 

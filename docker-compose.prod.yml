@@ -4,17 +4,21 @@ services:
     ports:
       - "127.0.0.1:8110:8080"
     environment:
-      # Conexão com o banco de dados em produção
+      # ── Banco de dados analítico (PostgreSQL interno do professor) ────────────
       - AI_DB_HOST=postgres
       - AI_DB_USER=eq10
       - AI_DB_PASSWORD=9eHKqhJIJGUy4ZjDStWQ
       - AI_DB_NAME=eq10
-      
-      # Configuração da IA
+      # Sem SSL: conexão interna Docker (host 'postgres' na mesma rede)
+      - AI_DB_SSLMODE=disable
+
+      # ── Configuração da IA (proxy OpenAI-compatível do professor) ────────────
       - AI_USE_LLM=true
-      - AI_LLM_PROVIDER=openrouter
-      - AI_LLM_MODEL=openrouter/openrouter/free
-      
+      - AI_LLM_PROVIDER=openai
+      - AI_LLM_MODEL=gpt-4o-mini
+      - AI_LLM_BASE_URL=https://llm.rodrigor.com
+      - AI_FALLBACK_TO_SIMPLE=true
+
     env_file:
       - .env.prod
     restart: always
