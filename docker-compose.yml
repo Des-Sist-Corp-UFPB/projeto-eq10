@@ -1,22 +1,60 @@
 services:
+  # ── Banco de dados local para desenvolvimento ────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: eq10
+      POSTGRES_USER: eq10
+      POSTGRES_PASSWORD: 9eHKqhJIJGUy4ZjDStWQ
+    ports:
+      # Expõe o PostgreSQL em localhost:5432 para rodar main.py fora do Docker
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eq10 -d eq10"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Pipeline ETL ─────────────────────────────────────────────────────────────
   etl:
     build:
       context: .
       dockerfile: Dockerfile
     env_file:
       - .env
+    environment:
+      # Dentro do Docker, o PostgreSQL é acessível pelo nome do serviço
+      - host=postgres
+      - AI_DB_HOST=postgres
+      - AI_DB_SSLMODE=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - ./data:/app/data
     command: ["python", "main.py"]
 
+  # ── Serviço de dimensões (execução manual) ───────────────────────────────────
   dimensoes:
     build:
       context: .
       dockerfile: Dockerfile
     env_file:
       - .env
+    environment:
+      - host=postgres
+      - AI_DB_HOST=postgres
+      - AI_DB_SSLMODE=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - ./data:/app/data
     command: ["python", "send_archives.py"]
     profiles:
       - manual
+
+volumes:
+  pg-data:

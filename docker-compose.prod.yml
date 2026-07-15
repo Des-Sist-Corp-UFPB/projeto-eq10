@@ -3,23 +3,22 @@ services:
     image: ${IMAGE:-ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest}
     ports:
       - "127.0.0.1:8110:8080"
+    networks:
+      - eq10-net
     environment:
-      # ── Banco de dados analítico + ETL (PostgreSQL interno do professor) ─────
-      # Variáveis no formato original do ETL (src/load.py)
+      # ── Banco de dados (PostgreSQL interno — mesma rede Docker) ────────────
       - user=eq10
       - password=9eHKqhJIJGUy4ZjDStWQ
       - host=postgres
       - database=eq10
 
-      # Variáveis no formato AI_DB_* usadas pela camada de IA e auth
       - AI_DB_HOST=postgres
       - AI_DB_USER=eq10
       - AI_DB_PASSWORD=9eHKqhJIJGUy4ZjDStWQ
       - AI_DB_NAME=eq10
-      # Sem SSL: conexão interna Docker (host 'postgres' na mesma rede)
       - AI_DB_SSLMODE=disable
 
-      # ── Configuração da IA (proxy OpenAI-compatível do professor) ────────────
+      # ── IA (proxy OpenAI-compatível do professor) ─────────────────────────
       - AI_USE_LLM=true
       - AI_LLM_PROVIDER=openai
       - AI_LLM_MODEL=gpt-4o-mini
@@ -29,3 +28,39 @@ services:
     env_file:
       - .env.prod
     restart: always
+
+  etl:
+    image: ${IMAGE:-ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest}
+    networks:
+      - eq10-net
+    environment:
+      # Mesmas credenciais — host 'postgres' resolve dentro da rede Docker
+      - user=eq10
+      - password=9eHKqhJIJGUy4ZjDStWQ
+      - host=postgres
+      - database=eq10
+
+      - AI_DB_HOST=postgres
+      - AI_DB_USER=eq10
+      - AI_DB_PASSWORD=9eHKqhJIJGUy4ZjDStWQ
+      - AI_DB_NAME=eq10
+      - AI_DB_SSLMODE=disable
+
+    env_file:
+      - .env.prod
+    volumes:
+      - etl-data:/app/data
+    command: ["python", "main.py"]
+    # O ETL roda uma vez e sai — não usa restart:always
+    restart: "no"
+    profiles:
+      # Execute manualmente com: docker compose --profile etl up etl
+      - etl
+
+networks:
+  eq10-net:
+    external: true
+    name: projeto-eq10_default   # ajuste se a rede do professor tiver outro nome
+
+volumes:
+  etl-data:
