@@ -19,5 +19,7 @@ dependencies = [
     "streamlit>=1.45.0",
     # Segurança: hashing Argon2 para senhas de usuarios.
     "argon2-cffi>=23.1.0",
+    # Servidor MCP para integração com assistentes de IA (Claude Desktop, Cursor, etc.)
+    "mcp[cli]>=1.0.0",
 ]
 

@@ -217,6 +217,57 @@ class TestHealthService(unittest.TestCase):
             self.assertNotIn(fragment, source)
         self.assertIn("SELECT MAX(DATA) AS ULTIMA_DATA FROM", source)
 
+    def test_heartbeat_retorna_ok_quando_ambos_bancos_respondem(self):
+        result = self.service.run_heartbeat()
+
+        self.assertEqual(result.name, "heartbeat")
+        self.assertEqual(result.status, "ok")
+        self.assertTrue(result.details["auth_db_ok"])
+        self.assertTrue(result.details["analytics_db_ok"])
+
+    def test_heartbeat_retorna_error_quando_banco_autenticacao_falha(self):
+        def failing_auth_factory():
+            from sqlalchemy import create_engine
+            engine = create_engine("sqlite+pysqlite:///:memory:")
+            engine.dispose()
+            engine.pool.dispose()
+            # Forçamos falha fechando a conexão definitivamente
+            raise RuntimeError("banco offline simulado")
+
+        service = HealthService(
+            auth_engine_factory=failing_auth_factory,
+            analytics_engine=self.analytics_engine,
+        )
+        result = service.run_heartbeat()
+
+        self.assertEqual(result.name, "heartbeat")
+        self.assertEqual(result.status, "error")
+        self.assertFalse(result.details["auth_db_ok"])
+
+    def test_heartbeat_retorna_error_quando_banco_analitico_falha(self):
+        def failing_analytics_factory():
+            raise RuntimeError("analytics offline simulado")
+
+        service = HealthService(
+            auth_engine=self.auth_engine,
+            analytics_engine_factory=failing_analytics_factory,
+        )
+        result = service.run_heartbeat()
+
+        self.assertEqual(result.name, "heartbeat")
+        self.assertEqual(result.status, "error")
+        self.assertFalse(result.details["analytics_db_ok"])
+
+    def test_heartbeat_as_dict_tem_campos_esperados(self):
+        result = self.service.run_heartbeat()
+        payload = result.as_dict()
+
+        self.assertIn("name", payload)
+        self.assertIn("status", payload)
+        self.assertIn("message", payload)
+        self.assertIn("details", payload)
+        self.assertIn("checked_at", payload)
+
 
 if __name__ == "__main__":
     unittest.main()

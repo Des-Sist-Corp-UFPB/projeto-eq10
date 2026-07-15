@@ -33,6 +33,7 @@ from src.ui.sidebar import ADMIN_PAGE, CHAT_PAGE, DEFAULT_PAGE, get_current_page
 from src.ui.styles import apply_global_light_styles
 from src.ui.statistics_page import render_statistics_page
 from src.ui.admin_page import render_admin_page
+from src.diagnostics.health_service import HealthService
 
 APP_TITLE = "Assistente Estatístico SIA/DATASUS"
 APP_SUBTITLE = "Converse com os dados disponíveis do SIA/DATASUS"
@@ -68,6 +69,49 @@ EXAMPLE_PROMPTS = (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@st.cache_resource(show_spinner=False)
+def _get_health_service() -> HealthService:
+    """Instancia o HealthService com as factories padrao."""
+    return HealthService()
+
+
+def _handle_healthcheck_query_param() -> None:
+    """Intercepta requisicoes de heartbeat do Uptime Kuma.
+
+    Quando a URL contem '?healthcheck=1', executa um ping SELECT 1 em ambas
+    as bases de dados (autenticacao + analitico SIA) e exibe o resultado como
+    JSON puro, sem renderizar o restante da interface Streamlit.
+
+    Uptime Kuma deve ser configurado com:
+      - Monitor type: HTTP(s) - Keyword
+      - URL: https://seu-app.example.com/?healthcheck=1
+      - Keyword esperada: '"status": "ok"'
+      - Codigo de resposta esperado: 200
+
+    Se qualquer banco de dados estiver offline, o campo 'status' sera 'error'
+    e o Uptime Kuma marcara o servico como DOWN.
+    """
+    params = st.query_params
+    if params.get("healthcheck") != "1":
+        return
+
+    import json as _json
+
+    try:
+        result = _get_health_service().run_heartbeat()
+        payload = result.as_dict()
+    except Exception as exc:
+        payload = {
+            "name": "heartbeat",
+            "status": "error",
+            "message": f"Heartbeat abortou com excecao inesperada: {type(exc).__name__}",
+            "details": {},
+        }
+
+    st.json(payload)
+    st.stop()
 
 
 @st.cache_resource(show_spinner=False)
@@ -2105,6 +2149,7 @@ def main() -> None:
     _apply_style()
     _init_messages()
     render_pending_toast()
+    _handle_healthcheck_query_param()
     _handle_google_oauth_query_param()
     _handle_password_reset_query_param()
     _handle_email_verification_query_param()

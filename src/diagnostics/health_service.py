@@ -158,6 +158,69 @@ class HealthService:
             self.check_email_configuration(),
         ]
 
+    def run_heartbeat(self) -> HealthCheckResult:
+        """Executa um ping rapido nas duas bases de dados para o Uptime Kuma.
+
+        Este metodo e chamado em cada ciclo de heartbeat para confirmar que
+        o banco de dados de aplicacao E o banco analitico SIA/DATASUS estao
+        respondendo. Se qualquer um deles falhar, retorna STATUS_ERROR para
+        que o Uptime Kuma sinalize o sistema como offline.
+
+        Returns:
+            HealthCheckResult com status 'ok' se ambas as bases responderam,
+            ou 'error' com detalhes sobre qual banco falhou.
+        """
+        results: dict[str, Any] = {
+            "auth_db_ok": False,
+            "analytics_db_ok": False,
+        }
+        errors: list[str] = []
+
+        # Ping no banco de autenticacao / aplicacao
+        try:
+            engine = self._get_auth_engine()
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            results["auth_db_ok"] = True
+        except Exception as exc:
+            safe_cause = _safe_exception_summary(exc)
+            errors.append(f"auth_db: {safe_cause}")
+            logger.warning(
+                "Heartbeat: banco de autenticacao falhou | causa=%s | tipo=%s",
+                safe_cause,
+                type(exc).__name__,
+            )
+
+        # Ping no banco analitico SIA/DATASUS (SELECT 1 simples, sem tocar na view)
+        try:
+            engine = self._get_analytics_engine()
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            results["analytics_db_ok"] = True
+        except Exception as exc:
+            safe_cause = _safe_exception_summary(exc)
+            errors.append(f"analytics_db: {safe_cause}")
+            logger.warning(
+                "Heartbeat: banco analitico falhou | causa=%s | tipo=%s",
+                safe_cause,
+                type(exc).__name__,
+            )
+
+        if errors:
+            return self._result(
+                "heartbeat",
+                STATUS_ERROR,
+                f"Heartbeat falhou: {'; '.join(errors)}",
+                {**results, "errors": errors},
+            )
+
+        return self._result(
+            "heartbeat",
+            STATUS_OK,
+            "Heartbeat OK: ambas as bases de dados responderam.",
+            results,
+        )
+
     def check_app(self) -> HealthCheckResult:
         return self._result(
             "app",
