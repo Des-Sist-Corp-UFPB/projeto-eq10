@@ -71,9 +71,19 @@ class TestDockerChatConfig(unittest.TestCase):
         self.assertIn("HEALTHCHECK", dockerfile_source)
         self.assertIn("0.0.0.0", start_source)
         self.assertIn("--server.port=\"${STREAMLIT_PORT}\"", start_source)
+        self.assertIn("--server.headless=true", start_source)
         self.assertIn('STREAMLIT_PORT="8501"', start_source)
         self.assertIn("wait -n", start_source)
         self.assertIn("proxy_pass http://127.0.0.1:8501", nginx_source)
+        self.assertIn("http://127.0.0.1:8501/_stcore/health", dockerfile_source)
+
+    def test_ping_prova_saude_do_streamlit(self):
+        nginx_source = NGINX_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("location = /ping", nginx_source)
+        self.assertIn("proxy_pass http://127.0.0.1:8501/_stcore/health", nginx_source)
+        self.assertNotIn("return 200", nginx_source)
+        self.assertNotIn('"status": "ok"', nginx_source)
 
     def test_prod_compose_nao_carrega_credenciais_de_banco_no_yaml(self):
         source = PROD_COMPOSE_PATH.read_text(encoding="utf-8")

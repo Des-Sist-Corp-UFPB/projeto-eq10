@@ -8,7 +8,7 @@ on:
 jobs:
   build-and-deploy:
     name: Build, push e deploy
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, dsc-selfhosted]
     permissions:
       contents: read
       packages: write
@@ -65,3 +65,11 @@ jobs:
             echo "Deploy failed. Retrying in ${wait_seconds} seconds..."
             sleep "$wait_seconds"
           done
+
+      - name: Verifica saude publica da aplicacao
+        env:
+          APP_HEALTH_URL: ${{ vars.APP_HEALTH_URL }}
+          DEPLOY_HEALTH_TIMEOUT_SECONDS: "120"
+          DEPLOY_HEALTH_INTERVAL_SECONDS: "5"
+          DEPLOY_HEALTH_REQUEST_TIMEOUT_SECONDS: "5"
+        run: python scripts/verify_deploy_health.py

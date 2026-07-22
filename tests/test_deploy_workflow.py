@@ -5,154 +5,77 @@ import unittest
 
 WORKFLOW_PATH = Path(".github/workflows/deploy.yml")
 PROD_COMPOSE_PATH = Path("docker-compose.prod.yml")
-DEPLOY_FILE_PATHS = [WORKFLOW_PATH, PROD_COMPOSE_PATH]
-GHCR_IMAGE = "ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest"
-
-AI_ENV_NAMES = [
-    "AI_DB_USER",
-    "AI_DB_PASSWORD",
-    "AI_DB_HOST",
-    "AI_DB_NAME",
-    "AI_USE_LLM",
-    "AI_FALLBACK_TO_SIMPLE",
-    "AI_LLM_PROVIDER",
-    "AI_LLM_MODEL",
-    "AI_LLM_API_KEY",
-    "AI_DEBUG_SAFE",
-]
-
-AI_VARIABLE_NAMES = [
-    "AI_DB_USER",
-    "AI_DB_HOST",
-    "AI_DB_NAME",
-    "AI_USE_LLM",
-    "AI_FALLBACK_TO_SIMPLE",
-    "AI_LLM_PROVIDER",
-    "AI_LLM_MODEL",
-    "AI_DEBUG_SAFE",
-]
+HEALTH_SCRIPT_PATH = Path("scripts/verify_deploy_health.py")
 
 
-@unittest.skip("Deployment strategy changed completely to use raw SSH and GHCR for the eq10 repo. Old assertions are obsolete.")
 class TestDeployWorkflow(unittest.TestCase):
-    def read_workflow(self):
+    def read_workflow(self) -> str:
         return WORKFLOW_PATH.read_text(encoding="utf-8")
 
-    def read_deploy_files(self):
-        return {
-            path: path.read_text(encoding="utf-8")
-            for path in DEPLOY_FILE_PATHS
-        }
+    def read_prod_compose(self) -> str:
+        return PROD_COMPOSE_PATH.read_text(encoding="utf-8")
 
     def test_workflow_existe(self):
         self.assertTrue(WORKFLOW_PATH.exists())
         self.assertTrue(PROD_COMPOSE_PATH.exists())
+        self.assertTrue(HEALTH_SCRIPT_PATH.exists())
 
-    def test_build_usa_dockerfile_chat_e_imagem_dinamica(self):
+    def test_workflow_usa_runner_self_hosted_correto(self):
         source = self.read_workflow()
 
-        self.assertIn("env.IMAGE", source)
+        self.assertIn("runs-on: [self-hosted, dsc-selfhosted]", source)
+        self.assertNotIn("runs-on: ubuntu-latest", source)
+
+    def test_build_publica_imagem_do_dockerfile_chat(self):
+        source = self.read_workflow()
+
+        self.assertIn("IMAGE=ghcr.io/", source)
+        self.assertIn("${{ github.repository }}", source)
         self.assertIn("uses: docker/build-push-action@v5", source)
         self.assertIn("context: .", source)
         self.assertIn("file: Dockerfile.chat", source)
         self.assertIn("push: true", source)
         self.assertIn("tags: ${{ env.IMAGE }}", source)
-        self.assertIn("Prepara nome da imagem", source)
-        self.assertNotIn("steps.image.outputs.deploy_image", source)
 
-    def test_deploy_define_image_para_portal_da_disciplina(self):
+    def test_deploy_remoto_usa_ssh_sem_imprimir_variaveis(self):
         source = self.read_workflow()
 
-        self.assertIn(GHCR_IMAGE, source)
-        self.assertIn(f"IMAGE: {GHCR_IMAGE}", source)
-        self.assertIn("envs: IMAGE,", source)
-        self.assertIn('echo "Deploy solicitado para imagem:"', source)
-        self.assertIn('echo "$IMAGE"', source)
-        self.assertNotIn("DEPLOY_IMAGE", source)
-        self.assertNotIn("env.IMAGE", source)
-        self.assertNotIn("GITHUB_ENV", source)
-        self.assertNotIn("GITHUB_OUTPUT", source)
-        self.assertNotIn("docker pull", source)
-        self.assertNotIn("docker run", source)
-        self.assertNotIn("docker stop", source)
-        self.assertNotIn("docker rm", source)
+        self.assertIn("secrets.SSH_DEPLOY_KEY", source)
+        self.assertIn("secrets.SSH_USERNAME", source)
+        self.assertIn("${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}", source)
+        self.assertIn("StrictHostKeyChecking=no", source)
+        self.assertNotIn("printenv", source)
+        self.assertNotIn("cat .env", source)
+        self.assertNotIn("docker compose logs", source)
 
-    def test_deploy_nao_contem_placeholders_ou_echo_stub(self):
+    def test_workflow_verifica_saude_depois_do_deploy(self):
         source = self.read_workflow()
 
-        self.assertNotIn("CONFIG" + "URAR", source)
-        self.assertNotIn("*" * 3, source)
-        self.assertNotIn('script: echo "deploy"', source)
-        self.assertNotIn("script: echo 'deploy'", source)
+        self.assertIn("Verifica saude publica da aplicacao", source)
+        self.assertIn("APP_HEALTH_URL: ${{ vars.APP_HEALTH_URL }}", source)
+        self.assertIn('DEPLOY_HEALTH_TIMEOUT_SECONDS: "120"', source)
+        self.assertIn('DEPLOY_HEALTH_INTERVAL_SECONDS: "5"', source)
+        self.assertIn("python scripts/verify_deploy_health.py", source)
 
-    def test_deploy_tem_diagnostico_simples_por_image(self):
-        source = self.read_workflow()
+    def test_prod_compose_app_usa_imagem_publicada_sem_command_override(self):
+        source = self.read_prod_compose()
+        app_block = source.split("  etl:", 1)[0]
 
-        self.assertIn('echo "Deploy solicitado para imagem:"', source)
-        self.assertIn('echo "$IMAGE"', source)
-        self.assertNotIn("printenv IMAGE", source)
-        self.assertNotIn("grep -i image", source)
-        self.assertNotIn("docker ps", source)
-        self.assertNotIn("docker images", source)
-        self.assertNotIn("docker --version", source)
+        self.assertIn("  app:", app_block)
+        self.assertIn("image: ${IMAGE:-ghcr.io/des-sist-corp-ufpb/projeto-eq10:latest}", app_block)
+        self.assertIn('"127.0.0.1:8110:8080"', app_block)
+        self.assertIn(".env.prod", app_block)
+        self.assertIn("ENVIRONMENT=production", app_block)
+        self.assertNotIn("command:", app_block)
+        self.assertNotIn("entrypoint:", app_block)
+        self.assertNotIn("main.py", app_block)
 
-    def test_arquivos_de_deploy_usam_image_dinamica(self):
-        workflow_source = WORKFLOW_PATH.read_text(encoding="utf-8")
-        compose_source = PROD_COMPOSE_PATH.read_text(encoding="utf-8")
+    def test_prod_compose_nao_declara_credenciais_reais_no_yaml(self):
+        source = self.read_prod_compose()
 
-        self.assertIn("env.IMAGE", workflow_source)
-        self.assertIn("${IMAGE:-", compose_source)
-
-    def test_deploy_declara_secrets_variables_e_envs_necessarios(self):
-        source = self.read_workflow()
-
-        self.assertIn("username: ${{ secrets.SSH_USERNAME }}", source)
-        self.assertIn("key: ${{ secrets.SSH_DEPLOY_KEY }}", source)
-        self.assertIn("AI_DB_PASSWORD: ${{ secrets.AI_DB_PASSWORD }}", source)
-        self.assertIn("AI_LLM_API_KEY: ${{ secrets.GEMINI_API_KEY }}", source)
-
-        for variable_name in AI_VARIABLE_NAMES:
-            self.assertIn(f"{variable_name}: ${{{{ vars.{variable_name} }}}}", source)
-
-        self.assertNotIn("secrets.AI_DB_USER", source)
-        self.assertNotIn("secrets.AI_DB_HOST", source)
-        self.assertNotIn("secrets.AI_DB_NAME", source)
-        self.assertNotIn("secrets.AI_LLM_API_KEY", source)
-
-        expected_envs = "envs: IMAGE," + ",".join(AI_ENV_NAMES)
-        self.assertIn(expected_envs, source)
-
-    def test_modo_diagnostico_nao_executa_container_ou_pull(self):
-        source = self.read_workflow()
-
-        self.assertNotIn("docker pull", source)
-        self.assertNotIn("docker stop", source)
-        self.assertNotIn("docker rm", source)
-        self.assertNotIn("docker run", source)
-        self.assertNotIn("--name eq10-chat", source)
-        self.assertNotIn("--restart unless-stopped", source)
-        self.assertNotIn("-p 127.0.0.1:8110:8501", source)
-        self.assertNotIn("-p 8501:8501", source)
-
-        self.assertNotIn("main.py", source)
-        self.assertNotIn("env_file", source)
-        self.assertNotIn(".env", source.lower())
-
-    def test_deploy_nao_contem_credenciais_reais_em_campos_sensiveis(self):
-        source = self.read_workflow()
-        sensitive_assignment = re.compile(
-            r"^(username|password|key|AI_DB_PASSWORD|AI_LLM_API_KEY):\s*(.+)$"
-        )
-
-        for line in source.splitlines():
-            match = sensitive_assignment.match(line.strip())
-            if not match:
-                continue
-
-            value = match.group(2)
-            uses_secret = value.startswith("${{ secrets.")
-            uses_github_actor = value == "${{ github.actor }}"
-            self.assertTrue(uses_secret or uses_github_actor, line)
+        self.assertIn(".env.prod", source)
+        self.assertNotRegex(source, re.compile(r"^\s*-\s*(user|password|host|database)=", re.MULTILINE))
+        self.assertNotRegex(source, re.compile(r"^\s*-\s*AI_DB_(USER|PASSWORD|HOST|NAME|PORT)=", re.MULTILINE))
 
 
 if __name__ == "__main__":

@@ -7,7 +7,10 @@ NGINX_PORT="8080"
 echo "Startup diagnostics | component=streamlit | address=0.0.0.0 | port=${STREAMLIT_PORT}"
 echo "Startup diagnostics | component=nginx | port=${NGINX_PORT} | upstream=127.0.0.1:${STREAMLIT_PORT}"
 
-python -m streamlit run app_ai_chat.py --server.address=0.0.0.0 --server.port="${STREAMLIT_PORT}" &
+python -m streamlit run app_ai_chat.py \
+  --server.address=0.0.0.0 \
+  --server.port="${STREAMLIT_PORT}" \
+  --server.headless=true &
 streamlit_pid=$!
 
 nginx -g 'daemon off;' &
