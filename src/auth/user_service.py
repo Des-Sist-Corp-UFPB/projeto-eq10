@@ -29,7 +29,7 @@ DEFAULT_AUTH_SQLITE_PATH = BASE_DIR / "data" / "auth.sqlite3"
 
 AUTH_CONFIG_ERROR_MESSAGE = (
     "Configuracao incompleta da autenticacao: informe AUTH_DATABASE_URL, "
-    "AUTH_DB_*, DATABASE_URL ou use o fallback local em data/auth.sqlite3."
+    "ou AUTH_DB_HOST, AUTH_DB_PORT, AUTH_DB_NAME, AUTH_DB_USER e AUTH_DB_PASSWORD."
 )
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,14 @@ AUTH_DB_POOL_RECYCLE_SECONDS = 1800
 AUTH_DB_POOL_TIMEOUT_SECONDS = 10
 AUTH_DB_RETRY_ATTEMPTS = 3
 AUTH_DB_RETRY_BASE_DELAY_SECONDS = 0.2
+PRODUCTION_ENVIRONMENT_VALUES = {"prod", "production"}
+AUTH_DB_REQUIRED_ENV_VARS = (
+    "AUTH_DB_HOST",
+    "AUTH_DB_PORT",
+    "AUTH_DB_NAME",
+    "AUTH_DB_USER",
+    "AUTH_DB_PASSWORD",
+)
 
 TRANSIENT_DB_ERROR_MARKERS = (
     "connection reset",
@@ -112,14 +120,57 @@ def _load_env_files() -> None:
     load_dotenv(BASE_DIR / "config" / ".env")
 
 
-def _build_database_url(prefix: str) -> str | None:
+def _current_environment() -> str:
+    for name in ("ENVIRONMENT", "APP_ENV", "ENV", "DEPLOY_ENV"):
+        value = os.getenv(name)
+        if value and value.strip():
+            return value.strip().lower()
+    return ""
+
+
+def is_production_environment() -> bool:
+    return _current_environment() in PRODUCTION_ENVIRONMENT_VALUES
+
+
+def _auth_db_env_values() -> dict[str, str | None]:
+    return {
+        "AUTH_DB_HOST": os.getenv("AUTH_DB_HOST"),
+        "AUTH_DB_PORT": os.getenv("AUTH_DB_PORT"),
+        "AUTH_DB_NAME": os.getenv("AUTH_DB_NAME") or os.getenv("AUTH_DB_DATABASE"),
+        "AUTH_DB_USER": os.getenv("AUTH_DB_USER"),
+        "AUTH_DB_PASSWORD": os.getenv("AUTH_DB_PASSWORD"),
+    }
+
+
+def _missing_auth_db_env_vars() -> list[str]:
+    values = _auth_db_env_values()
+    return [name for name in AUTH_DB_REQUIRED_ENV_VARS if not values.get(name)]
+
+
+def _has_any_auth_db_env_var() -> bool:
+    names = (*AUTH_DB_REQUIRED_ENV_VARS, "AUTH_DB_DATABASE", "AUTH_DB_SSLMODE")
+    return any(bool(os.getenv(name)) for name in names)
+
+
+def _log_legacy_auth_fallback(source: str) -> None:
+    logger.warning(
+        "Auth database using legacy fallback outside production | source=%s | environment=%s",
+        source,
+        _current_environment() or "unset",
+    )
+
+
+def _build_database_url(prefix: str, *, require_port: bool = True) -> str | None:
     user = os.getenv(f"{prefix}_USER")
     password = os.getenv(f"{prefix}_PASSWORD")
     host = os.getenv(f"{prefix}_HOST")
     database = os.getenv(f"{prefix}_NAME") or os.getenv(f"{prefix}_DATABASE")
     port = os.getenv(f"{prefix}_PORT")
 
-    if not all([user, password, host, database]):
+    required_values = [user, password, host, database]
+    if require_port:
+        required_values.append(port)
+    if not all(required_values):
         return None
 
     netloc = f"{host}:{port}" if port else str(host)
@@ -179,22 +230,47 @@ def _get_auth_database_url() -> tuple[str, str]:
     if os.getenv("AUTH_DATABASE_URL"):
         return os.environ["AUTH_DATABASE_URL"], "AUTH_DATABASE_URL"
 
-    auth_db_url = _build_database_url("AUTH_DB")
+    auth_db_url = _build_database_url("AUTH_DB", require_port=True)
     if auth_db_url:
         return auth_db_url, "AUTH_DB_*"
 
+    if is_production_environment():
+        if _has_any_auth_db_env_var():
+            logger.error(
+                "Auth database configuration incomplete in production | missing=%s",
+                ",".join(_missing_auth_db_env_vars()),
+            )
+        else:
+            logger.error("Auth database configuration missing in production")
+        raise RuntimeError(AUTH_CONFIG_ERROR_MESSAGE)
+
+    if _has_any_auth_db_env_var():
+        logger.warning(
+            "Incomplete AUTH_DB_* ignored outside production | missing=%s",
+            ",".join(_missing_auth_db_env_vars()),
+        )
+
     if os.getenv("DATABASE_URL"):
+        _log_legacy_auth_fallback("DATABASE_URL")
         return os.environ["DATABASE_URL"], "DATABASE_URL"
 
     legacy_db_url = _build_lowercase_database_url()
     if legacy_db_url:
+        _log_legacy_auth_fallback("lowercase database env")
         return legacy_db_url, "lowercase database env"
 
     logger.warning(
-        "Auth database env not configured; using local SQLite auth store. "
+        "Auth database env not configured outside production; using local SQLite auth store. "
         "AI_DB_* is readonly and is not used for authentication writes."
     )
     return _build_sqlite_database_url(), "local SQLite"
+
+
+def get_auth_database_config_source() -> str:
+    """Return only the selected auth database source name, never credentials."""
+    _load_env_files()
+    _, source = _get_auth_database_url()
+    return source
 
 
 def get_auth_engine():
@@ -210,6 +286,11 @@ def get_auth_engine():
 
     logger.info("Auth database source selected | source=%s", source)
     return create_engine(database_url, **_auth_engine_options(database_url))
+
+
+def get_application_engine():
+    """Alias for application-owned writable data (auth, audit, tokens, chat)."""
+    return get_auth_engine()
 
 
 def _auth_engine_options(database_url: str) -> dict[str, Any]:

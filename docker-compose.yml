@@ -3,16 +3,16 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: eq10
-      POSTGRES_USER: eq10
-      POSTGRES_PASSWORD: 9eHKqhJIJGUy4ZjDStWQ
+      POSTGRES_DB: ${POSTGRES_DB:-eq10}
+      POSTGRES_USER: ${POSTGRES_USER:-eq10}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eq10_local_password}
     ports:
       # Expõe o PostgreSQL em localhost:5432 para rodar main.py fora do Docker
       - "127.0.0.1:5432:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U eq10 -d eq10"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -28,6 +28,7 @@ services:
       # Dentro do Docker, o PostgreSQL é acessível pelo nome do serviço
       - host=postgres
       - AI_DB_HOST=postgres
+      - AI_DB_PORT=5432
       - AI_DB_SSLMODE=disable
     depends_on:
       postgres:
@@ -46,6 +47,7 @@ services:
     environment:
       - host=postgres
       - AI_DB_HOST=postgres
+      - AI_DB_PORT=5432
       - AI_DB_SSLMODE=disable
     depends_on:
       postgres:

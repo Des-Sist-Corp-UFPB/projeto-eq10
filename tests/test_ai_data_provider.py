@@ -8,7 +8,11 @@ import pandas as pd
 
 from src.ai.config import AI_ALLOWED_COLUMNS, AI_DATA_SOURCE
 from src.ai.data_provider import load_controlled_datasus_dataframe
-from src.ai.read_only_datasus import AI_CONFIG_ERROR_MESSAGE, get_readonly_engine
+from src.ai.read_only_datasus import (
+    AI_CONFIG_ERROR_MESSAGE,
+    get_readonly_engine,
+    get_readonly_database_config_source,
+)
 
 
 class TestAiReadOnlyDataLayer(unittest.TestCase):
@@ -42,6 +46,20 @@ class TestAiReadOnlyDataLayer(unittest.TestCase):
         mensagem = str(context.exception)
         self.assertEqual(mensagem, AI_CONFIG_ERROR_MESSAGE)
         self.assertNotIn("AI_DB_PASSWORD=", mensagem)
+
+    def test_get_readonly_engine_aceita_ai_database_url_sem_expor_segredo(self):
+        url = "postgresql://ia_user:secret@example.invalid:5432/analytics"
+        with patch.dict(os.environ, {"ENVIRONMENT": "test", "AI_DATABASE_URL": url}, clear=True):
+            with patch("sqlalchemy.create_engine") as create_engine:
+                source = get_readonly_database_config_source()
+                get_readonly_engine()
+
+        self.assertEqual(source, "AI_DATABASE_URL")
+        self.assertEqual(create_engine.call_args.args[0], url)
+        self.assertEqual(
+            create_engine.call_args.kwargs["connect_args"],
+            {"options": "-c default_transaction_read_only=on"},
+        )
 
     @patch("src.ai.data_provider.get_readonly_engine")
     @patch("src.ai.data_provider.get_last_available_date", return_value=None)

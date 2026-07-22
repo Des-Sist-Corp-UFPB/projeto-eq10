@@ -65,7 +65,7 @@ Observacao sobre linhas: o limite maximo de linhas existe como protecao operacio
 
 - `src/ai/config.py`: define constantes como `AI_MAX_MONTHS`, `AI_MAX_ROWS`, `AI_ALLOWED_TABLES` e `AI_ALLOWED_COLUMNS`.
 - `src/ai/prompt_guard.py`: bloqueia prompts perigosos ou fora do escopo estatistico.
-- `src/ai/read_only_datasus.py`: cria conexao separada de leitura usando variaveis `AI_DB_*`.
+- `src/ai/read_only_datasus.py`: cria conexao separada de leitura usando `AI_DATABASE_URL` ou variaveis `AI_DB_*`.
 - `src/ai/data_provider.py`: carrega um DataFrame controlado com ultimos 3 meses disponiveis, colunas permitidas e limite de linhas.
 - `src/ai/month_checker.py`: detecta mes/ano no prompt e verifica se esse mes existe no banco.
 - `src/ai/query_logger.py`: registra perguntas aceitas ou bloqueadas sem salvar credenciais.
@@ -89,7 +89,7 @@ Por isso, o fim do periodo pode aparecer nas respostas como `ate antes de YYYY-M
 
 A camada de IA consulta a view `vw_data_sus_ia`. Essa view enriquece os registros da fato `data_sus` com dimensoes legiveis para que as respostas usem nomes descritivos em vez de codigos.
 
-A aplicacao nao cria, recria nem altera essa view. Ela apenas executa consultas `SELECT` sobre `vw_data_sus_ia` usando a conexao somente leitura configurada em `AI_DB_*`.
+A aplicacao nao cria, recria nem altera essa view. Ela apenas executa consultas `SELECT` sobre `vw_data_sus_ia` usando a conexao somente leitura configurada em `AI_DATABASE_URL` ou `AI_DB_*`.
 
 O DataFrame controlado possui estas colunas:
 
@@ -125,6 +125,7 @@ Configure variaveis especificas para leitura dos dados pela IA:
 AI_DB_USER=ia_readonly
 AI_DB_PASSWORD=senha_forte_aqui
 AI_DB_HOST=seu_host
+AI_DB_PORT=5432
 AI_DB_NAME=seu_banco
 ```
 
@@ -327,15 +328,15 @@ A persistencia de usuarios usa a tabela `usuarios`, com senha salva somente como
 
 Usuarios desativados devem receber `deletado = true` e `deletado_em` preenchido. Quando `deleted_at` existir em bases antigas, ele tambem e tratado como indicador de conta inativa. Eles nao aparecem como ativos e nao podem fazer login. O sistema nao deve remover usuarios fisicamente no fluxo normal.
 
-A conexao de autenticacao deve preferir `AUTH_DATABASE_URL` ou as variaveis `AUTH_DB_*` (`AUTH_DB_HOST`, `AUTH_DB_PORT`, `AUTH_DB_NAME`, `AUTH_DB_USER`, `AUTH_DB_PASSWORD`, `AUTH_DB_SSLMODE`). Em Neon/PostgreSQL nao local, use `AUTH_DB_SSLMODE=require`. `DATABASE_URL` fica como fallback generico e as variaveis minusculas legadas (`host`, `database`, `user`, `password`, `port`) devem ser tratadas apenas como compatibilidade temporaria. O usuario de banco usado para autenticacao precisa ter permissao para criar/usar tabelas de aplicacao como `usuarios`, cadastros pendentes e auditoria. Isso e separado da permissao readonly usada pela camada de IA para consultar `vw_data_sus_ia`.
+A conexao de autenticacao deve usar `AUTH_DATABASE_URL` ou as variaveis completas `AUTH_DB_*` (`AUTH_DB_HOST`, `AUTH_DB_PORT`, `AUTH_DB_NAME`, `AUTH_DB_USER`, `AUTH_DB_PASSWORD`, `AUTH_DB_SSLMODE`). Em PostgreSQL nao local, use `AUTH_DB_SSLMODE=require`. `DATABASE_URL`, variaveis minusculas legadas (`host`, `database`, `user`, `password`, `port`) e SQLite local sao compatibilidade apenas para desenvolvimento/testes; em producao (`ENVIRONMENT=production`, `APP_ENV=production`, `ENV=production` ou `DEPLOY_ENV=production`) a aplicacao falha se `AUTH_*` nao estiver completo. O usuario de banco usado para autenticacao precisa ter permissao para criar/usar tabelas de aplicacao como `usuarios`, cadastros pendentes, tokens, auditoria e historico de chat. Isso e separado da permissao readonly usada pela camada de IA para consultar `vw_data_sus_ia`.
 
-As variaveis `AI_DB_*` sao somente leitura e nao devem ser usadas para cadastro/login. Se nenhuma conexao gravavel de autenticacao estiver configurada, a aplicacao usa um fallback SQLite local em `data/auth.sqlite3` e cria a tabela `usuarios` automaticamente. No Docker do chat, o diretorio `./data` e montado em `/app/data`, mantendo esse arquivo persistido entre reinicios do container.
+As variaveis `AI_DATABASE_URL` / `AI_DB_*` sao somente leitura e nao devem ser usadas para cadastro/login. Consulte `docs/DATABASE_ROUTING.md` para a tabela completa de ownership das duas bases.
 
 ## Rodando o chat com Docker
 
 A configuracao Docker do chat usa Python 3.11 em ambiente isolado. Isso evita problemas em maquinas onde o Python local e 3.13, versao que nao e compativel com PandasAI/pandasai-litellm neste projeto.
 
-Antes de subir o container, crie um `.env` local na raiz do projeto com as variaveis `AI_DB_*`, `AI_LLM_*` e demais configuracoes da camada de IA. Esse arquivo nao deve ser commitado e nao e copiado para a imagem Docker; o compose apenas injeta as variaveis em tempo de execucao com `env_file: ./.env`.
+Antes de subir o container, crie um `.env` local na raiz do projeto com as variaveis `AUTH_*`, `AI_DB_*`/`AI_DATABASE_URL`, `AI_LLM_*` e demais configuracoes da camada de IA. Esse arquivo nao deve ser commitado e nao e copiado para a imagem Docker; o compose apenas injeta as variaveis em tempo de execucao com `env_file: ./.env`.
 
 Build da imagem do chat:
 
@@ -352,7 +353,7 @@ docker compose -f docker-compose.chat.yml up
 Diagnosticar se as variaveis estao chegando ao container sem expor credenciais:
 
 ```powershell
-docker compose -f docker-compose.chat.yml run --rm chat-ai python -c "import os; print(os.getenv('AI_LLM_PROVIDER')); print(os.getenv('AI_LLM_MODEL')); print(bool(os.getenv('AI_LLM_API_KEY'))); print(os.getenv('AI_DB_USER')); print(os.getenv('AI_DB_HOST'))"
+docker compose -f docker-compose.chat.yml run --rm chat-ai python -c "import os; print(os.getenv('AI_LLM_PROVIDER')); print(os.getenv('AI_LLM_MODEL')); print(bool(os.getenv('AI_LLM_API_KEY'))); print(os.getenv('AI_DB_USER')); print(os.getenv('AI_DB_HOST')); print(os.getenv('AI_DB_PORT'))"
 ```
 
 Acesse no navegador:
@@ -367,31 +368,25 @@ Testar a CLI dentro do mesmo ambiente Docker:
 docker compose -f docker-compose.chat.yml run --rm chat-ai python scripts/ask_datasus_ai.py "qual o total de valor aprovado por municipio?"
 ```
 
-O container do chat executa apenas `app_ai_chat.py` por padrao, ou `scripts/ask_datasus_ai.py` quando chamado manualmente como no exemplo acima. Ele nao executa `main.py`, nao coleta dados novos do DATASUS e nao modifica o banco; a camada de IA deve continuar apontando para um usuario PostgreSQL somente leitura nas variaveis `AI_DB_*`.
+O container do chat executa `start.sh`, que sobe o Streamlit em `0.0.0.0:8501` e o Nginx em `8080` apontando para `127.0.0.1:8501`. Ele nao executa `main.py`, nao coleta dados novos do DATASUS e nao modifica o banco; a camada de IA deve continuar apontando para um usuario PostgreSQL somente leitura em `AI_DATABASE_URL` ou `AI_DB_*`.
 
 ## Deploy do chat via GitHub Actions
 
-O workflow `.github/workflows/deploy.yml` publica a imagem do chat no GitHub Container Registry usando `Dockerfile.chat` e atualiza o container `eq10-chat` no servidor. O container Streamlit escuta internamente na porta `8501` e o deploy publica a aplicacao no servidor em `127.0.0.1:8110`, sem depender de arquivo `.env` fisico no servidor.
+O workflow `.github/workflows/deploy.yml` publica a imagem do chat no GitHub Container Registry usando `Dockerfile.chat` e aciona um deploy remoto via SSH. O workflow atual nao injeta variaveis `AUTH_*`, `AI_*` ou arquivo `.env` no container; essas configuracoes devem existir no servidor, por exemplo em `.env.prod` usado pelo `docker-compose.prod.yml`.
 
 Configure estes GitHub Secrets antes de executar o deploy:
 
 - `SSH_USERNAME`
 - `SSH_DEPLOY_KEY`
-- `AI_DB_PASSWORD`
-- `GEMINI_API_KEY`
 
-Configure estas GitHub Actions Variables antes de executar o deploy:
+No servidor, configure `.env.prod` com:
 
-- `AI_DB_USER`
-- `AI_DB_HOST`
-- `AI_DB_NAME`
-- `AI_USE_LLM`
-- `AI_FALLBACK_TO_SIMPLE`
-- `AI_LLM_PROVIDER`
-- `AI_LLM_MODEL`
-- `AI_DEBUG_SAFE`
+- `AUTH_DATABASE_URL` ou `AUTH_DB_*` completos para o banco gravavel da aplicacao;
+- `AI_DATABASE_URL` ou `AI_DB_*` completos para a base DATASUS readonly;
+- `AI_LLM_*` quando `AI_USE_LLM=true`;
+- `EMAIL_*`, `APP_PUBLIC_BASE_URL` e outros opcionais conforme o ambiente.
 
-No container, `AI_LLM_API_KEY` e preenchida a partir do Secret `GEMINI_API_KEY`. As demais configuracoes nao sensiveis vem de GitHub Actions Variables. O deploy nao usa `env_file` nem arquivo `.env` no servidor; o `.env` local continua sendo util apenas para execucao Docker local com `docker-compose.chat.yml`.
+O container Streamlit escuta internamente em `0.0.0.0:8501`, e o Nginx do mesmo container publica a aplicacao em `8080`. No compose de producao, o mapeamento externo atual e `127.0.0.1:8110:8080`.
 
 Se a imagem publicada no GHCR estiver privada, o servidor precisa conseguir autenticar antes do `docker pull`. Ha duas opcoes operacionais: tornar o pacote publico nas configuracoes do GitHub Packages, ou fazer `docker login ghcr.io` no servidor com um usuario GitHub e um token com permissao de leitura de pacotes. Nao registre esse token no repositorio; guarde-o apenas no cofre de credenciais do servidor ou no mecanismo seguro usado pela operacao.
 

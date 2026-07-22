@@ -6,6 +6,7 @@ import ast
 import html
 import json
 import logging
+import os
 import re
 from typing import Any
 
@@ -33,7 +34,7 @@ from src.ui.sidebar import ADMIN_PAGE, CHAT_PAGE, DEFAULT_PAGE, get_current_page
 from src.ui.styles import apply_global_light_styles
 from src.ui.statistics_page import render_statistics_page
 from src.ui.admin_page import render_admin_page
-from src.diagnostics.health_service import HealthService
+from src.diagnostics.health_service import HealthService, get_database_config_sources
 
 APP_TITLE = "Assistente Estatístico SIA/DATASUS"
 APP_SUBTITLE = "Converse com os dados disponíveis do SIA/DATASUS"
@@ -69,6 +70,21 @@ EXAMPLE_PROMPTS = (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@st.cache_resource(show_spinner=False)
+def _log_startup_diagnostics_once() -> bool:
+    """Logs safe startup routing details without exposing connection strings."""
+    sources = get_database_config_sources()
+
+    logger.info(
+        "Startup diagnostics | application_db_source=%s | ai_db_source=%s | streamlit_port=%s | nginx_port=%s",
+        sources["application_database"],
+        sources["ai_database"],
+        os.getenv("STREAMLIT_PORT") or os.getenv("STREAMLIT_SERVER_PORT") or "8501",
+        os.getenv("NGINX_PORT") or "8080",
+    )
+    return True
 
 
 @st.cache_resource(show_spinner=False)
@@ -2146,6 +2162,7 @@ def _render_chat_page() -> None:
 
 def main() -> None:
     st.set_page_config(page_title=APP_TITLE, page_icon="📊", layout="wide")
+    _log_startup_diagnostics_once()
     _apply_style()
     _init_messages()
     render_pending_toast()

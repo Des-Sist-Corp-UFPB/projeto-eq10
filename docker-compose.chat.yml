@@ -9,4 +9,3 @@ services:
       - "8080:8080"
     volumes:
       - ./data:/app/data
-    command: ["python", "-m", "streamlit", "run", "app_ai_chat.py", "--server.address=0.0.0.0", "--server.port=8080"]

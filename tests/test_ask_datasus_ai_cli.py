@@ -49,7 +49,10 @@ class TestAskDatasusAiCli(unittest.TestCase):
 
     def test_runtime_error_seguro_e_exibido_sem_stack_trace(self):
         module = _load_cli_module()
-        mensagem = "Configuração incompleta da camada de IA: variáveis AI_DB_* ausentes."
+        mensagem = (
+            "Configuracao incompleta da camada de IA: informe AI_DATABASE_URL ou "
+            "AI_DB_HOST, AI_DB_PORT, AI_DB_NAME, AI_DB_USER e AI_DB_PASSWORD."
+        )
 
         with patch.object(module, "perguntar_datasus", side_effect=RuntimeError(mensagem)):
             with patch("sys.stderr") as mock_stderr:

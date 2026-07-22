@@ -110,6 +110,38 @@ def _is_present(value: str | None) -> bool:
     return bool((value or "").strip())
 
 
+def get_database_config_sources() -> dict[str, str]:
+    """Return safe source labels for startup diagnostics, never credentials."""
+    sources: dict[str, str] = {
+        "application_database": "configuration error",
+        "ai_database": "configuration error",
+    }
+
+    try:
+        from src.auth.user_service import get_auth_database_config_source
+
+        sources["application_database"] = get_auth_database_config_source()
+    except Exception as exc:
+        logger.warning(
+            "Startup diagnostics application database unavailable | causa=%s | tipo=%s",
+            _safe_exception_summary(exc),
+            type(exc).__name__,
+        )
+
+    try:
+        from src.ai.read_only_datasus import get_readonly_database_config_source
+
+        sources["ai_database"] = get_readonly_database_config_source()
+    except Exception as exc:
+        logger.warning(
+            "Startup diagnostics AI database unavailable | causa=%s | tipo=%s",
+            _safe_exception_summary(exc),
+            type(exc).__name__,
+        )
+
+    return sources
+
+
 @dataclass(frozen=True)
 class HealthCheckResult:
     name: str

@@ -1,7 +1,27 @@
 #!/bin/bash
+set -Eeuo pipefail
 
-# Iniciar o Streamlit em background na porta interna 8501 (fechada para a rede do professor)
-python -m streamlit run app_ai_chat.py --server.address=127.0.0.1 --server.port=8501 &
+STREAMLIT_PORT="8501"
+NGINX_PORT="8080"
 
-# Iniciar o Nginx em foreground na porta 8080 (a porta que o professor mapeia)
-nginx -g 'daemon off;'
+echo "Startup diagnostics | component=streamlit | address=0.0.0.0 | port=${STREAMLIT_PORT}"
+echo "Startup diagnostics | component=nginx | port=${NGINX_PORT} | upstream=127.0.0.1:${STREAMLIT_PORT}"
+
+python -m streamlit run app_ai_chat.py --server.address=0.0.0.0 --server.port="${STREAMLIT_PORT}" &
+streamlit_pid=$!
+
+nginx -g 'daemon off;' &
+nginx_pid=$!
+
+cleanup() {
+  kill "${streamlit_pid}" "${nginx_pid}" 2>/dev/null || true
+}
+
+trap cleanup EXIT
+
+set +e
+wait -n "${streamlit_pid}" "${nginx_pid}"
+exit_code=$?
+set -e
+cleanup
+exit "${exit_code}"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from urllib.parse import quote_plus
@@ -9,15 +10,21 @@ from urllib.parse import quote_plus
 from src.ai.config import AI_DATA_SOURCE
 
 BASE_DIR = Path(__file__).resolve().parents[2]
+logger = logging.getLogger(__name__)
 
-AI_DB_ENV_VARS = ["AI_DB_USER", "AI_DB_PASSWORD", "AI_DB_HOST", "AI_DB_NAME"]
-AI_CONFIG_ERROR_MESSAGE = "Configuração incompleta da camada de IA: variáveis AI_DB_* ausentes."
+AI_DB_ENV_VARS = ["AI_DB_USER", "AI_DB_PASSWORD", "AI_DB_HOST", "AI_DB_PORT", "AI_DB_NAME"]
+AI_CONFIG_ERROR_MESSAGE = (
+    "Configuracao incompleta da camada de IA: informe AI_DATABASE_URL ou "
+    "AI_DB_HOST, AI_DB_PORT, AI_DB_NAME, AI_DB_USER e AI_DB_PASSWORD."
+)
+AI_DB_POOL_RECYCLE_SECONDS = 1800
+AI_DB_POOL_TIMEOUT_SECONDS = 10
 
 # SSL: 'require' para Neon/cloud, 'prefer' ou 'disable' para PostgreSQL interno (Docker)
 _DEFAULT_SSLMODE = "require"
 
 
-def _build_db_url(user: str, password: str, host: str, dbname: str) -> str:
+def _build_db_url(user: str, password: str, host: str, port: str, dbname: str) -> str:
     """Monta a URL de conexão PostgreSQL respeitando AI_DB_SSLMODE.
 
     Variavel AI_DB_SSLMODE:
@@ -35,7 +42,7 @@ def _build_db_url(user: str, password: str, host: str, dbname: str) -> str:
 
     return (
         f"postgresql+psycopg2://{user}:{encoded_password}"
-        f"@{host}/{dbname}{params}"
+        f"@{host}:{port}/{dbname}{params}"
     )
 
 
@@ -51,6 +58,49 @@ def _load_env_files() -> None:
     load_dotenv(BASE_DIR / ".env")
     load_dotenv(BASE_DIR / "config" / ".env")
 
+
+def _get_readonly_database_url() -> tuple[str, str]:
+    if os.getenv("AI_DATABASE_URL"):
+        return os.environ["AI_DATABASE_URL"], "AI_DATABASE_URL"
+
+    env = {name: os.getenv(name) for name in AI_DB_ENV_VARS}
+    missing = [name for name, value in env.items() if not value]
+
+    if missing:
+        logger.error(
+            "AI readonly database configuration incomplete | missing=%s",
+            ",".join(missing),
+        )
+        raise RuntimeError(AI_CONFIG_ERROR_MESSAGE)
+
+    database_url = _build_db_url(
+        env["AI_DB_USER"],
+        env["AI_DB_PASSWORD"],
+        env["AI_DB_HOST"],
+        env["AI_DB_PORT"],
+        env["AI_DB_NAME"],
+    )
+    return database_url, "AI_DB_*"
+
+
+def get_readonly_database_config_source() -> str:
+    """Return only the selected AI database source name, never credentials."""
+    _load_env_files()
+    _, source = _get_readonly_database_url()
+    return source
+
+
+def _readonly_engine_options(database_url: str) -> dict:
+    options = {
+        "pool_pre_ping": True,
+        "pool_recycle": AI_DB_POOL_RECYCLE_SECONDS,
+        "pool_timeout": AI_DB_POOL_TIMEOUT_SECONDS,
+    }
+    if database_url.strip().lower().startswith(("postgresql://", "postgresql+")):
+        options["connect_args"] = {"options": "-c default_transaction_read_only=on"}
+    return options
+
+
 def get_readonly_engine():
     """Cria um engine PostgreSQL separado usando variaveis AI_DB_*.
 
@@ -59,20 +109,12 @@ def get_readonly_engine():
     """
     _load_env_files()
 
-    env = {name: os.getenv(name) for name in AI_DB_ENV_VARS}
-    missing = [name for name, value in env.items() if not value]
-
-    if missing:
-        raise RuntimeError(AI_CONFIG_ERROR_MESSAGE)
-
-    encoded_password = quote_plus(env["AI_DB_PASSWORD"])
-    database_url = _build_db_url(
-        env["AI_DB_USER"], env["AI_DB_PASSWORD"], env["AI_DB_HOST"], env["AI_DB_NAME"]
-    )
+    database_url, source = _get_readonly_database_url()
 
     from sqlalchemy import create_engine
 
-    return create_engine(database_url)
+    logger.info("AI readonly database source selected | source=%s", source)
+    return create_engine(database_url, **_readonly_engine_options(database_url))
 
 
 def get_last_available_date(engine):

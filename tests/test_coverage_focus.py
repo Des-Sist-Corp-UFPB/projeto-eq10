@@ -582,6 +582,7 @@ class TestSmallSecurityAndConfigHelpers(unittest.TestCase):
             "AI_DB_USER": "ia_user",
             "AI_DB_PASSWORD": "p@ ss",
             "AI_DB_HOST": "db.example.com",
+            "AI_DB_PORT": "5432",
             "AI_DB_NAME": "analytics",
         }
         with patch.dict(os.environ, env, clear=True), patch("sqlalchemy.create_engine") as create_engine:
@@ -590,7 +591,12 @@ class TestSmallSecurityAndConfigHelpers(unittest.TestCase):
         url = create_engine.call_args.args[0]
         self.assertIn("ia_user", url)
         self.assertIn("p%40+ss", url)
+        self.assertIn("db.example.com:5432", url)
         self.assertIn("sslmode=require", url)
+        self.assertEqual(
+            create_engine.call_args.kwargs["connect_args"],
+            {"options": "-c default_transaction_read_only=on"},
+        )
 
     def test_readonly_datasus_last_available_date_uses_read_only_query(self):
         expected_date = date(2026, 5, 1)
