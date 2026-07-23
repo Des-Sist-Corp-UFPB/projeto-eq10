@@ -368,7 +368,9 @@ Testar a CLI dentro do mesmo ambiente Docker:
 docker compose -f docker-compose.chat.yml run --rm chat-ai python scripts/ask_datasus_ai.py "qual o total de valor aprovado por municipio?"
 ```
 
-O container do chat executa `start.sh`, que sobe o Streamlit em `0.0.0.0:8501` e o Nginx em `8080` apontando para `127.0.0.1:8501`. Ele nao executa `main.py`, nao coleta dados novos do DATASUS e nao modifica o banco; a camada de IA deve continuar apontando para um usuario PostgreSQL somente leitura em `AI_DATABASE_URL` ou `AI_DB_*`.
+O container do chat executa `start.sh`, que sobe o Nginx em `8080` apontando para `127.0.0.1:8501` e inicia o Streamlit em `0.0.0.0:8501` com `/app/.venv/bin/python -m streamlit run app_ai_chat.py`. Ele nao executa `main.py`, nao coleta dados novos do DATASUS e nao modifica o banco; a camada de IA deve continuar apontando para um usuario PostgreSQL somente leitura em `AI_DATABASE_URL` ou `AI_DB_*`.
+
+O `Dockerfile.chat` cria `/app/.venv` no proprio estagio final da imagem e instala as dependencias do chat com `uv pip install -r requirements.txt`. O script de startup usa explicitamente `/app/.venv/bin/python` para evitar que `/usr/local/bin/python` tente carregar pacotes instalados apenas na venv. O `uv.lock` atual nao deve ser usado com `uv sync --frozen` para a imagem do chat enquanto nao listar as dependencias do Streamlit.
 
 O endpoint `/ping` publicado pelo Nginx do container deve proxyar o healthcheck nativo do Streamlit em `/_stcore/health`. Assim, um HTTP 200 em `/ping` confirma que o Streamlit esta respondendo, e nao apenas que o Nginx esta vivo.
 
@@ -377,6 +379,8 @@ O endpoint `/ping` publicado pelo Nginx do container deve proxyar o healthcheck 
 O workflow `.github/workflows/deploy.yml` publica a imagem do chat no GitHub Container Registry usando `Dockerfile.chat` e aciona um deploy remoto via SSH. O workflow usa `runs-on: [self-hosted, dsc-selfhosted]`. Ele nao injeta variaveis `AUTH_*`, `AI_*` ou arquivo `.env` no container; essas configuracoes devem existir no servidor, por exemplo em `.env.prod` usado pelo `docker-compose.prod.yml`.
 
 Apos o deploy SSH, o workflow executa `scripts/verify_deploy_health.py` e espera ate 120 segundos por uma resposta 2xx no endpoint publico. Por padrao, o script consulta `https://eq10.dsc.rodrigor.com/ping`; para outro endpoint, configure a variavel de repositorio `APP_HEALTH_URL`. O script imprime apenas codigo HTTP e categoria de erro, sem corpo de resposta, cabecalhos ou variaveis de ambiente.
+
+Em falha, o workflow solicita `diagnostics` pela mesma chave SSH de deploy. Como essa chave e travada por `command=` no servidor, o script server-side do professor precisa tratar `SSH_ORIGINAL_COMMAND=diagnostics` e imprimir apenas diagnosticos seguros: `docker compose ps`, `docker compose logs --tail=200 app`, estado/exit code do container, `Config.Cmd` e `Config.Entrypoint`. Nao imprimir `env`, `printenv`, `.env`, `Config.Env` ou URLs completas de banco.
 
 Configure estes GitHub Secrets antes de executar o deploy:
 
@@ -393,6 +397,8 @@ No servidor, configure `.env.prod` com:
 O container Streamlit escuta internamente em `0.0.0.0:8501`, e o Nginx do mesmo container publica a aplicacao em `8080`. No compose de producao, o mapeamento externo atual e `127.0.0.1:8110:8080`.
 
 Se houver um Nginx externo no host, ele deve apontar para `127.0.0.1:8110`. Se houver um Nginx externo em outro container na mesma rede Docker, ele deve apontar para o servico/porta HTTP publicado pelo app, por exemplo `app:8080`. Um Nginx em container separado nao deve apontar para `localhost:8501`, pois `localhost` seria o proprio container do Nginx.
+
+Diagnostico observado em 2026-07-23: `https://eq10.dsc.rodrigor.com/ping` respondeu `HTTP/1.1 502 Bad Gateway` com `Server: Caddy`. Isso confirma que a requisicao publica chega ao proxy externo, mas o proxy nao recebe resposta saudavel do upstream configurado. A causa provavel fica no container `app`, na porta/upstream configurada no Caddy, ou no mapeamento `127.0.0.1:8110:8080`.
 
 Comandos seguros para diagnostico no servidor, sem imprimir variaveis de ambiente:
 

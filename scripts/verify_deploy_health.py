@@ -8,9 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import socket
+import ssl
 import sys
 import time
 from typing import Callable, TextIO
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit, urlunsplit
 import urllib.request
 
@@ -25,6 +28,7 @@ DEFAULT_REQUEST_TIMEOUT_SECONDS = 5.0
 class HealthAttempt:
     ok: bool
     status_code: int | None = None
+    reason: str | None = None
     error_type: str | None = None
 
 
@@ -63,6 +67,32 @@ def validate_health_url(url: str) -> None:
         raise ValueError("health_url_invalid")
 
 
+def safe_reason_label(reason: object, *, max_length: int = 120) -> str:
+    """Return a compact reason label without control characters."""
+
+    text = str(reason or "").replace("\r", " ").replace("\n", " ").strip()
+    if not text:
+        return "unavailable"
+    if len(text) > max_length:
+        return f"{text[: max_length - 3]}..."
+    return text
+
+
+def _classify_url_error_reason(reason: object) -> tuple[str, str]:
+    if isinstance(reason, socket.gaierror):
+        return "DNSFailure", "name resolution failed"
+    if isinstance(reason, ConnectionRefusedError):
+        return "ConnectionRefused", "connection refused"
+    if isinstance(reason, (socket.timeout, TimeoutError)):
+        return "TimeoutError", "timed out"
+    if isinstance(reason, ssl.SSLError):
+        return "SSLError", "ssl error"
+    if isinstance(reason, OSError) and getattr(reason, "errno", None) in {111, 10061}:
+        return "ConnectionRefused", "connection refused"
+
+    return "URLError", safe_reason_label(reason or type(reason).__name__)
+
+
 def check_health_once(
     url: str,
     *,
@@ -77,10 +107,43 @@ def check_health_once(
             if raw_status is None:
                 raw_status = response.getcode()
             status_code = int(raw_status)
+            raw_reason = getattr(response, "reason", "")
+            if raw_reason:
+                reason = safe_reason_label(raw_reason)
+            elif 200 <= status_code < 300:
+                reason = "OK"
+            else:
+                reason = f"HTTP {status_code}"
+    except HTTPError as exc:
+        return HealthAttempt(
+            ok=False,
+            status_code=int(exc.code),
+            reason=safe_reason_label(exc.reason),
+            error_type="HTTPError",
+        )
+    except URLError as exc:
+        error_type, reason = _classify_url_error_reason(exc.reason)
+        return HealthAttempt(ok=False, reason=reason, error_type=error_type)
+    except (socket.timeout, TimeoutError) as exc:
+        return HealthAttempt(
+            ok=False,
+            reason="timed out",
+            error_type="TimeoutError",
+        )
+    except ssl.SSLError as exc:
+        return HealthAttempt(ok=False, reason="ssl error", error_type="SSLError")
     except Exception as exc:  # noqa: BLE001 - category-only diagnostics by design.
-        return HealthAttempt(ok=False, error_type=type(exc).__name__)
+        return HealthAttempt(
+            ok=False,
+            reason=safe_reason_label(type(exc).__name__),
+            error_type=type(exc).__name__,
+        )
 
-    return HealthAttempt(ok=200 <= status_code < 300, status_code=status_code)
+    return HealthAttempt(
+        ok=200 <= status_code < 300,
+        status_code=status_code,
+        reason=reason,
+    )
 
 
 def wait_for_health(
@@ -94,6 +157,7 @@ def wait_for_health(
     now: Callable[[], float] = time.monotonic,
     stream: TextIO = sys.stdout,
 ) -> bool:
+    endpoint = safe_url_label(url)
     deadline = now() + timeout_seconds
     attempt = 0
 
@@ -107,18 +171,26 @@ def wait_for_health(
 
         if result.ok:
             print(
-                f"Application health endpoint responded with HTTP {result.status_code}.",
+                "Health check succeeded | "
+                f"endpoint={endpoint} | attempt={attempt} | "
+                f"status={result.status_code} | reason={result.reason or 'OK'}",
                 file=stream,
             )
             return True
 
-        detail = (
-            f"status={result.status_code}"
-            if result.status_code is not None
-            else f"type={result.error_type}"
-        )
+        fields = [
+            f"endpoint={endpoint}",
+            f"attempt={attempt}",
+        ]
+        if result.status_code is not None:
+            fields.append(f"status={result.status_code}")
+        if result.reason:
+            fields.append(f"reason={result.reason}")
+        if result.error_type:
+            fields.append(f"type={result.error_type}")
+
         print(
-            f"Waiting for application health... attempt={attempt} | {detail}",
+            "Health check failed | " + " | ".join(fields),
             file=stream,
         )
 

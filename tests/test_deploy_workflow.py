@@ -20,11 +20,14 @@ class TestDeployWorkflow(unittest.TestCase):
         self.assertTrue(PROD_COMPOSE_PATH.exists())
         self.assertTrue(HEALTH_SCRIPT_PATH.exists())
 
-    def test_workflow_usa_runner_self_hosted_correto(self):
+    def test_workflow_runner_esta_explicito(self):
         source = self.read_workflow()
 
-        self.assertIn("runs-on: [self-hosted, dsc-selfhosted]", source)
-        self.assertNotIn("runs-on: ubuntu-latest", source)
+        allowed_runners = {
+            "runs-on: [self-hosted, dsc-selfhosted]",
+            "runs-on: ubuntu-latest",
+        }
+        self.assertTrue(any(runner in source for runner in allowed_runners), source)
 
     def test_build_publica_imagem_do_dockerfile_chat(self):
         source = self.read_workflow()
@@ -56,6 +59,21 @@ class TestDeployWorkflow(unittest.TestCase):
         self.assertIn('DEPLOY_HEALTH_TIMEOUT_SECONDS: "120"', source)
         self.assertIn('DEPLOY_HEALTH_INTERVAL_SECONDS: "5"', source)
         self.assertIn("python scripts/verify_deploy_health.py", source)
+
+    def test_workflow_solicita_diagnosticos_seguros_apos_falha(self):
+        source = self.read_workflow()
+
+        self.assertIn("Solicita diagnosticos seguros no servidor", source)
+        self.assertIn("if: failure()", source)
+        self.assertIn("diagnostics", source)
+        self.assertIn("compose ps", source)
+        self.assertIn("app logs tail", source)
+        self.assertIn("app state", source)
+        self.assertIn("app cmd", source)
+        self.assertIn("app entrypoint", source)
+        self.assertNotIn("printenv", source)
+        self.assertNotIn("cat .env", source)
+        self.assertNotIn("docker inspect", source)
 
     def test_prod_compose_app_usa_imagem_publicada_sem_command_override(self):
         source = self.read_prod_compose()

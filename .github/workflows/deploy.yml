@@ -8,7 +8,7 @@ on:
 jobs:
   build-and-deploy:
     name: Build, push e deploy
-    runs-on: [self-hosted, dsc-selfhosted]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -73,3 +73,21 @@ jobs:
           DEPLOY_HEALTH_INTERVAL_SECONDS: "5"
           DEPLOY_HEALTH_REQUEST_TIMEOUT_SECONDS: "5"
         run: python scripts/verify_deploy_health.py
+
+      - name: Solicita diagnosticos seguros no servidor
+        if: failure()
+        continue-on-error: true
+        run: |
+          set -Eeuo pipefail
+
+          if [ ! -f ~/.ssh/deploy_key ]; then
+            echo "Deploy SSH key unavailable; cannot request safe server diagnostics."
+            exit 0
+          fi
+
+          echo "Requesting safe server diagnostics via deploy SSH forced command."
+          echo "Expected server-side diagnostics: compose ps, app logs tail, app state, app cmd, app entrypoint."
+
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            "${{ secrets.SSH_USERNAME }}@dsc.rodrigor.com" \
+            "diagnostics" || echo "Safe server diagnostics command unavailable or failed."

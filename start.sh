@@ -1,30 +1,27 @@
-#!/bin/bash
-set -Eeuo pipefail
+#!/bin/sh
+set -e
 
+STREAMLIT_PYTHON="/app/.venv/bin/python"
+STREAMLIT_APP="app_ai_chat.py"
 STREAMLIT_PORT="8501"
 NGINX_PORT="8080"
+
+if [ ! -x "$STREAMLIT_PYTHON" ]; then
+  echo "Startup error | component=streamlit | code=venv_python_missing"
+  exit 1
+fi
+
+if [ ! -f "$STREAMLIT_APP" ]; then
+  echo "Startup error | component=streamlit | code=entrypoint_missing"
+  exit 1
+fi
 
 echo "Startup diagnostics | component=streamlit | address=0.0.0.0 | port=${STREAMLIT_PORT}"
 echo "Startup diagnostics | component=nginx | port=${NGINX_PORT} | upstream=127.0.0.1:${STREAMLIT_PORT}"
 
-python -m streamlit run app_ai_chat.py \
+nginx
+
+exec "$STREAMLIT_PYTHON" -m streamlit run "$STREAMLIT_APP" \
   --server.address=0.0.0.0 \
   --server.port="${STREAMLIT_PORT}" \
-  --server.headless=true &
-streamlit_pid=$!
-
-nginx -g 'daemon off;' &
-nginx_pid=$!
-
-cleanup() {
-  kill "${streamlit_pid}" "${nginx_pid}" 2>/dev/null || true
-}
-
-trap cleanup EXIT
-
-set +e
-wait -n "${streamlit_pid}" "${nginx_pid}"
-exit_code=$?
-set -e
-cleanup
-exit "${exit_code}"
+  --server.headless=true

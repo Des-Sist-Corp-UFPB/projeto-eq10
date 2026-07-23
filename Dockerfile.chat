@@ -1,13 +1,16 @@
 FROM python:3.11-slim
 
 # Evita arquivos .pyc e força saída sem buffer.
-# PIP_NO_CACHE_DIR garante que wheels baixados não sejam mantidos em disco.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/app/.venv \
+    PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
+
+# ── Instalador Python ──────────────────────────────────────────────────────────
+COPY --from=ghcr.io/astral-sh/uv:0.5.31 /uv /uvx /usr/local/bin/
 
 # ── Dependências de sistema ────────────────────────────────────────────────────
 # Instalamos nginx aqui para aproveitar o cache de camada junto com apt.
@@ -19,15 +22,13 @@ RUN apt-get update \
 
 # ── Dependências Python ────────────────────────────────────────────────────────
 # Copiamos só o requirements.txt antes do resto do código para que o Docker
-# possa reaproveitar a camada de pip quando o código mudar mas as dependências
-# não. O --no-cache-dir é redundante com a ENV acima mas é explícito por
-# clareza. O `find … -delete` remove bytecache e dist-info para reduzir
-# o tamanho final da imagem.
+# possa reaproveitar a camada quando o código mudar mas as dependências não.
+# O chat usa requirements.txt porque o uv.lock atual ainda não lista todas as
+# dependências do app Streamlit.
 COPY requirements.txt ./
-RUN pip install --upgrade pip --no-cache-dir \
-    && pip install --no-cache-dir -r requirements.txt \
-    && find /usr/local/lib/python3.11 -name "*.dist-info" -type d -exec rm -rf {} + 2>/dev/null || true \
-    && find /usr/local/lib/python3.11 -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+RUN uv venv "$UV_PROJECT_ENVIRONMENT" \
+    && uv pip install --python "$UV_PROJECT_ENVIRONMENT/bin/python" -r requirements.txt \
+    && find "$UV_PROJECT_ENVIRONMENT" -name "__pycache__" -type d -prune -exec rm -rf {} +
 
 # ── Código da aplicação ────────────────────────────────────────────────────────
 COPY app_ai_chat.py ./
@@ -41,6 +42,6 @@ RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
 EXPOSE 8080 8501
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=5).read()"
+    CMD /app/.venv/bin/python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ping', timeout=5).read()"
 
 CMD ["./start.sh"]

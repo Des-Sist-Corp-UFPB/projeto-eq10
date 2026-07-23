@@ -23,6 +23,19 @@ class TestDockerChatConfig(unittest.TestCase):
 
         self.assertIn("FROM python:3.11-slim", source)
 
+    def test_dockerfile_instala_dependencias_na_venv_com_uv(self):
+        source = DOCKERFILE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("COPY --from=ghcr.io/astral-sh/uv:0.5.31", source)
+        self.assertIn("UV_PROJECT_ENVIRONMENT=/app/.venv", source)
+        self.assertIn('PATH="/app/.venv/bin:$PATH"', source)
+        self.assertIn("uv venv", source)
+        self.assertIn("uv pip install", source)
+        self.assertIn("requirements.txt", source)
+        self.assertIn("/app/.venv/bin/python", source)
+        self.assertNotIn("pip install --no-cache-dir -r requirements.txt", source)
+        self.assertNotIn("|| true", source)
+
     def test_dockerfile_nao_contem_segredos(self):
         source = DOCKERFILE_PATH.read_text(encoding="utf-8").lower()
 
@@ -69,13 +82,19 @@ class TestDockerChatConfig(unittest.TestCase):
 
         self.assertIn('CMD ["./start.sh"]', dockerfile_source)
         self.assertIn("HEALTHCHECK", dockerfile_source)
+        self.assertIn("/app/.venv/bin/python", dockerfile_source)
         self.assertIn("0.0.0.0", start_source)
+        self.assertIn('STREAMLIT_PYTHON="/app/.venv/bin/python"', start_source)
+        self.assertIn('STREAMLIT_APP="app_ai_chat.py"', start_source)
+        self.assertIn('exec "$STREAMLIT_PYTHON" -m streamlit run "$STREAMLIT_APP"', start_source)
         self.assertIn("--server.port=\"${STREAMLIT_PORT}\"", start_source)
         self.assertIn("--server.headless=true", start_source)
         self.assertIn('STREAMLIT_PORT="8501"', start_source)
-        self.assertIn("wait -n", start_source)
+        self.assertNotIn("python -m streamlit", start_source)
+        self.assertNotIn("wait -n", start_source)
+        self.assertNotIn("main.py", start_source)
         self.assertIn("proxy_pass http://127.0.0.1:8501", nginx_source)
-        self.assertIn("http://127.0.0.1:8501/_stcore/health", dockerfile_source)
+        self.assertIn("http://127.0.0.1:8080/ping", dockerfile_source)
 
     def test_ping_prova_saude_do_streamlit(self):
         nginx_source = NGINX_PATH.read_text(encoding="utf-8")
