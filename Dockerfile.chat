@@ -32,6 +32,7 @@ RUN uv venv "$UV_PROJECT_ENVIRONMENT" \
 
 # ── Código da aplicação ────────────────────────────────────────────────────────
 COPY app_ai_chat.py ./
+COPY .streamlit ./.streamlit
 COPY loadtest ./loadtest
 COPY scripts ./scripts
 COPY src ./src

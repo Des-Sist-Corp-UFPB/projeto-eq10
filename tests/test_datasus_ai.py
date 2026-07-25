@@ -204,6 +204,15 @@ class TestDatasusAiFlow(unittest.TestCase):
             "Total de quantidade apresentada": "Total geral de quantidade apresentada",
             "Contagem de procedimentos": "Contagem de procedimentos distintos",
             "Data mais recente dos atendimentos": "Data mais recente disponivel",
+            "Qual a média de idade dos atendimentos?": "Média de idade dos atendimentos",
+            "Total de valor aprovado por município": "Total de valor aprovado por município de atendimento",
+            "Quantidade de atendimentos por procedimento": "Total de atendimentos por procedimento",
+            "Frequência por unidade": "Ranking por unidade de atendimento usando frequência",
+            "Ranking de municípios por valor aprovado": "Ranking por município de atendimento usando valor aprovado",
+            "Quais procedimentos tiveram maior valor aprovado?": "Ranking por procedimento usando valor aprovado",
+            "Total de atendimentos por sexo": "Total de atendimentos por sexo",
+            "Valor apresentado por unidade": "Ranking por unidade de atendimento usando valor apresentado",
+            "Média de idade por município": "Média de idade por município de atendimento",
         }
 
         with self._patch_ai_env(AI_USE_LLM="true"):

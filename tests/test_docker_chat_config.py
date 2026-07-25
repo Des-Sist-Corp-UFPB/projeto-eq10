@@ -8,6 +8,8 @@ COMPOSE_PATH = Path("docker-compose.chat.yml")
 PROD_COMPOSE_PATH = Path("docker-compose.prod.yml")
 START_SCRIPT_PATH = Path("start.sh")
 NGINX_PATH = Path("nginx.conf")
+STREAMLIT_CONFIG_PATH = Path(".streamlit/config.toml")
+DOCKERIGNORE_PATH = Path(".dockerignore")
 
 
 class TestDockerChatConfig(unittest.TestCase):
@@ -103,6 +105,20 @@ class TestDockerChatConfig(unittest.TestCase):
         self.assertIn("proxy_pass http://127.0.0.1:8501/_stcore/health", nginx_source)
         self.assertNotIn("return 200", nginx_source)
         self.assertNotIn('"status": "ok"', nginx_source)
+
+    def test_dockerfile_copia_streamlit_config_para_tema_claro_em_producao(self):
+        """Sem essa copia, o Streamlit em producao nao recebe base="light" e
+        renderiza selects/inputs/tabelas/dialogos com tema escuro por padrao."""
+        source = DOCKERFILE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("COPY .streamlit ./.streamlit", source)
+        self.assertTrue(STREAMLIT_CONFIG_PATH.exists())
+
+    def test_dockerignore_nao_exclui_streamlit_config(self):
+        source = DOCKERIGNORE_PATH.read_text(encoding="utf-8")
+        lines = [line.strip() for line in source.splitlines()]
+
+        self.assertNotIn(".streamlit", lines)
 
     def test_prod_compose_nao_carrega_credenciais_de_banco_no_yaml(self):
         source = PROD_COMPOSE_PATH.read_text(encoding="utf-8")

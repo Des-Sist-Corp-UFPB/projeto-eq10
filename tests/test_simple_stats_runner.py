@@ -204,6 +204,47 @@ class TestSimpleStatsRunner(unittest.TestCase):
 
         self.assertEqual(resposta, SIMPLE_STATS_UNAVAILABLE_MESSAGE)
 
+    def test_total_de_atendimentos_por_sexo(self):
+        resposta = self._ask("Total de atendimentos por sexo")
+
+        self.assertIn("Total de atendimentos por sexo", resposta)
+        self.assertIn("F: 2", resposta)
+        self.assertIn("M: 1", resposta)
+        self.assertNotEqual(resposta, SIMPLE_STATS_UNAVAILABLE_MESSAGE)
+
+    def test_quantidade_de_atendimentos_por_procedimento(self):
+        resposta = self._ask("Quantidade de atendimentos por procedimento")
+
+        self.assertIn("Total de atendimentos por procedimento", resposta)
+        self.assertIn("Consulta medica: 2", resposta)
+        self.assertIn("Exame laboratorial: 1", resposta)
+        self.assertNotEqual(resposta, SIMPLE_STATS_UNAVAILABLE_MESSAGE)
+
+    def test_media_de_idade_por_municipio(self):
+        resposta = self._ask("Média de idade por município")
+
+        self.assertIn("Média de idade por município de atendimento", resposta)
+        self.assertIn("Cajazeiras: 35,00 anos", resposta)
+        self.assertIn("Sousa: 20,00 anos", resposta)
+        self.assertNotEqual(resposta, SIMPLE_STATS_UNAVAILABLE_MESSAGE)
+
+    def test_media_de_idade_sem_dimensao_continua_agregada(self):
+        resposta = self._ask("média de idade dos atendimentos")
+
+        self.assertIn("Média de idade dos atendimentos: 30,00 anos", resposta)
+
+    def test_ranking_de_municipios_por_valor_aprovado(self):
+        resposta = self._ask("Ranking de municípios por valor aprovado")
+
+        self.assertIn("Ranking por município de atendimento usando valor aprovado", resposta)
+        self.assertIn("1. Cajazeiras: R$ 30,50", resposta)
+
+    def test_valor_apresentado_por_unidade(self):
+        resposta = self._ask("Valor apresentado por unidade")
+
+        self.assertIn("Ranking por unidade de atendimento usando valor apresentado", resposta)
+        self.assertIn("Hospital Regional", resposta)
+
     def test_runner_nao_contem_escrita_em_banco_ou_arquivos(self):
         import src.ai.simple_stats_runner as simple_stats_runner
 

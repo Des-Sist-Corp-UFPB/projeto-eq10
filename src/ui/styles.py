@@ -44,6 +44,44 @@ body,
     color: #111827 !important;
 }
 
+/* BaseWeb renders select dropdowns, date-picker calendars and popovers in a portal
+   appended to <body>, outside any page container. Page-scoped CSS below cannot reach
+   them, so they are forced light here, globally, regardless of which page is active. */
+[data-baseweb="popover"],
+[data-baseweb="popover"] [data-baseweb="menu"],
+[data-baseweb="calendar"],
+ul[data-baseweb="menu"],
+div[data-baseweb="menu"] {
+    background: #FFFFFF !important;
+    color: #111827 !important;
+}
+
+[data-baseweb="popover"] *,
+[data-baseweb="calendar"] * {
+    color: #111827 !important;
+}
+
+li[role="option"],
+div[data-baseweb="menu"] li {
+    background: #FFFFFF !important;
+    color: #111827 !important;
+}
+
+li[role="option"]:hover,
+li[role="option"][aria-selected="true"] {
+    background: #F1F5F9 !important;
+}
+
+[data-testid="stDialog"],
+[data-testid="stDialog"] [data-testid="stVerticalBlock"] {
+    background: #FFFFFF !important;
+    color: #111827 !important;
+}
+
+[data-testid="stDialog"] * {
+    color: #111827 !important;
+}
+
 /* Widget-level overrides such as [data-testid="stSelectbox"] div[data-baseweb="select"] > div
    and [data-testid="stDataFrame"]
    are intentionally scoped to page-specific CSS below. */

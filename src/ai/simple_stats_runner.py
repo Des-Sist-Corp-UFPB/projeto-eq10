@@ -143,6 +143,68 @@ def _media_idade(df: pd.DataFrame, data_inicio: Any, data_fim_exclusiva: Any) ->
     )
 
 
+def _media_idade_por_dimensao(
+    df: pd.DataFrame,
+    dimension_column: str,
+    dimension_display: str,
+    data_inicio: Any,
+    data_fim_exclusiva: Any,
+    limit: int = 10,
+) -> str:
+    if not _has_columns(df, [dimension_column, "idade"]):
+        return SIMPLE_STATS_UNAVAILABLE_MESSAGE
+
+    working_df = df[[dimension_column, "idade"]].copy()
+    working_df["idade"] = pd.to_numeric(working_df["idade"], errors="coerce")
+    working_df = working_df.dropna(subset=["idade"])
+    if working_df.empty:
+        return "Não há idades válidas para calcular a média."
+
+    result = (
+        working_df.groupby(dimension_column, dropna=False)["idade"]
+        .mean()
+        .sort_values(ascending=False)
+        .head(limit)
+    )
+
+    lines = [
+        f"Média de idade por {dimension_display}:",
+        _period_text(data_inicio, data_fim_exclusiva),
+    ]
+    for group_value, media in result.items():
+        lines.append(f"- {group_value}: {_format_number(float(media))} anos")
+
+    return "\n".join(lines)
+
+
+def _contagem_atendimentos_por_dimensao(
+    df: pd.DataFrame,
+    dimension_column: str,
+    dimension_display: str,
+    data_inicio: Any,
+    data_fim_exclusiva: Any,
+    limit: int = 10,
+) -> str:
+    if dimension_column not in df.columns:
+        return SIMPLE_STATS_UNAVAILABLE_MESSAGE
+
+    result = (
+        df.groupby(dimension_column, dropna=False)
+        .size()
+        .sort_values(ascending=False)
+        .head(limit)
+    )
+
+    lines = [
+        f"Total de atendimentos por {dimension_display}:",
+        _period_text(data_inicio, data_fim_exclusiva),
+    ]
+    for group_value, total in result.items():
+        lines.append(f"- {group_value}: {_format_int(int(total))}")
+
+    return "\n".join(lines)
+
+
 def _total_numerico(
     df: pd.DataFrame,
     data_inicio: Any,
@@ -321,7 +383,7 @@ def executar_pergunta_estatistica_simples(
 ) -> str:
     """Responde perguntas estatisticas conhecidas usando apenas pandas local."""
     prompt = _normalize_prompt(prompt_usuario)
-    dimension_column, _dimension_display = _dimension_from_prompt(prompt)
+    dimension_column, dimension_display = _dimension_from_prompt(prompt)
 
     if "ranking" in prompt or "rankings" in prompt or "top" in prompt:
         return _ranking_basico(df, prompt, data_inicio, data_fim_exclusiva)
@@ -350,6 +412,14 @@ def executar_pergunta_estatistica_simples(
         return _ranking_unidades_por_quantidade(df, data_inicio, data_fim_exclusiva)
 
     if "media" in prompt and "idade" in prompt:
+        if dimension_column is not None:
+            return _media_idade_por_dimensao(
+                df,
+                dimension_column,
+                dimension_display or dimension_column,
+                data_inicio,
+                data_fim_exclusiva,
+            )
         return _media_idade(df, data_inicio, data_fim_exclusiva)
 
     if (
@@ -378,6 +448,19 @@ def executar_pergunta_estatistica_simples(
         )
     ):
         return _ranking_basico(df, prompt, data_inicio, data_fim_exclusiva)
+
+    if (
+        dimension_column is not None
+        and ("atendimento" in prompt or "atendimentos" in prompt)
+        and ("total" in prompt or "quantidade" in prompt or "contagem" in prompt)
+    ):
+        return _contagem_atendimentos_por_dimensao(
+            df,
+            dimension_column,
+            dimension_display or dimension_column,
+            data_inicio,
+            data_fim_exclusiva,
+        )
 
     if "valor aprovado" in prompt and ("total" in prompt or "soma" in prompt):
         return _total_geral_valor_aprovado(df, data_inicio, data_fim_exclusiva)

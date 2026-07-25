@@ -157,6 +157,17 @@ class TestAdminPageUi(unittest.TestCase):
         self.assertNotIn('button[kind="elementToolbar"]', styles_source)
         self.assertIn("background: #FFFFFF !important", combined_source)
 
+    def test_global_styles_force_light_theme_on_portal_rendered_widgets(self):
+        """BaseWeb renders select dropdowns, date pickers and dialogs in a portal
+        appended to <body>, outside page-scoped containers, so they need their
+        own global light overrides regardless of which page is active."""
+        styles_source = STYLES_PATH.read_text(encoding="utf-8")
+
+        self.assertIn('[data-baseweb="popover"]', styles_source)
+        self.assertIn('[data-baseweb="calendar"]', styles_source)
+        self.assertIn('li[role="option"]', styles_source)
+        self.assertIn('[data-testid="stDialog"]', styles_source)
+
     def test_audit_status_labels_and_colors_are_standardized(self):
         cases = {
             "success": ("success", "Sucesso", "#DCFCE7", "#166534"),
