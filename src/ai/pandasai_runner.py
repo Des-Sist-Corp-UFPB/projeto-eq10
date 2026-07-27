@@ -11,6 +11,8 @@ from typing import Any
 
 import pandas as pd
 
+from src.ai.prompt_policy import BLOCK_MESSAGE, PromptDecision, classify_prompt
+
 DEFAULT_LLM_MODEL = "gpt-4.1-mini"
 DEFAULT_LLM_PROVIDER = "openai"
 DEFAULT_GEMINI_MODEL = "gemini/gemini-2.0-flash"
@@ -530,8 +532,13 @@ def executar_pergunta_com_pandasai(
     prompt_usuario: str,
     data_inicio,
     data_fim_exclusiva,
+    decision: PromptDecision | None = None,
 ) -> str:
     """Executa PandasAI apenas sobre o DataFrame controlado recebido."""
+    decision = decision or classify_prompt(prompt_usuario)
+    if not decision.allowed:
+        raise RuntimeError(BLOCK_MESSAGE)
+
     _configure_safe_pandasai_logging()
     model, api_key = _get_llm_config()
 

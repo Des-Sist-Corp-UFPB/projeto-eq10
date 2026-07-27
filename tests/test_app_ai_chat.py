@@ -88,6 +88,8 @@ class TestAppAiChat(unittest.TestCase):
     def test_chat_tem_fluxo_confiavel_de_mensagens_e_erros(self):
         source = APP_PATH.read_text(encoding="utf-8")
 
+        self.assertNotIn("Não consegui responder essa pergunta com segurança agora", source)
+        self.assertIn("O motor estatístico não conseguiu concluir esta consulta agora", source)
         self.assertIn("_UNSAFE_RESPONSE_PATTERNS", source)
         self.assertIn("Resposta tecnica da IA substituida por mensagem amigavel.", source)
         self.assertIn("return GENERIC_ERROR_MESSAGE", source)

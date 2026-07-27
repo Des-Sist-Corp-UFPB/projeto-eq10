@@ -40,10 +40,8 @@ APP_TITLE = "Assistente Estatístico SIA/DATASUS"
 APP_SUBTITLE = "Converse com os dados disponíveis do SIA/DATASUS"
 PROMPT_PLACEHOLDER = "Digite uma pergunta estatística..."
 GENERIC_ERROR_MESSAGE = (
-    "Não consegui responder essa pergunta com segurança agora. "
-    "Tente usar uma pergunta estatística mais direta, como totais, "
-    "médias, frequências, rankings por município, procedimento, "
-    "unidade ou raça/cor."
+    "O motor estatístico não conseguiu concluir esta consulta agora. "
+    "A pergunta foi aceita pela validação; tente novamente em alguns instantes."
 )
 DATA_ACCESS_ERROR_MESSAGE = (
     "Não consegui acessar os dados no momento. "

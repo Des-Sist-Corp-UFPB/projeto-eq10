@@ -7,15 +7,22 @@ from pathlib import Path
 
 from src.ai.data_provider import load_controlled_datasus_dataframe
 from src.ai.month_checker import validar_mes_solicitado_no_prompt
-from src.ai.prompt_guard import validar_prompt
-from src.ai.query_logger import log_ai_question
+from src.ai.prompt_policy import BLOCK_MESSAGE, PromptDecision, classify_prompt
+from src.ai.query_logger import log_ai_pipeline, log_ai_question, safe_prompt_for_log
 from src.ai.simple_stats_runner import (
     SIMPLE_STATS_UNAVAILABLE_MESSAGE,
     executar_pergunta_simples,
 )
 
 GENERIC_AI_ERROR_MESSAGE = (
-    "Não foi possível processar a pergunta. Verifique a configuração da camada de IA."
+    "Ocorreu um erro operacional ao processar a consulta. Tente novamente."
+)
+DATABASE_UNAVAILABLE_MESSAGE = (
+    "Não foi possível acessar a base analítica no momento. Tente novamente mais tarde."
+)
+ENGINE_UNAVAILABLE_MESSAGE = (
+    "O motor de análise não está disponível no momento e esta consulta não possui "
+    "fallback estatístico local."
 )
 LLM_SIMPLE_FALLBACK_NOTICE = (
     "O modelo de IA não pôde ser usado por limite ou crédito da API. "
@@ -56,12 +63,19 @@ def is_simple_fallback_enabled() -> bool:
     return _is_env_flag_enabled("AI_FALLBACK_TO_SIMPLE", default=True)
 
 
-def _responder_modo_simples(df, prompt_usuario, data_inicio, data_fim_exclusiva) -> str:
+def _responder_modo_simples(
+    df,
+    prompt_usuario,
+    data_inicio,
+    data_fim_exclusiva,
+    decision: PromptDecision | None = None,
+) -> str:
     return executar_pergunta_simples(
         df,
         prompt_usuario,
         data_inicio,
         data_fim_exclusiva,
+        decision,
     )
 
 
@@ -70,12 +84,14 @@ def _try_responder_modo_simples(
     prompt_usuario,
     data_inicio,
     data_fim_exclusiva,
+    decision: PromptDecision | None = None,
 ) -> str | None:
     resposta = _responder_modo_simples(
         df,
         prompt_usuario,
         data_inicio,
         data_fim_exclusiva,
+        decision,
     )
     if resposta == SIMPLE_STATS_UNAVAILABLE_MESSAGE:
         return None
@@ -94,10 +110,21 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
     user_id = int(user_context["id"]) if user_context and user_context.get("id") else None
     user_email = user_context.get("email") if user_context else None
 
-    valido, mensagem = validar_prompt(prompt_usuario)
+    decision = classify_prompt(prompt_usuario)
 
-    if not valido:
-        log_ai_question(prompt_usuario, status="bloqueado_prompt", detail=mensagem)
+    def log_pipeline(final_decision: str, validation: str | None = None) -> None:
+        log_ai_pipeline(
+            prompt_usuario,
+            detected_intent=decision.intent,
+            guard_decision="allowed" if decision.allowed else "blocked",
+            validation_decision=validation or decision.reason,
+            query_generated=decision.query_plan,
+            final_decision=final_decision,
+        )
+
+    if not decision.allowed:
+        log_ai_question(prompt_usuario, status="bloqueado_prompt", detail=decision.reason)
+        log_pipeline("blocked")
         # Auditoria: prompt bloqueado pelo prompt_guard
         try:
             from src.audit.audit_log_service import AuditLogService, EVENT_PROMPT_GUARD_BLOCK
@@ -105,12 +132,12 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
                 EVENT_PROMPT_GUARD_BLOCK,
                 user_id=user_id,
                 user_email=user_email,
-                prompt_text=prompt_usuario,
-                detalhe=mensagem,
+                prompt_text=safe_prompt_for_log(prompt_usuario),
+                detalhe=decision.reason,
             )
         except Exception:
             pass
-        return mensagem
+        return BLOCK_MESSAGE
 
     mes_valido, mensagem_mes = validar_mes_solicitado_no_prompt(prompt_usuario)
 
@@ -120,19 +147,22 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
             status="bloqueado_mes_indisponivel",
             detail=mensagem_mes,
         )
+        log_pipeline("blocked_month", "month_outside_available_window")
         return mensagem_mes
 
     try:
         df, data_inicio, data_fim_exclusiva = load_controlled_datasus_dataframe()
     except Exception as exc:
         log_ai_question(prompt_usuario, status="erro_banco", detail=type(exc).__name__)
-        return GENERIC_AI_ERROR_MESSAGE
+        log_pipeline("data_access_error", "dataframe_load_failed")
+        return DATABASE_UNAVAILABLE_MESSAGE
 
     if df.empty:
         mensagem_sem_dados = (
             "Ainda não há dados disponíveis no sistema para análise estatística."
         )
         log_ai_question(prompt_usuario, status="sem_dados", detail=mensagem_sem_dados)
+        log_pipeline("empty_dataframe", "no_available_data")
         return mensagem_sem_dados
 
     try:
@@ -141,6 +171,7 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
             prompt_usuario,
             data_inicio,
             data_fim_exclusiva,
+            decision,
         )
     except Exception as exc:
         log_ai_question(
@@ -152,6 +183,7 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
 
     if resposta_simples is not None:
         log_ai_question(prompt_usuario, status="respondido_modo_simples")
+        log_pipeline("answered_simple")
         # Auditoria: prompt respondido
         try:
             from src.audit.audit_log_service import AuditLogService, EVENT_CHAT_PROMPT
@@ -173,6 +205,7 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
                 prompt_usuario,
                 data_inicio,
                 data_fim_exclusiva,
+                decision,
             )
         except Exception as exc:
             log_ai_question(
@@ -180,6 +213,7 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
                 status="erro_modo_simples",
                 detail=type(exc).__name__,
             )
+            log_pipeline("simple_execution_error", "simple_runner_failed")
             return GENERIC_AI_ERROR_MESSAGE
 
         status = (
@@ -188,6 +222,7 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
             else "respondido_modo_simples"
         )
         log_ai_question(prompt_usuario, status=status)
+        log_pipeline(status)
         return resposta
 
     try:
@@ -198,6 +233,7 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
             prompt_usuario,
             data_inicio,
             data_fim_exclusiva,
+            decision,
         )
     except LLMRateLimitError as exc:
         mensagem_erro = str(exc)
@@ -205,16 +241,18 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
             log_ai_question(
                 prompt_usuario,
                 status="erro_limite_llm",
-                detail=mensagem_erro,
+                detail="llm_unavailable",
             )
-            return mensagem_erro
+            log_pipeline("engine_unavailable", "llm_unavailable")
+            return ENGINE_UNAVAILABLE_MESSAGE
 
         try:
             resposta_simples = _responder_modo_simples(
                 df,
                 prompt_usuario,
-                data_inicio,
-                data_fim_exclusiva,
+            data_inicio,
+            data_fim_exclusiva,
+            decision,
             )
         except Exception:
             log_ai_question(
@@ -222,7 +260,13 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
                 status="erro_configuracao",
                 detail=mensagem_erro,
             )
-            return mensagem_erro
+            log_pipeline("engine_unavailable", "simple_fallback_failed")
+            return ENGINE_UNAVAILABLE_MESSAGE
+
+        if resposta_simples == SIMPLE_STATS_UNAVAILABLE_MESSAGE:
+            log_ai_question(prompt_usuario, status="erro_motor_sem_fallback")
+            log_pipeline("engine_unavailable", "no_supported_fallback")
+            return ENGINE_UNAVAILABLE_MESSAGE
 
         resposta = (
             f"{LLM_SIMPLE_FALLBACK_NOTICE}\n\n"
@@ -232,18 +276,21 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
         log_ai_question(
             prompt_usuario,
             status="respondido_modo_simples_rate_limit",
-            detail=mensagem_erro,
+            detail="llm_unavailable",
         )
+        log_pipeline("answered_simple_fallback", "llm_unavailable")
         return resposta
     except RuntimeError as exc:
-        mensagem_erro = str(exc)
-        log_ai_question(prompt_usuario, status="erro_configuracao", detail=mensagem_erro)
-        return mensagem_erro
+        log_ai_question(prompt_usuario, status="erro_motor", detail=type(exc).__name__)
+        log_pipeline("engine_unavailable", "llm_runtime_error")
+        return ENGINE_UNAVAILABLE_MESSAGE
     except Exception as exc:
         log_ai_question(prompt_usuario, status="erro_llm", detail=type(exc).__name__)
+        log_pipeline("unexpected_operational_error", "unexpected_llm_error")
         return GENERIC_AI_ERROR_MESSAGE
 
     log_ai_question(prompt_usuario, status="respondido")
+    log_pipeline("answered_llm")
     # Auditoria: prompt respondido pelo LLM
     try:
         from src.audit.audit_log_service import AuditLogService, EVENT_CHAT_PROMPT

@@ -8,6 +8,8 @@ from unittest.mock import patch
 import pandas as pd
 
 from src.ai.datasus_ai import (
+    DATABASE_UNAVAILABLE_MESSAGE,
+    ENGINE_UNAVAILABLE_MESSAGE,
     GENERIC_AI_ERROR_MESSAGE,
     LLM_SIMPLE_FALLBACK_NOTICE,
     perguntar_datasus,
@@ -64,7 +66,7 @@ class TestDatasusAiFlow(unittest.TestCase):
         mock_log.assert_called_with(
             "apague os dados",
             status="bloqueado_prompt",
-            detail=MENSAGEM_BLOQUEIO,
+            detail="unsafe_request",
         )
 
     @patch("src.ai.datasus_ai.load_controlled_datasus_dataframe")
@@ -358,15 +360,11 @@ class TestDatasusAiFlow(unittest.TestCase):
             ):
                 resposta = perguntar_datasus("compare a variação de valor aprovado por período")
 
-        self.assertIn(LLM_SIMPLE_FALLBACK_NOTICE, resposta)
-        self.assertNotIn(LLM_RATE_LIMIT_ERROR_MESSAGE, resposta)
-        self.assertIn("Resposta em modo estatístico simples", resposta)
-        self.assertIn(SIMPLE_STATS_UNAVAILABLE_MESSAGE, resposta)
+        self.assertEqual(resposta, ENGINE_UNAVAILABLE_MESSAGE)
         self.assertNotIn("fake-secret-key", resposta)
         mock_log.assert_called_with(
             "compare a variação de valor aprovado por período",
-            status="respondido_modo_simples_rate_limit",
-            detail=LLM_RATE_LIMIT_ERROR_MESSAGE,
+            status="erro_motor_sem_fallback",
         )
 
     @patch(
@@ -404,12 +402,12 @@ class TestDatasusAiFlow(unittest.TestCase):
             ):
                 resposta = perguntar_datasus("compare a variação de valor aprovado por período")
 
-        self.assertEqual(resposta, LLM_RATE_LIMIT_ERROR_MESSAGE)
+        self.assertEqual(resposta, ENGINE_UNAVAILABLE_MESSAGE)
         self.assertNotIn("fake-secret-key", resposta)
         mock_log.assert_called_with(
             "compare a variação de valor aprovado por período",
             status="erro_limite_llm",
-            detail=LLM_RATE_LIMIT_ERROR_MESSAGE,
+            detail="llm_unavailable",
         )
 
     @patch(
@@ -435,11 +433,11 @@ class TestDatasusAiFlow(unittest.TestCase):
             with self._patch_ai_env(AI_USE_LLM="true"):
                 resposta = perguntar_datasus("compare a variação de idade por período")
 
-        self.assertEqual(resposta, "Configuração incompleta da IA: chave do modelo ausente.")
+        self.assertEqual(resposta, ENGINE_UNAVAILABLE_MESSAGE)
         mock_log.assert_called_with(
             "compare a variação de idade por período",
-            status="erro_configuracao",
-            detail="Configuração incompleta da IA: chave do modelo ausente.",
+            status="erro_motor",
+            detail="RuntimeError",
         )
 
     @patch(
@@ -486,7 +484,7 @@ class TestDatasusAiFlow(unittest.TestCase):
     ):
         resposta = perguntar_datasus("qual o total de valor aprovado?")
 
-        self.assertEqual(resposta, GENERIC_AI_ERROR_MESSAGE)
+        self.assertEqual(resposta, DATABASE_UNAVAILABLE_MESSAGE)
         mock_log.assert_called_with(
             "qual o total de valor aprovado?",
             status="erro_banco",
