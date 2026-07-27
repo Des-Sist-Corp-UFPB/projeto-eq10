@@ -7,6 +7,10 @@ from pathlib import Path
 
 from src.ai.data_provider import load_controlled_datasus_dataframe
 from src.ai.month_checker import validar_mes_solicitado_no_prompt
+from src.ai.read_only_datasus import (
+    classify_analytical_database_failure,
+    get_analytical_database_diagnostic,
+)
 from src.ai.prompt_policy import BLOCK_MESSAGE, PromptDecision, classify_prompt
 from src.ai.query_logger import log_ai_pipeline, log_ai_question, safe_prompt_for_log
 from src.ai.simple_stats_runner import (
@@ -153,8 +157,10 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
     try:
         df, data_inicio, data_fim_exclusiva = load_controlled_datasus_dataframe()
     except Exception as exc:
-        log_ai_question(prompt_usuario, status="erro_banco", detail=type(exc).__name__)
-        log_pipeline("data_access_error", "dataframe_load_failed")
+        failure_category = classify_analytical_database_failure(exc)
+        get_analytical_database_diagnostic(connection_error=exc)
+        log_ai_question(prompt_usuario, status="erro_banco", detail=failure_category)
+        log_pipeline("data_access_error", failure_category)
         return DATABASE_UNAVAILABLE_MESSAGE
 
     if df.empty:

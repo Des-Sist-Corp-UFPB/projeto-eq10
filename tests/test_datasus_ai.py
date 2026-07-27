@@ -488,7 +488,7 @@ class TestDatasusAiFlow(unittest.TestCase):
         mock_log.assert_called_with(
             "qual o total de valor aprovado?",
             status="erro_banco",
-            detail="RuntimeError",
+            detail="query_failure",
         )
 
     def test_arquivo_nao_contem_comandos_sql_de_escrita(self):

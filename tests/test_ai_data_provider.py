@@ -10,8 +10,12 @@ from src.ai.config import AI_ALLOWED_COLUMNS, AI_DATA_SOURCE
 from src.ai.data_provider import load_controlled_datasus_dataframe
 from src.ai.read_only_datasus import (
     AI_CONFIG_ERROR_MESSAGE,
+    _get_readonly_database_url,
+    classify_analytical_database_failure,
+    get_analytical_database_diagnostic,
     get_readonly_engine,
     get_readonly_database_config_source,
+    _set_session_read_only,
 )
 
 
@@ -50,16 +54,126 @@ class TestAiReadOnlyDataLayer(unittest.TestCase):
     def test_get_readonly_engine_aceita_ai_database_url_sem_expor_segredo(self):
         url = "postgresql://ia_user:secret@example.invalid:5432/analytics"
         with patch.dict(os.environ, {"ENVIRONMENT": "test", "AI_DATABASE_URL": url}, clear=True):
-            with patch("sqlalchemy.create_engine") as create_engine:
+            with patch("sqlalchemy.create_engine") as create_engine, patch(
+                "sqlalchemy.event.listen"
+            ) as listen:
                 source = get_readonly_database_config_source()
                 get_readonly_engine()
 
         self.assertEqual(source, "AI_DATABASE_URL")
-        self.assertEqual(create_engine.call_args.args[0], url)
-        self.assertEqual(
-            create_engine.call_args.kwargs["connect_args"],
-            {"options": "-c default_transaction_read_only=on"},
-        )
+        effective_url = create_engine.call_args.args[0]
+        self.assertIn("sslmode=require", effective_url)
+        self.assertNotEqual(effective_url, url)
+        self.assertNotIn("connect_args", create_engine.call_args.kwargs)
+        listen.assert_called_once()
+
+    def test_ai_db_fields_build_neon_readonly_url_with_required_ssl(self):
+        env = {
+            "ENVIRONMENT": "test",
+            "AI_DB_HOST": "ep-example.neon.tech",
+            "AI_DB_PORT": "5432",
+            "AI_DB_NAME": "analytics",
+            "AI_DB_USER": "ia_readonly",
+            "AI_DB_PASSWORD": "secret",
+            "AI_DB_SSLMODE": "require",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            url, source = _get_readonly_database_url()
+
+        self.assertEqual(source, "AI_DB_*")
+        self.assertIn("@ep-example.neon.tech:5432/analytics", url)
+        self.assertIn("sslmode=require", url)
+        self.assertIn("channel_binding=require", url)
+
+    def test_cloud_host_never_disables_ssl_but_local_host_can(self):
+        cloud_env = {
+            "ENVIRONMENT": "test",
+            "AI_DB_HOST": "ep-example.neon.tech",
+            "AI_DB_PORT": "5432",
+            "AI_DB_NAME": "analytics",
+            "AI_DB_USER": "ia_readonly",
+            "AI_DB_PASSWORD": "secret",
+            "AI_DB_SSLMODE": "disable",
+        }
+        with patch.dict(os.environ, cloud_env, clear=True):
+            cloud_url, _ = _get_readonly_database_url()
+        self.assertIn("sslmode=require", cloud_url)
+        self.assertNotIn("sslmode=disable", cloud_url)
+
+        local_env = {**cloud_env, "AI_DB_HOST": "postgres"}
+        with patch.dict(os.environ, local_env, clear=True):
+            local_url, _ = _get_readonly_database_url()
+        self.assertIn("sslmode=disable", local_url)
+
+    def test_readonly_is_applied_after_handshake_for_neon_pooler(self):
+        dbapi_connection = Mock()
+        cursor = dbapi_connection.cursor.return_value
+
+        _set_session_read_only(dbapi_connection, Mock())
+
+        cursor.execute.assert_called_once_with("SET default_transaction_read_only = on")
+        cursor.close.assert_called_once_with()
+
+    def test_safe_diagnostic_reports_success_without_credentials(self):
+        engine = Mock()
+        connection = Mock()
+        engine.connect.return_value.__enter__ = Mock(return_value=connection)
+        engine.connect.return_value.__exit__ = Mock(return_value=False)
+        connection.execute.side_effect = [
+            Mock(),
+            Mock(scalar=Mock(return_value="vw_data_sus_ia")),
+            Mock(scalar=Mock(return_value=True)),
+            Mock(scalar=Mock(return_value=date(2026, 7, 1))),
+        ]
+        env = {
+            "ENVIRONMENT": "test",
+            "AI_DATABASE_URL": (
+                "postgresql+psycopg2://ia_readonly:secret@ep-example.neon.tech:5432/"
+                "analytics?sslmode=require"
+            ),
+        }
+        with patch.dict(os.environ, env, clear=True):
+            with patch("sqlalchemy.create_engine", return_value=engine), patch(
+                "sqlalchemy.event.listen"
+            ):
+                diagnostic = get_analytical_database_diagnostic()
+
+        self.assertEqual(diagnostic["selected_configuration_source"], "AI_DATABASE_URL")
+        self.assertEqual(diagnostic["database_category"], "analytical")
+        self.assertEqual(diagnostic["host_type"], "cloud")
+        self.assertEqual(diagnostic["ssl_mode"], "require")
+        self.assertEqual(diagnostic["connection_category"], "connection_success")
+        self.assertTrue(diagnostic["view_available"])
+        self.assertTrue(diagnostic["select_permission"])
+        self.assertTrue(diagnostic["underlying_objects_accessible"])
+        self.assertEqual(diagnostic["maximum_available_data_date"], "2026-07-01")
+        self.assertNotIn("secret", str(diagnostic))
+        self.assertNotIn("ep-example", str(diagnostic))
+
+    def test_safe_diagnostic_reports_missing_configuration(self):
+        with patch.dict(os.environ, {"ENVIRONMENT": "test"}, clear=True):
+            diagnostic = get_analytical_database_diagnostic()
+
+        self.assertEqual(diagnostic["connection_category"], "configuration_missing")
+        self.assertEqual(diagnostic["database_category"], "analytical")
+
+    def test_database_failure_categories(self):
+        cases = {
+            "could not translate host name": "dns_failure",
+            "SSL certificate verify failed": "ssl_failure",
+            "password authentication failed": "authentication_failure",
+            "permission denied for relation": "permission_denied",
+            'relation "vw_data_sus_ia" does not exist': "view_missing",
+            "connection refused": "connection_failure",
+            "connection to server failed: Permission denied (10013)": "connection_failure",
+            "unexpected select error": "query_failure",
+        }
+        for message, expected in cases.items():
+            with self.subTest(expected=expected):
+                self.assertEqual(
+                    classify_analytical_database_failure(RuntimeError(message)),
+                    expected,
+                )
 
     @patch("src.ai.data_provider.get_readonly_engine")
     @patch("src.ai.data_provider.get_last_available_date", return_value=None)

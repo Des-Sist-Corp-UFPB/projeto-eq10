@@ -131,7 +131,7 @@ class TestStatisticalPromptRegression(unittest.TestCase):
         ):
             perguntar_datasus("Total de atendimentos")
         log_question.assert_called_with(
-            "Total de atendimentos", status="erro_banco", detail="RuntimeError"
+            "Total de atendimentos", status="erro_banco", detail="query_failure"
         )
 
     @patch("src.ai.datasus_ai.validar_mes_solicitado_no_prompt", return_value=(True, ""))
