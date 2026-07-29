@@ -303,6 +303,9 @@ class TestHealthService(unittest.TestCase):
         self.assertEqual(result.status, "ok")
         self.assertTrue(result.details["session_readonly"])
         self.assertTrue(result.details["view_available"])
+        self.assertTrue(result.details["view_query_success"])
+        self.assertTrue(result.details["maximum_date_query_success"])
+        self.assertTrue(result.details["essential_checks_passed"])
         self.assertEqual(result.details["maximum_available_data_date"], "2026-06-01")
         self.assertNotIn("sqlite+pysqlite", payload)
 
@@ -321,7 +324,8 @@ class TestHealthService(unittest.TestCase):
             analytics_engine_factory=lambda: (_ for _ in ()).throw(RuntimeError("connection refused")),
         )
         report = service.run_unified_report()
-        self.assertEqual(report["application"]["status"], "degraded")
+        self.assertEqual(report["application"]["status"], "healthy")
+        self.assertEqual(report["overall_status"], "degraded")
         self.assertEqual(report["application_database"]["status"], "healthy")
         self.assertEqual(report["analytical_database"]["status"], "degraded")
 
@@ -331,8 +335,53 @@ class TestHealthService(unittest.TestCase):
             analytics_engine=self.analytics_engine,
         )
         report = service.run_unified_report()
-        self.assertEqual(report["application"]["status"], "unhealthy")
+        self.assertEqual(report["application"]["status"], "healthy")
+        self.assertEqual(report["overall_status"], "unhealthy")
         self.assertEqual(report["application_database"]["status"], "unhealthy")
+
+    def test_optional_metadata_unavailable_does_not_degrade_essential_success(self):
+        details = {
+            "configuration_source": "AI_DATABASE_URL",
+            "connection_category": "connection_success",
+            "session_readonly": True,
+            "view_available": True,
+            "view_query_success": True,
+            "maximum_date_query_success": True,
+            "maximum_available_data_date": "2026-06-01",
+            "essential_checks_passed": True,
+            "underlying_metadata_check": "permission_denied",
+            "warning_categories": ["underlying_metadata_permission_denied"],
+        }
+        with patch(
+            "src.diagnostics.health_service.get_analytical_database_diagnostic",
+            return_value=details,
+        ):
+            result = HealthService(auth_engine=self.auth_engine).check_analytical_database()
+
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(
+            result.details["warning_categories"],
+            ["underlying_metadata_permission_denied"],
+        )
+
+    def test_missing_view_and_select_denied_degrade_analytical_health(self):
+        for category in ("view_missing", "permission_denied"):
+            with self.subTest(category=category), patch(
+                "src.diagnostics.health_service.get_analytical_database_diagnostic",
+                return_value={
+                    "connection_category": category,
+                    "session_readonly": True,
+                    "view_available": category != "view_missing",
+                    "view_query_success": False,
+                    "maximum_date_query_success": False,
+                    "essential_checks_passed": False,
+                    "warning_categories": [],
+                },
+            ):
+                result = HealthService(auth_engine=self.auth_engine).check_analytical_database()
+
+            self.assertEqual(result.status, "warning")
+            self.assertFalse(result.details["essential_checks_passed"])
 
 
 if __name__ == "__main__":

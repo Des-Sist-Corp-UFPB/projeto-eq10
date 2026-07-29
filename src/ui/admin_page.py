@@ -29,6 +29,14 @@ from src.ui.styles import apply_audit_light_styles
 
 logger = logging.getLogger(__name__)
 
+HEALTH_STATUS_LABELS = {
+    "healthy": "Saudável",
+    "degraded": "Degradado",
+    "unhealthy": "Indisponível",
+    "configured": "Configurado",
+    "disabled": "Desabilitado",
+}
+
 ROLE_OPTIONS = [ROLE_USER, ROLE_ADMIN, ROLE_SUPER_ADMIN]
 AUDIT_LIMIT_OPTIONS = [20, 50, 100]
 DEFAULT_AUDIT_LIMIT = 50
@@ -895,29 +903,83 @@ def render_admin_page() -> None:
         _render_admin_page_body()
 
 
+@st.cache_data(ttl=60, show_spinner=False)
+def _get_cached_health_report() -> dict[str, Any]:
+    return HealthService().run_unified_report()
+
+
+def _health_status_label(value: Any) -> str:
+    return HEALTH_STATUS_LABELS.get(str(value or "").lower(), "Indisponível")
+
+
+def _format_diagnostic_date(value: Any, *, include_time: bool = False) -> str:
+    if not value:
+        return "Não informada"
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed.strftime("%d/%m/%Y %H:%M:%S" if include_time else "%d/%m/%Y")
+    except (TypeError, ValueError):
+        return "Não informada"
+
+
 def _render_observability_diagnostics() -> None:
     track_event_once("health_diagnostics_viewed", {"page": "admin"})
-    st.subheader("Diagnosticos de saude e observabilidade")
+    st.subheader("Diagnósticos de saúde e observabilidade")
+    if _safe_button(
+        "Atualizar diagnósticos",
+        key="refresh-health-diagnostics",
+        use_container_width=False,
+    ):
+        _get_cached_health_report.clear()
     try:
-        report = HealthService().run_unified_report()
+        report = _get_cached_health_report()
         application = report["application"]
         app_db = report["application_database"]
         analytical_db = report["analytical_database"]
         telemetry = report["opentelemetry"]
 
         columns = st.columns(4)
-        columns[0].metric("Streamlit", application["status"])
-        columns[1].metric("Banco da aplicacao", app_db["status"])
-        columns[2].metric("Banco analitico", analytical_db["status"])
-        columns[3].metric("OpenTelemetry", telemetry["status"])
+        columns[0].metric("Aplicação Streamlit", _health_status_label(application["status"]))
+        columns[1].metric("Banco da aplicação", _health_status_label(app_db["status"]))
+        columns[2].metric("Banco analítico", _health_status_label(analytical_db["status"]))
+        columns[3].metric("OpenTelemetry", _health_status_label(telemetry["status"]))
 
-        st.caption(
-            "View analitica: "
-            f"{'disponivel' if analytical_db.get('view_available') else 'indisponivel'} | "
-            f"Ultima data: {analytical_db.get('maximum_available_data_date') or 'nao informada'} | "
-            f"Provider: {telemetry.get('provider_type', 'noop')} | "
-            f"Verificado em: {application.get('checked_at', 'nao informado')}"
+        st.write(
+            "View analítica: "
+            f"{'disponível' if analytical_db.get('view_available') else 'indisponível'}"
         )
+        st.write(
+            "Sessão somente leitura: "
+            f"{'confirmada' if analytical_db.get('session_readonly') else 'não confirmada'}"
+        )
+        st.write(
+            "Última competência disponível: "
+            f"{_format_diagnostic_date(analytical_db.get('maximum_available_data_date'))}"
+        )
+        st.write(
+            "OpenTelemetry: "
+            f"{str(telemetry.get('provider_type', 'noop')).upper()} "
+            f"{_health_status_label(telemetry.get('status')).lower()}"
+        )
+        st.write(
+            "Verificado em: "
+            f"{_format_diagnostic_date(application.get('checked_at'), include_time=True)}"
+        )
+        with st.expander("Detalhes técnicos seguros", expanded=False):
+            st.write(
+                {
+                    "status_geral": report.get("overall_status"),
+                    "fonte_configuracao_analitica": analytical_db.get("configuration_source"),
+                    "categoria_conexao": analytical_db.get("connection_category"),
+                    "consulta_view": analytical_db.get("view_query_success"),
+                    "consulta_data_maxima": analytical_db.get("maximum_date_query_success"),
+                    "checks_essenciais": analytical_db.get("essential_checks_passed"),
+                    "metadata_objetos_subjacentes": analytical_db.get(
+                        "underlying_metadata_check"
+                    ),
+                    "avisos": analytical_db.get("warning_categories", []),
+                }
+            )
         umami = get_umami_status()
         st.caption(
             "Umami: "

@@ -400,10 +400,7 @@ class HealthService:
         details["latency_bucket"] = _latency_bucket(elapsed)
         success = (
             details.get("connection_category") == "connection_success"
-            and bool(details.get("view_available"))
-            and bool(details.get("select_permission"))
-            and bool(details.get("session_readonly"))
-            and bool(details.get("underlying_objects_accessible"))
+            and bool(details.get("essential_checks_passed"))
         )
         result = "success" if success else "degraded"
         self._record_health_metrics(
@@ -425,9 +422,9 @@ class HealthService:
         analytical_db = self.check_analytical_database()
         telemetry = self.check_telemetry()
 
-        if application_db.status == STATUS_ERROR:
+        if application_db.status == STATUS_ERROR or application.status == STATUS_ERROR:
             overall = "unhealthy"
-        elif analytical_db.status != STATUS_OK or telemetry.status == STATUS_WARNING:
+        elif analytical_db.status != STATUS_OK:
             overall = "degraded"
         else:
             overall = "healthy"
@@ -436,10 +433,11 @@ class HealthService:
         return _sanitize_details(
             {
                 "application": {
-                    "status": overall,
+                    "status": "healthy" if application.status == STATUS_OK else "unhealthy",
                     "framework": "streamlit",
                     "checked_at": application.checked_at,
                 },
+                "overall_status": overall,
                 "application_database": {
                     "status": "healthy" if application_db.status == STATUS_OK else "unhealthy",
                     "connection_category": application_db.details.get("connection_category"),
@@ -450,8 +448,23 @@ class HealthService:
                     "status": "healthy" if analytical_db.status == STATUS_OK else "degraded",
                     "connection_category": analytical_db.details.get("connection_category"),
                     "view_available": analytical_db.details.get("view_available", False),
+                    "view_query_success": analytical_db.details.get("view_query_success", False),
                     "session_readonly": analytical_db.details.get("session_readonly", False),
+                    "maximum_date_query_success": analytical_db.details.get(
+                        "maximum_date_query_success", False
+                    ),
                     "maximum_available_data_date": analytical_db.details.get("maximum_available_data_date"),
+                    "configuration_source": analytical_db.details.get(
+                        "configuration_source",
+                        analytical_db.details.get("selected_configuration_source"),
+                    ),
+                    "essential_checks_passed": analytical_db.details.get(
+                        "essential_checks_passed", False
+                    ),
+                    "underlying_metadata_check": analytical_db.details.get(
+                        "underlying_metadata_check", "not_required"
+                    ),
+                    "warning_categories": analytical_db.details.get("warning_categories", []),
                     "checked_at": analytical_db.checked_at,
                 },
                 "opentelemetry": {
@@ -642,6 +655,7 @@ class HealthService:
 
     def _diagnose_injected_analytical_engine(self) -> dict[str, Any]:
         details: dict[str, Any] = {
+            "configuration_source": "injected",
             "selected_configuration_source": "injected",
             "database_category": "analytical",
             "host_type": "unknown",
@@ -650,7 +664,11 @@ class HealthService:
             "view_available": False,
             "select_permission": False,
             "session_readonly": False,
-            "underlying_objects_accessible": False,
+            "view_query_success": False,
+            "maximum_date_query_success": False,
+            "underlying_metadata_check": "not_required",
+            "essential_checks_passed": False,
+            "warning_categories": [],
             "maximum_available_data_date": None,
         }
         try:
@@ -665,19 +683,19 @@ class HealthService:
                     # Engines injected into unit tests are already isolated; the
                     # production path always uses the readonly provider above.
                     details["session_readonly"] = True
-                details["view_available"] = self._table_exists(conn, AI_DATA_SOURCE)
-                if not details["view_available"]:
-                    details["connection_category"] = "view_missing"
-                    return details
+                conn.execute(text(f"SELECT 1 FROM {AI_DATA_SOURCE} LIMIT 1"))
+                details["view_available"] = True
+                details["view_query_success"] = True
                 details["select_permission"] = True
                 maximum_date = conn.execute(
                     text(f"SELECT MAX(data) AS ultima_data FROM {AI_DATA_SOURCE}")
                 ).scalar()
-                details["underlying_objects_accessible"] = True
+                details["maximum_date_query_success"] = True
                 details["maximum_available_data_date"] = (
                     str(maximum_date) if maximum_date is not None else None
                 )
                 details["connection_category"] = "connection_success"
+                details["essential_checks_passed"] = True
         except Exception as exc:
             details["connection_category"] = classify_analytical_database_failure(exc)
         return details

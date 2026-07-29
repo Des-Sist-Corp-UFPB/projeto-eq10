@@ -122,8 +122,7 @@ class TestAiReadOnlyDataLayer(unittest.TestCase):
         connection.execute.side_effect = [
             Mock(),
             Mock(scalar=Mock(return_value="on")),
-            Mock(scalar=Mock(return_value="vw_data_sus_ia")),
-            Mock(scalar=Mock(return_value=True)),
+            Mock(),
             Mock(scalar=Mock(return_value=date(2026, 7, 1))),
         ]
         env = {
@@ -147,10 +146,78 @@ class TestAiReadOnlyDataLayer(unittest.TestCase):
         self.assertTrue(diagnostic["view_available"])
         self.assertTrue(diagnostic["select_permission"])
         self.assertTrue(diagnostic["session_readonly"])
-        self.assertTrue(diagnostic["underlying_objects_accessible"])
+        self.assertTrue(diagnostic["view_query_success"])
+        self.assertTrue(diagnostic["maximum_date_query_success"])
+        self.assertTrue(diagnostic["essential_checks_passed"])
+        self.assertEqual(diagnostic["underlying_metadata_check"], "not_required")
         self.assertEqual(diagnostic["maximum_available_data_date"], "2026-07-01")
         self.assertNotIn("secret", str(diagnostic))
         self.assertNotIn("ep-example", str(diagnostic))
+
+        executed_sql = " ".join(str(call.args[0]) for call in connection.execute.call_args_list)
+        self.assertNotIn("to_regclass", executed_sql)
+        self.assertNotIn("has_table_privilege", executed_sql)
+
+    def test_empty_view_with_null_maximum_date_is_healthy(self):
+        engine = Mock()
+        connection = Mock()
+        engine.connect.return_value.__enter__ = Mock(return_value=connection)
+        engine.connect.return_value.__exit__ = Mock(return_value=False)
+        connection.execute.side_effect = [
+            Mock(),
+            Mock(scalar=Mock(return_value="on")),
+            Mock(),
+            Mock(scalar=Mock(return_value=None)),
+        ]
+        env = {
+            "ENVIRONMENT": "test",
+            "AI_DATABASE_URL": (
+                "postgresql+psycopg2://ia_readonly:secret@ep-example.neon.tech:5432/"
+                "analytics?sslmode=require"
+            ),
+        }
+        with patch.dict(os.environ, env, clear=True), patch(
+            "sqlalchemy.create_engine", return_value=engine
+        ), patch("sqlalchemy.event.listen"):
+            diagnostic = get_analytical_database_diagnostic()
+
+        self.assertTrue(diagnostic["essential_checks_passed"])
+        self.assertTrue(diagnostic["maximum_date_query_success"])
+        self.assertIsNone(diagnostic["maximum_available_data_date"])
+
+    def test_view_missing_and_select_denied_fail_essential_checks_safely(self):
+        cases = {
+            'relation "vw_data_sus_ia" does not exist': "view_missing",
+            "permission denied for relation vw_data_sus_ia": "permission_denied",
+        }
+        env = {
+            "ENVIRONMENT": "test",
+            "AI_DATABASE_URL": (
+                "postgresql+psycopg2://ia_readonly:secret@ep-example.neon.tech:5432/"
+                "analytics?sslmode=require"
+            ),
+        }
+        for message, expected_category in cases.items():
+            engine = Mock()
+            connection = Mock()
+            engine.connect.return_value.__enter__ = Mock(return_value=connection)
+            engine.connect.return_value.__exit__ = Mock(return_value=False)
+            connection.execute.side_effect = [
+                Mock(),
+                Mock(scalar=Mock(return_value="on")),
+                RuntimeError(message),
+            ]
+            with self.subTest(category=expected_category), patch.dict(
+                os.environ, env, clear=True
+            ), patch("sqlalchemy.create_engine", return_value=engine), patch(
+                "sqlalchemy.event.listen"
+            ):
+                diagnostic = get_analytical_database_diagnostic()
+
+            self.assertEqual(diagnostic["connection_category"], expected_category)
+            self.assertFalse(diagnostic["essential_checks_passed"])
+            self.assertFalse(diagnostic["view_query_success"])
+            self.assertNotIn("secret", str(diagnostic))
 
     def test_safe_diagnostic_reports_missing_configuration(self):
         with patch.dict(os.environ, {"ENVIRONMENT": "test"}, clear=True):

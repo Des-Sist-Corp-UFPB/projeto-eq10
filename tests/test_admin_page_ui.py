@@ -610,6 +610,63 @@ class TestAdminPageUi(unittest.TestCase):
 
         self.assertEqual(fake_st.errors[-1], "Nao foi possivel carregar os logs agora. Tente novamente mais tarde.")
 
+    def test_observability_diagnostics_use_portuguese_component_labels_and_refresh(self):
+        fake_st = _FakeStreamlit()
+        fake_st.clicked_keys.add("refresh-health-diagnostics")
+        report = {
+            "overall_status": "degraded",
+            "application": {
+                "status": "healthy",
+                "checked_at": "2026-07-29T15:30:00+00:00",
+            },
+            "application_database": {"status": "healthy"},
+            "analytical_database": {
+                "status": "degraded",
+                "configuration_source": "AI_DATABASE_URL",
+                "connection_category": "view_missing",
+                "session_readonly": True,
+                "view_available": False,
+                "view_query_success": False,
+                "maximum_date_query_success": False,
+                "maximum_available_data_date": None,
+                "essential_checks_passed": False,
+                "underlying_metadata_check": "not_required",
+                "warning_categories": [],
+            },
+            "opentelemetry": {
+                "status": "configured",
+                "provider_type": "sdk",
+            },
+        }
+        cached_report = MagicMock(return_value=report)
+
+        with (
+            patch.object(admin_page, "st", fake_st),
+            patch.object(admin_page, "_get_cached_health_report", cached_report),
+            patch.object(admin_page, "track_event_once"),
+            patch.object(
+                admin_page,
+                "get_umami_status",
+                return_value={
+                    "enabled": False,
+                    "script_configured": False,
+                    "masked_website_id": "",
+                    "tracking_mode": "disabled",
+                    "last_local_event_attempt_category": "none",
+                },
+            ),
+        ):
+            admin_page._render_observability_diagnostics()
+
+        cached_report.clear.assert_called_once_with()
+        self.assertIn(("Aplicação Streamlit", "Saudável"), fake_st.metrics)
+        self.assertIn(("Banco da aplicação", "Saudável"), fake_st.metrics)
+        self.assertIn(("Banco analítico", "Degradado"), fake_st.metrics)
+        self.assertIn(("OpenTelemetry", "Configurado"), fake_st.metrics)
+        rendered = " ".join(str(item) for item in fake_st.writes)
+        self.assertIn("View analítica: indisponível", rendered)
+        self.assertNotIn("postgresql://", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()

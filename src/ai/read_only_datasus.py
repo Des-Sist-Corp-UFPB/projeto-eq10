@@ -200,6 +200,7 @@ def get_analytical_database_diagnostic(
 ) -> dict[str, object]:
     """Executa diagnostico readonly e retorna somente metadados nao sensiveis."""
     diagnostic: dict[str, object] = {
+        "configuration_source": "configuration_missing",
         "selected_configuration_source": "configuration_missing",
         "database_category": "analytical",
         "host_type": "unknown",
@@ -208,7 +209,11 @@ def get_analytical_database_diagnostic(
         "view_available": False,
         "select_permission": False,
         "session_readonly": False,
-        "underlying_objects_accessible": False,
+        "view_query_success": False,
+        "maximum_date_query_success": False,
+        "underlying_metadata_check": "not_required",
+        "essential_checks_passed": False,
+        "warning_categories": [],
         "maximum_available_data_date": None,
     }
 
@@ -219,6 +224,7 @@ def get_analytical_database_diagnostic(
         from sqlalchemy.engine import make_url
 
         parsed = make_url(database_url)
+        diagnostic["configuration_source"] = source
         diagnostic["selected_configuration_source"] = source
         diagnostic["host_type"] = _host_type(parsed.host)
         diagnostic["ssl_mode"] = parsed.query.get("sslmode", "unknown")
@@ -257,33 +263,21 @@ def get_analytical_database_diagnostic(
                 logger.warning("Analytical database diagnostic | details=%s", diagnostic)
                 return diagnostic
 
-            view_name = conn.execute(
-                text("SELECT to_regclass(:source) AS view_name"),
-                {"source": AI_DATA_SOURCE},
-            ).scalar()
-            diagnostic["view_available"] = view_name is not None
-            if view_name is None:
-                diagnostic["connection_category"] = "view_missing"
-                logger.info("Analytical database diagnostic | details=%s", diagnostic)
-                return diagnostic
-
-            can_select = conn.execute(
-                text("SELECT has_table_privilege(current_user, :source, 'SELECT')"),
-                {"source": AI_DATA_SOURCE},
-            ).scalar()
-            diagnostic["select_permission"] = bool(can_select)
-            if not can_select:
-                diagnostic["connection_category"] = "permission_denied"
-                logger.info("Analytical database diagnostic | details=%s", diagnostic)
-                return diagnostic
+            # A consulta real e a verificacao autoritativa. Consultas de catalogo
+            # podem ser negadas ao papel readonly mesmo quando a view e utilizavel.
+            conn.execute(text(f"SELECT 1 FROM {AI_DATA_SOURCE} LIMIT 1"))
+            diagnostic["view_available"] = True
+            diagnostic["view_query_success"] = True
+            diagnostic["select_permission"] = True
 
             maximum_date = conn.execute(
                 text(f"SELECT MAX(data)::date FROM {AI_DATA_SOURCE}")
             ).scalar()
-            diagnostic["underlying_objects_accessible"] = True
+            diagnostic["maximum_date_query_success"] = True
             diagnostic["maximum_available_data_date"] = (
                 str(maximum_date) if maximum_date is not None else None
             )
+            diagnostic["essential_checks_passed"] = True
     except Exception as exc:
         diagnostic["connection_category"] = classify_analytical_database_failure(exc)
 
