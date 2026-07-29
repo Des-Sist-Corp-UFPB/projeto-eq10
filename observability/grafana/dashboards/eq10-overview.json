@@ -1,0 +1,24 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "panels": [
+    {"id": 1, "type": "stat", "title": "Total de requisições de IA", "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}, "targets": [{"expr": "sum(increase({__name__=~\"eq10_ai_requests_total(_total)?\"}[$__range]))", "refId": "A"}]},
+    {"id": 2, "type": "stat", "title": "Requisições com sucesso", "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}, "targets": [{"expr": "sum(increase({__name__=~\"eq10_ai_requests_total(_total)?\", ai_result_status=\"success\"}[$__range]))", "refId": "A"}]},
+    {"id": 3, "type": "stat", "title": "Prompts bloqueados", "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}, "targets": [{"expr": "sum(increase({__name__=~\"eq10_ai_requests_blocked_total(_total)?\"}[$__range]))", "refId": "A"}]},
+    {"id": 4, "type": "stat", "title": "Falhas de IA", "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}, "targets": [{"expr": "sum(increase({__name__=~\"eq10_ai_requests_failed_total(_total)?\"}[$__range]))", "refId": "A"}]},
+    {"id": 5, "type": "timeseries", "title": "Uso de fallback", "gridPos": {"h": 7, "w": 8, "x": 0, "y": 4}, "targets": [{"expr": "sum(rate({__name__=~\"eq10_ai_fallback_total(_total)?\"}[5m]))", "refId": "A"}]},
+    {"id": 6, "type": "timeseries", "title": "Duração p95 da IA", "gridPos": {"h": 7, "w": 8, "x": 8, "y": 4}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(eq10_ai_request_duration_seconds_bucket[5m])))", "refId": "A"}]},
+    {"id": 7, "type": "timeseries", "title": "Duração p95 das consultas analíticas", "gridPos": {"h": 7, "w": 8, "x": 16, "y": 4}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(eq10_analytical_query_duration_seconds_bucket[5m])))", "refId": "A"}]},
+    {"id": 8, "type": "stat", "title": "Erros no banco analítico", "gridPos": {"h": 4, "w": 6, "x": 0, "y": 11}, "targets": [{"expr": "sum(increase({__name__=~\"eq10_analytical_query_errors_total(_total)?\"}[$__range]))", "refId": "A"}]},
+    {"id": 9, "type": "stat", "title": "Logins com sucesso", "gridPos": {"h": 4, "w": 6, "x": 6, "y": 11}, "targets": [{"expr": "sum(increase({__name__=~\"eq10_auth_login_total(_total)?\"}[$__range]))", "refId": "A"}]},
+    {"id": 10, "type": "stat", "title": "Falhas de login", "gridPos": {"h": 4, "w": 6, "x": 12, "y": 11}, "targets": [{"expr": "sum(increase({__name__=~\"eq10_auth_login_failures_total(_total)?\"}[$__range]))", "refId": "A"}]},
+    {"id": 11, "type": "stat", "title": "Saúde da aplicação", "gridPos": {"h": 4, "w": 6, "x": 18, "y": 11}, "targets": [{"expr": "sum(increase({__name__=~\"eq10_health_checks_total(_total)?\", result=\"success\"}[$__range])) / clamp_min(sum(increase({__name__=~\"eq10_health_checks_total(_total)?\"}[$__range])), 1)", "refId": "A"}]}
+  ],
+  "schemaVersion": 41,
+  "tags": ["eq10", "opentelemetry"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "EQ10 — Observabilidade",
+  "uid": "eq10-observability",
+  "version": 1
+}

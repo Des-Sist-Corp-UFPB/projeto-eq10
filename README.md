@@ -18,6 +18,13 @@ A documentacao tecnica completa esta em [docs/DOCUMENTACAO_TECNICA.md](docs/DOCU
 
 Ela detalha a arquitetura, estrutura de pastas, fluxo ETL, configuracao de ambiente, tabelas, modelo Power BI e pontos de atencao.
 
+## Observabilidade
+
+O app possui OpenTelemetry opcional para traces, métricas e logs correlacionados,
+com serviço `dsc-eq10`. Há uma stack local Alloy, Tempo, Prometheus e Grafana,
+além de dashboard provisionado. Consulte
+[docs/OBSERVABILITY_OPENTELEMETRY_GRAFANA.md](docs/OBSERVABILITY_OPENTELEMETRY_GRAFANA.md).
+
 ## Camada de IA
 
 Este projeto possui uma camada experimental e isolada de analise estatistica com PandasAI. Ela e somente leitura, nao executa a ETL principal e trabalha com DataFrames controlados da view `vw_data_sus_ia`.

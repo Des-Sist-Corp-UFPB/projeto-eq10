@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from src.observability.telemetry import span, trace_ai_request
 
 from src.ai.data_provider import load_controlled_datasus_dataframe
 from src.ai.month_checker import validar_mes_solicitado_no_prompt
@@ -103,6 +104,7 @@ def _try_responder_modo_simples(
     return resposta
 
 
+@trace_ai_request
 def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> str:
     """Recebe uma pergunta sobre dados SIA/DATASUS sem acionar a ETL principal.
 
@@ -114,7 +116,8 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
     user_id = int(user_context["id"]) if user_context and user_context.get("id") else None
     user_email = user_context.get("email") if user_context else None
 
-    decision = classify_prompt(prompt_usuario)
+    with span("ai.prompt.classify"):
+        decision = classify_prompt(prompt_usuario)
 
     def log_pipeline(final_decision: str, validation: str | None = None) -> None:
         log_ai_pipeline(
@@ -143,7 +146,8 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
             pass
         return BLOCK_MESSAGE
 
-    mes_valido, mensagem_mes = validar_mes_solicitado_no_prompt(prompt_usuario)
+    with span("ai.temporal.validate"):
+        mes_valido, mensagem_mes = validar_mes_solicitado_no_prompt(prompt_usuario)
 
     if not mes_valido:
         log_ai_question(
@@ -155,7 +159,8 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
         return mensagem_mes
 
     try:
-        df, data_inicio, data_fim_exclusiva = load_controlled_datasus_dataframe()
+        with span("ai.datasource.load"):
+            df, data_inicio, data_fim_exclusiva = load_controlled_datasus_dataframe()
     except Exception as exc:
         failure_category = classify_analytical_database_failure(exc)
         get_analytical_database_diagnostic(connection_error=exc)
@@ -172,13 +177,14 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
         return mensagem_sem_dados
 
     try:
-        resposta_simples = _try_responder_modo_simples(
-            df,
-            prompt_usuario,
-            data_inicio,
-            data_fim_exclusiva,
-            decision,
-        )
+        with span("ai.stats.execute"):
+            resposta_simples = _try_responder_modo_simples(
+                df,
+                prompt_usuario,
+                data_inicio,
+                data_fim_exclusiva,
+                decision,
+            )
     except Exception as exc:
         log_ai_question(
             prompt_usuario,
@@ -234,13 +240,14 @@ def perguntar_datasus(prompt_usuario: str, user_context: dict | None = None) -> 
     try:
         from src.ai.pandasai_runner import LLMRateLimitError, executar_pergunta_com_pandasai
 
-        resposta = executar_pergunta_com_pandasai(
-            df,
-            prompt_usuario,
-            data_inicio,
-            data_fim_exclusiva,
-            decision,
-        )
+        with span("ai.llm.execute"):
+            resposta = executar_pergunta_com_pandasai(
+                df,
+                prompt_usuario,
+                data_inicio,
+                data_fim_exclusiva,
+                decision,
+            )
     except LLMRateLimitError as exc:
         mensagem_erro = str(exc)
         if not is_simple_fallback_enabled():

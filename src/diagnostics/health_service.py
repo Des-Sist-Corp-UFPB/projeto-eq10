@@ -27,6 +27,7 @@ from src.ai.read_only_datasus import get_readonly_engine
 from src.auth.email_service import API_PROVIDERS, FAKE_PROVIDERS, SMTP_PROVIDER, SUPPORTED_PROVIDERS, EmailConfig
 from src.auth.email_verification_service import is_email_verification_required
 from src.auth.user_service import get_auth_engine, safe_auth_exception_summary
+from src.observability.telemetry import add_metric, get_telemetry_status
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +189,18 @@ class HealthService:
             self.check_datasus_view(),
             self.check_ai_configuration(),
             self.check_email_configuration(),
+            self.check_telemetry(),
         ]
+
+    def check_telemetry(self) -> HealthCheckResult:
+        """Diagnostico interno; telemetria nunca altera a saude do app."""
+        status = get_telemetry_status().as_dict()
+        return self._result(
+            "telemetry",
+            STATUS_OK,
+            "Telemetria opcional; falhas de exportacao nao afetam a aplicacao.",
+            status,
+        )
 
     def run_heartbeat(self) -> HealthCheckResult:
         """Executa um ping rapido nas duas bases de dados para o Uptime Kuma.
@@ -239,6 +251,7 @@ class HealthService:
             )
 
         if errors:
+            add_metric("eq10_health_checks_total", attributes={"result": "error"})
             return self._result(
                 "heartbeat",
                 STATUS_ERROR,
@@ -246,6 +259,7 @@ class HealthService:
                 {**results, "errors": errors},
             )
 
+        add_metric("eq10_health_checks_total", attributes={"result": "success"})
         return self._result(
             "heartbeat",
             STATUS_OK,

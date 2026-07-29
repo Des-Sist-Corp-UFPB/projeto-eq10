@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.auth.email_service import EmailSendResult, EmailService, mask_email
+from src.observability.telemetry import traced_operation
 from src.auth.security import MIN_PASSWORD_LENGTH, hash_password
 from src.auth.user_service import (
     AuthValidationError,
@@ -246,6 +247,7 @@ class PasswordResetService:
             expira_em=expira_em,
         )
 
+    @traced_operation("auth.password_reset_request", {"auth.operation": "password_reset_request", "auth.provider": "email"})
     def request_password_reset(self, email: str) -> PasswordResetResult:
         clean_email = _normalize_email(email)
         if not clean_email or not EMAIL_RE.match(clean_email):
@@ -371,6 +373,7 @@ class PasswordResetService:
             )
             raise
 
+    @traced_operation("auth.password_reset", {"auth.operation": "password_reset", "auth.provider": "email"})
     def reset_password_with_token(
         self,
         raw_token: str,

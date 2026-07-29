@@ -23,6 +23,7 @@ from sqlalchemy.exc import (
 
 from src.auth.security import MIN_PASSWORD_LENGTH, hash_password, verify_password
 from src.auth.validation import EMAIL_RE
+from src.observability.telemetry import traced_operation
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_AUTH_SQLITE_PATH = BASE_DIR / "data" / "auth.sqlite3"
@@ -783,6 +784,7 @@ class UserService:
         except Exception:
             logger.debug("audit_log nao disponivel ainda - ignorado em %s", evento)
 
+    @traced_operation("auth.registration", {"auth.operation": "registration", "auth.provider": "password"})
     def create_user(
         self,
         nome: str,
@@ -888,6 +890,12 @@ class UserService:
 
         return user
 
+    @traced_operation(
+        "auth.login",
+        {"auth.operation": "login", "auth.provider": "password"},
+        success_metric="eq10_auth_login_total",
+        failure_metric="eq10_auth_login_failures_total",
+    )
     def authenticate(self, email: str, senha: str) -> UserProfile:
         clean_email = _validate_email(email)
         if not senha:
@@ -1003,6 +1011,12 @@ class UserService:
 
         return user
 
+    @traced_operation(
+        "auth.login",
+        {"auth.operation": "login", "auth.provider": "google"},
+        success_metric="eq10_auth_login_total",
+        failure_metric="eq10_auth_login_failures_total",
+    )
     def authenticate_google_identity(
         self,
         *,

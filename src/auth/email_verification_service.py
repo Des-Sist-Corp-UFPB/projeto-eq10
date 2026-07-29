@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.auth.email_service import EmailSendResult, EmailService, mask_email
+from src.observability.telemetry import traced_operation
 from src.auth.user_service import (
     AuthValidationError,
     _active_user_condition,
@@ -271,6 +272,7 @@ class EmailVerificationService:
             expira_em=expira_em,
         )
 
+    @traced_operation("auth.email_verification_request", {"auth.operation": "email_verification_request", "auth.provider": "email"})
     def send_verification_email(self, user_id: int) -> EmailVerificationResult:
         try:
             token = self.create_email_verification_token(user_id)
@@ -372,6 +374,7 @@ class EmailVerificationService:
             )
         return result
 
+    @traced_operation("auth.email_verification", {"auth.operation": "email_verification", "auth.provider": "email"})
     def verify_email_token(self, raw_token: str) -> EmailVerificationResult:
         clean_token = (raw_token or "").strip()
         if not clean_token:

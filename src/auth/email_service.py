@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from email.message import EmailMessage
 from html import escape
 from typing import Any
+from src.observability.telemetry import add_metric
 
 logger = logging.getLogger(__name__)
 
@@ -406,6 +407,10 @@ class EmailService:
         message_type: str,
         recipient: str,
     ) -> EmailSendResult:
+        add_metric(
+            "eq10_email_send_failures_total",
+            attributes={"error.category": error_code, "auth.provider": self.config.provider},
+        )
         return self._result(
             success=False,
             sent=False,

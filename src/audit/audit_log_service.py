@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.auth.user_service import run_transient_db_operation
+from src.observability.telemetry import traced_operation
 
 logger = logging.getLogger(__name__)
 
@@ -282,6 +283,7 @@ class AuditLogService:
             )
             raise
 
+    @traced_operation("audit.persist", {"audit.operation": "persist"})
     def log_event(
         self,
         evento: str,
@@ -346,6 +348,7 @@ class AuditLogService:
                 type(exc).__name__,
             )
 
+    @traced_operation("audit.list", {"audit.operation": "list"})
     def get_recent_logs(self, limit: int = 200) -> list[AuditEntry]:
         """Retorna os eventos mais recentes em ordem decrescente."""
         def operation() -> list[Any]:
@@ -376,6 +379,7 @@ class AuditLogService:
 
         return [_row_to_entry(r) for r in rows]
 
+    @traced_operation("audit.list", {"audit.operation": "list"})
     def get_logs_by_user(self, user_id: int, limit: int = 100) -> list[AuditEntry]:
         """Retorna eventos associados a um usuario especifico."""
         def operation() -> list[Any]:

@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.auth.email_service import EmailSendResult, EmailService, mask_email
+from src.observability.telemetry import traced_operation
 from src.auth.user_service import (
     UserProfile,
     _active_user_condition,
@@ -179,6 +180,7 @@ class AccountReactivationService:
             )
             raise
 
+    @traced_operation("auth.account_reactivation_request", {"auth.operation": "account_reactivation_request", "auth.provider": "email"})
     def request_reactivation(self, email: str) -> AccountReactivationResult:
         clean_email = _validate_email(email)
         now = _now()
@@ -301,6 +303,7 @@ class AccountReactivationService:
             send_result=send_result,
         )
 
+    @traced_operation("auth.account_reactivation", {"auth.operation": "account_reactivation", "auth.provider": "email"})
     def confirm_reactivation_code(
         self,
         reactivation_token_id: int,

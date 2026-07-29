@@ -12,6 +12,10 @@ from typing import Any
 
 import streamlit as st
 
+from src.observability.telemetry import configure_telemetry
+
+configure_telemetry()
+
 from src.auth.email_verification_service import EmailVerificationService, is_email_verification_required
 from src.auth.google_oauth_service import (
     GOOGLE_OAUTH_GENERIC_ERROR_MESSAGE,
