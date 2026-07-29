@@ -30,6 +30,14 @@ services:
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
       - OTEL_EXPORTER_OTLP_TIMEOUT=10000
 
+      # Umami usa somente configuracao publica do tracker; nao usa credenciais
+      # do painel. Valores podem ser sobrescritos pelo .env.prod.
+      - UMAMI_ENABLED=${UMAMI_ENABLED:-true}
+      - UMAMI_SCRIPT_URL=${UMAMI_SCRIPT_URL:-https://umami.dsc.rodrigor.com/script.js}
+      - UMAMI_WEBSITE_ID=${UMAMI_WEBSITE_ID:-339ab59d-d201-4b26-a7e5-e642385064f5}
+      - UMAMI_HOST_URL=${UMAMI_HOST_URL:-https://umami.dsc.rodrigor.com}
+      - UMAMI_ALLOWED_DOMAIN=${UMAMI_ALLOWED_DOMAIN:-eq10.dsc.rodrigor.com}
+
     env_file:
       - .env.prod
     restart: always

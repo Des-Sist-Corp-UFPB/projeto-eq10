@@ -12,6 +12,7 @@ from typing import Any
 
 import streamlit as st
 
+from src.analytics.umami import configure_umami, track_event, track_event_once, track_page_view
 from src.observability.telemetry import configure_telemetry
 
 configure_telemetry()
@@ -39,6 +40,7 @@ from src.ui.styles import apply_global_light_styles
 from src.ui.statistics_page import render_statistics_page
 from src.ui.admin_page import render_admin_page
 from src.diagnostics.health_service import HealthService, get_database_config_sources
+from src.ai.prompt_policy import BLOCK_MESSAGE
 
 APP_TITLE = "Assistente Estatístico SIA/DATASUS"
 APP_SUBTITLE = "Converse com os dados disponíveis do SIA/DATASUS"
@@ -2080,6 +2082,7 @@ def _process_pending_prompt() -> bool:
     user = get_authenticated_user(st.session_state)
     user_id = int(user["id"]) if user else 0
     st.session_state.pending_prompt = None
+    track_event("ai_question_submitted", {"page": "chat"})
     if user_id:
         _persist_chat_history_message(
             user_id=user_id,
@@ -2113,6 +2116,26 @@ def _process_pending_prompt() -> bool:
         )
         resposta = GENERIC_ERROR_MESSAGE
         assistant_status = "error"
+
+    from src.ai.datasus_ai import (
+        DATABASE_UNAVAILABLE_MESSAGE as AI_DATABASE_UNAVAILABLE_MESSAGE,
+        ENGINE_UNAVAILABLE_MESSAGE,
+        GENERIC_AI_ERROR_MESSAGE,
+        LLM_SIMPLE_FALLBACK_NOTICE,
+    )
+
+    if assistant_status == "error" or resposta in {
+        AI_DATABASE_UNAVAILABLE_MESSAGE,
+        ENGINE_UNAVAILABLE_MESSAGE,
+        GENERIC_AI_ERROR_MESSAGE,
+    }:
+        track_event("ai_question_failed", {"result": "failure"})
+    elif resposta == BLOCK_MESSAGE:
+        track_event("ai_question_blocked", {"result": "blocked"})
+    else:
+        if resposta.startswith(LLM_SIMPLE_FALLBACK_NOTICE):
+            track_event("ai_fallback_used", {"execution_mode": "fallback"})
+        track_event("ai_question_succeeded", {"result": "success"})
 
     if user_id:
         _persist_chat_history_message(
@@ -2164,6 +2187,7 @@ def _render_chat_page() -> None:
 
 def main() -> None:
     st.set_page_config(page_title=APP_TITLE, page_icon="📊", layout="wide")
+    configure_umami()
     _log_startup_diagnostics_once()
     _apply_style()
     _init_messages()
@@ -2173,6 +2197,18 @@ def main() -> None:
     _handle_password_reset_query_param()
     _handle_email_verification_query_param()
     current_page = _resolve_authorized_page(get_current_page())
+    logical_pages = {
+        DEFAULT_PAGE: "/estatisticas",
+        CHAT_PAGE: "/chat-ia",
+        ADMIN_PAGE: "/auditoria",
+    }
+    track_page_view(logical_pages[current_page])
+    if current_page == DEFAULT_PAGE:
+        track_event_once("statistics_viewed", {"page": "statistics"})
+    elif current_page == CHAT_PAGE and can_access_chat(st.session_state):
+        track_event_once("ai_chat_opened", {"page": "chat"})
+    elif current_page == ADMIN_PAGE:
+        track_event_once("audit_page_viewed", {"page": "audit"})
     if (
         current_page == CHAT_PAGE
         and not can_access_chat(st.session_state)

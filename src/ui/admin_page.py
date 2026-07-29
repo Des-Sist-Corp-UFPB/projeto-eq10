@@ -12,6 +12,7 @@ from typing import Any
 
 import streamlit as st
 
+from src.analytics.umami import get_umami_status, track_event, track_event_once
 from src.auth.roles import (
     ROLE_ADMIN,
     ROLE_SUPER_ADMIN,
@@ -895,6 +896,7 @@ def render_admin_page() -> None:
 
 
 def _render_observability_diagnostics() -> None:
+    track_event_once("health_diagnostics_viewed", {"page": "admin"})
     st.subheader("Diagnosticos de saude e observabilidade")
     try:
         report = HealthService().run_unified_report()
@@ -916,6 +918,15 @@ def _render_observability_diagnostics() -> None:
             f"Provider: {telemetry.get('provider_type', 'noop')} | "
             f"Verificado em: {application.get('checked_at', 'nao informado')}"
         )
+        umami = get_umami_status()
+        st.caption(
+            "Umami: "
+            f"{'habilitado' if umami['enabled'] else 'desabilitado'} | "
+            f"script: {'configurado' if umami['script_configured'] else 'ausente'} | "
+            f"site: {umami['masked_website_id'] or 'nao configurado'} | "
+            f"modo: {umami['tracking_mode']} | "
+            f"ultima tentativa local: {umami['last_local_event_attempt_category']}"
+        )
     except Exception as exc:
         logger.warning(
             "admin_page: diagnostico interno indisponivel | tipo=%s",
@@ -928,6 +939,7 @@ def _render_observability_diagnostics() -> None:
         key="emit-observability-verification",
         use_container_width=False,
     ):
+        track_event("observability_trace_requested", {"category": "telemetry"})
         attempted = emit_verification_span()
         if attempted:
             st.success("Criacao local do trace foi solicitada.")

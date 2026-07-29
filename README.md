@@ -37,6 +37,17 @@ Para demonstração independente, há também uma stack local Alloy, Tempo,
 Prometheus e Grafana com dashboard provisionado. Consulte
 [docs/OBSERVABILITY_OPENTELEMETRY_GRAFANA.md](docs/OBSERVABILITY_OPENTELEMETRY_GRAFANA.md).
 
+## Analytics de uso
+
+O Streamlit integra o Umami institucional para page views logicas e poucos
+eventos de uso, sem enviar e-mail, identificador de usuario, prompts, respostas
+ou dados de saude. Umami descreve navegacao e uso do produto; OpenTelemetry
+continua responsavel por traces, metricas tecnicas, latencia, erros e saude dos
+bancos. A integracao e opcional e nao afeta a disponibilidade da aplicacao.
+
+Configuracao, catalogo de eventos, privacidade e validacao:
+[docs/UMAMI_ANALYTICS.md](docs/UMAMI_ANALYTICS.md).
+
 ## Camada de IA
 
 Este projeto possui uma camada experimental e isolada de analise estatistica com PandasAI. Ela e somente leitura, nao executa a ETL principal e trabalha com DataFrames controlados da view `vw_data_sus_ia`.

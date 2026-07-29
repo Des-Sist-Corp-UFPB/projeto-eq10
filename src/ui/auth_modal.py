@@ -10,6 +10,7 @@ from typing import Any
 
 import streamlit as st
 
+from src.analytics.umami import track_event, track_page_view
 from src.auth.account_reactivation_service import (
     AccountReactivationService,
 )
@@ -1772,6 +1773,7 @@ def _render_profile_action_card(
 
 
 def _render_login_panel() -> None:
+    track_page_view("/login")
     _render_auth_dialog_heading("Acesso ao Chat IA", "Entre para continuar usando o chat inteligente.")
     global_error_slot = st.empty()
     global_info_slot = st.empty()
@@ -1812,14 +1814,17 @@ def _render_login_panel() -> None:
     )
 
     if _should_process(submitted, login_processing_label):
+        track_event("login_submitted", {"category": "authentication"})
         try:
             field_errors = validate_login_fields(email, senha)
             if field_errors:
+                track_event("login_failed", {"result": "failure"})
                 _finish_modal_action_feedback(_first_error_message(field_errors), "error")
                 return
 
             service = _get_auth_service_or_none()
             if service is None:
+                track_event("login_failed", {"result": "failure"})
                 _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
                 return
 
@@ -1827,6 +1832,7 @@ def _render_login_panel() -> None:
                 with modal_action_processing(login_processing_label):
                     user = service.authenticate(email, senha)
             except AuthValidationError as exc:
+                track_event("login_failed", {"result": "failure"})
                 _finish_modal_action_feedback(exc.public_message, "error")
             except Exception as exc:
                 logger.warning(
@@ -1834,8 +1840,10 @@ def _render_login_panel() -> None:
                     safe_auth_exception_summary(exc),
                     type(exc).__name__,
                 )
+                track_event("login_failed", {"result": "failure"})
                 _finish_modal_action_feedback(AUTH_UNAVAILABLE_MESSAGE, "error")
             else:
+                track_event("login_succeeded", {"result": "success"})
                 login_session(st.session_state, user)
                 _finish_auth_success()
                 queue_toast(st.session_state, "Login realizado com sucesso.")
@@ -1845,6 +1853,7 @@ def _render_login_panel() -> None:
 
 
 def _render_signup_panel() -> None:
+    track_page_view("/cadastro")
     _render_auth_dialog_heading("Criar conta", "Preencha seus dados para acessar o Chat IA.")
     global_error_slot = st.empty()
     global_info_slot = st.empty()
@@ -1882,6 +1891,7 @@ def _render_signup_panel() -> None:
     )
 
     if _should_process(submitted, signup_processing_label):
+        track_event("registration_submitted", {"category": "authentication"})
         try:
             field_errors = validate_register_fields(nome, email, senha, confirmar_senha)
             if field_errors:
@@ -1986,6 +1996,7 @@ def _render_confirm_email_panel() -> None:
             return
 
         if result.flow_kind == "pending_registration":
+            track_event("registration_succeeded", {"result": "success"})
             login_session(st.session_state, result.user)
             _finish_auth_success()
             queue_toast(st.session_state, result.message)
@@ -2012,6 +2023,7 @@ def _render_confirm_reactivation_panel() -> None:
 
 
 def _render_forgot_password_panel() -> None:
+    track_page_view("/recuperar-senha")
     _render_auth_dialog_heading(
         "Recuperar senha",
         "Informe seu e-mail para solicitar instrucoes de recuperacao.",
@@ -2042,6 +2054,7 @@ def _render_forgot_password_panel() -> None:
         st.rerun()
 
     if _should_process(submitted, reset_request_processing_label):
+        track_event("password_reset_requested", {"category": "authentication"})
         try:
             field_errors = validate_login_fields(email, "senha-temporaria")
             if field_errors.get("email"):
