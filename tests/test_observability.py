@@ -34,6 +34,30 @@ def test_enabled_without_endpoint_warns_and_continues(monkeypatch, caplog):
     assert "endpoint_nao_configurado" in caplog.text
 
 
+def test_safe_status_has_required_fields_without_endpoint_or_header(monkeypatch, caplog):
+    endpoint = "https://user:password@otel.example.invalid/otlp"
+    header = "Authorization=Basic very-secret-value"
+    monkeypatch.setenv("OTEL_ENABLED", "false")
+    monkeypatch.setenv("OTEL_SERVICE_NAME", "dsc-eq10")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint)
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_HEADERS", header)
+    with caplog.at_level(logging.INFO):
+        status = telemetry.configure_telemetry()
+
+    assert status.as_dict() == {
+        "enabled": False,
+        "service_name": "dsc-eq10",
+        "exporter_configured": True,
+        "protocol": "http/protobuf",
+        "endpoint_category": "remote",
+        "last_initialization_result": "disabled",
+    }
+    assert endpoint not in caplog.text
+    assert header not in caplog.text
+    assert "very-secret-value" not in caplog.text
+
+
 def test_initialization_is_idempotent(monkeypatch):
     monkeypatch.setenv("OTEL_ENABLED", "false")
     assert telemetry.configure_telemetry() == telemetry.configure_telemetry()

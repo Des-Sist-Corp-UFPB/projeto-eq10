@@ -40,7 +40,9 @@ _logger_provider: Any = None
 _instruments: dict[str, Any] = {}
 _status: dict[str, Any] = {
     "enabled": False,
+    "service_name": "dsc-eq10",
     "exporter_configured": False,
+    "protocol": "http/protobuf",
     "endpoint_category": "not_configured",
     "last_initialization_result": "not_initialized",
 }
@@ -49,14 +51,18 @@ _status: dict[str, Any] = {
 @dataclass(frozen=True)
 class TelemetryStatus:
     enabled: bool
+    service_name: str
     exporter_configured: bool
+    protocol: str
     endpoint_category: str
     last_initialization_result: str
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
+            "service_name": self.service_name,
             "exporter_configured": self.exporter_configured,
+            "protocol": self.protocol,
             "endpoint_category": self.endpoint_category,
             "last_initialization_result": self.last_initialization_result,
         }
@@ -99,6 +105,33 @@ def _endpoint_category(endpoint: str | None) -> str:
     return "remote"
 
 
+def _safe_service_name(value: str | None) -> str:
+    candidate = (value or "dsc-eq10").strip()
+    if re.fullmatch(r"[A-Za-z0-9._/-]{1,80}", candidate):
+        return candidate
+    return "invalid"
+
+
+def _safe_protocol(value: str | None) -> str:
+    candidate = (value or "http/protobuf").strip().lower()
+    if candidate in {"http/protobuf", "grpc"}:
+        return candidate
+    return "unsupported"
+
+
+def _log_safe_status(status: TelemetryStatus) -> None:
+    logger.info(
+        "OpenTelemetry status | enabled=%s | service_name=%s | "
+        "exporter_configured=%s | protocol=%s | endpoint_category=%s | initialization=%s",
+        status.enabled,
+        status.service_name,
+        status.exporter_configured,
+        status.protocol,
+        status.endpoint_category,
+        status.last_initialization_result,
+    )
+
+
 def _install_log_filter() -> None:
     global _log_filter_installed
     if _log_filter_installed:
@@ -139,9 +172,13 @@ def configure_telemetry() -> TelemetryStatus:
 
         enabled = _flag("OTEL_ENABLED", False)
         endpoint = (os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT") or "").strip()
+        service_name = _safe_service_name(os.getenv("OTEL_SERVICE_NAME"))
+        protocol = _safe_protocol(os.getenv("OTEL_EXPORTER_OTLP_PROTOCOL"))
         _status.update(
             enabled=enabled,
+            service_name=service_name,
             exporter_configured=bool(endpoint),
+            protocol=protocol,
             endpoint_category=_endpoint_category(endpoint),
         )
         _install_log_filter()
@@ -149,12 +186,16 @@ def configure_telemetry() -> TelemetryStatus:
         if not enabled:
             _status["last_initialization_result"] = "disabled"
             _initialized = True
-            return get_telemetry_status()
+            status = get_telemetry_status()
+            _log_safe_status(status)
+            return status
         if not endpoint:
             logger.warning("OpenTelemetry desativado | causa=endpoint_nao_configurado")
             _status["last_initialization_result"] = "missing_endpoint"
             _initialized = True
-            return get_telemetry_status()
+            status = get_telemetry_status()
+            _log_safe_status(status)
+            return status
 
         try:
             from opentelemetry import metrics, trace
@@ -167,7 +208,7 @@ def configure_telemetry() -> TelemetryStatus:
             from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
             resource = Resource.create(
-                {"service.name": os.getenv("OTEL_SERVICE_NAME", "dsc-eq10")}
+                {"service.name": service_name}
             )
             if os.getenv("OTEL_TRACES_EXPORTER", "otlp").lower() != "none":
                 _tracer_provider = TracerProvider(resource=resource)
@@ -210,7 +251,9 @@ def configure_telemetry() -> TelemetryStatus:
                 type(exc).__name__,
             )
         _initialized = True
-        return get_telemetry_status()
+        status = get_telemetry_status()
+        _log_safe_status(status)
+        return status
 
 
 def _create_instruments(meter: Any) -> None:
@@ -406,7 +449,9 @@ def _reset_for_tests() -> None:
         _instruments.clear()
         _status.update(
             enabled=False,
+            service_name="dsc-eq10",
             exporter_configured=False,
+            protocol="http/protobuf",
             endpoint_category="not_configured",
             last_initialization_result="not_initialized",
         )

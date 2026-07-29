@@ -18,6 +18,17 @@ services:
       - AI_LLM_BASE_URL=https://llm.rodrigor.com/v1
       - AI_FALLBACK_TO_SIMPLE=true
 
+      # OpenTelemetry: valores nao secretos e estaveis ficam versionados.
+      # Endpoint e Authorization continuam exclusivamente no .env.prod do servidor.
+      - OTEL_ENABLED=true
+      - OTEL_SERVICE_NAME=dsc-eq10
+      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=dsc,deployment.environment=production
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_EXPORTER_OTLP_TIMEOUT=10000
+
     env_file:
       - .env.prod
     restart: always

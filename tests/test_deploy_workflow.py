@@ -95,6 +95,29 @@ class TestDeployWorkflow(unittest.TestCase):
         self.assertNotRegex(source, re.compile(r"^\s*-\s*(user|password|host|database)=", re.MULTILINE))
         self.assertNotRegex(source, re.compile(r"^\s*-\s*AI_DB_(USER|PASSWORD|HOST|NAME|PORT)=", re.MULTILINE))
 
+    def test_prod_compose_carrega_segredos_otel_do_env_file(self):
+        source = self.read_prod_compose()
+        app_block = source.split("  etl:", 1)[0]
+
+        self.assertIn("env_file:", app_block)
+        self.assertIn("- .env.prod", app_block)
+        self.assertIn("- OTEL_ENABLED=true", app_block)
+        self.assertIn("- OTEL_SERVICE_NAME=dsc-eq10", app_block)
+        self.assertIn("- OTEL_TRACES_EXPORTER=otlp", app_block)
+        self.assertIn("- OTEL_METRICS_EXPORTER=otlp", app_block)
+        self.assertIn("- OTEL_LOGS_EXPORTER=otlp", app_block)
+        self.assertIn("- OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf", app_block)
+        self.assertIn("- OTEL_EXPORTER_OTLP_TIMEOUT=10000", app_block)
+        self.assertNotIn("OTEL_EXPORTER_OTLP_ENDPOINT=", app_block)
+        self.assertNotIn("OTEL_EXPORTER_OTLP_HEADERS=", app_block)
+
+    def test_workflow_nao_transporta_segredos_otel(self):
+        source = self.read_workflow()
+
+        self.assertNotIn("OTEL_EXPORTER_OTLP_ENDPOINT", source)
+        self.assertNotIn("OTEL_EXPORTER_OTLP_HEADERS", source)
+        self.assertNotIn("secrets.OTEL_", source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -45,12 +45,62 @@ OTEL_EXPORTER_OTLP_TIMEOUT=10000
 ```
 
 Valores reais ficam somente no gerenciador de segredos ou `.env.prod` fora do
-Git. `OTEL_ENABLED=false` é o padrão.
+Git. `OTEL_ENABLED=false` é o padrão do código; o Compose de produção ativa
+explicitamente a telemetria.
 
 A URL chamada “Panel” pode ser apenas a interface Grafana. O professor deve
 confirmar o endpoint OTLP/HTTP e se a base inclui `/otlp`. O SDK acrescenta
 `/v1/traces`, `/v1/metrics` e `/v1/logs`. Não use a URL do painel como ingestão
 sem confirmação e não execute comandos verbosos que imprimam headers.
+
+## Deploy no servidor do professor
+
+O workflow não possui acesso a um shell remoto arbitrário. A chave
+`SSH_DEPLOY_KEY` usa um comando forçado no servidor: o Actions envia apenas
+`actor:GITHUB_TOKEN` para o script de deploy puxar a imagem do GHCR. O
+repositório não contém o script `~/ssh/deploy`, portanto seus detalhes internos
+não podem ser alterados daqui. O contrato documentado é que ele aplica
+`docker-compose.prod.yml`.
+
+O serviço `app` desse Compose carrega `.env.prod`. Os valores OTEL não secretos
+e estáveis estão no próprio Compose; somente estes dois valores devem ser
+acrescentados ao `.env.prod` já existente:
+
+```dotenv
+OTEL_EXPORTER_OTLP_ENDPOINT=<endpoint-OTLP-institucional-confirmado>
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <credencial-fornecida>
+```
+
+O administrador deve editar o arquivo diretamente no servidor, sem recriá-lo e
+sem remover as variáveis `AUTH_*`, `AI_*`, `EMAIL_*` existentes:
+
+```bash
+cd <diretorio-do-deploy-eq10>
+chmod 600 .env.prod
+${EDITOR:-vi} .env.prod
+docker compose -f docker-compose.prod.yml up -d --pull always --force-recreate app
+```
+
+Não use `echo`, `set -x`, `docker inspect ...Config.Env`, `env`, `printenv` ou
+`cat .env.prod` para essa operação. Nenhum novo GitHub Secret é necessário:
+continuam necessários apenas `SSH_USERNAME` e `SSH_DEPLOY_KEY`; o token do GHCR
+é o `GITHUB_TOKEN` efêmero fornecido pelo Actions.
+
+Após o redeploy, este log é seguro e não contém URL ou header:
+
+```bash
+docker compose -f docker-compose.prod.yml logs --tail=200 app |
+  grep "OpenTelemetry status"
+```
+
+O resultado esperado contém `enabled=True`, `service_name=dsc-eq10`,
+`exporter_configured=True`, `protocol=http/protobuf`,
+`endpoint_category=remote` e `initialization=configured`. Depois gere uma
+pergunta permitida e procure no Tempo por
+`resource.service.name = "dsc-eq10"`. Se a inicialização estiver configurada,
+mas não houver traces, o administrador deve confirmar com o professor o
+endpoint de ingestão, caminho `/otlp`, tipo de autorização e conectividade de
+saída do container.
 
 ## Demonstração local
 
@@ -92,8 +142,9 @@ traces no Tempo pelo serviço `dsc-eq10`.
 
 O app pode enviar diretamente ao OTLP institucional ou a um Alloy intermediário.
 Falhas do exportador não afetam a saúde e lotes podem ser descartados após o
-timeout. `HealthService.run_all_checks()` expõe somente enabled, exporter
-configurado, categoria do endpoint e último resultado de inicialização.
+timeout. `HealthService.run_all_checks()` e o log de startup expõem somente
+enabled, service name, exporter configurado, protocolo, categoria do endpoint e
+último resultado de inicialização.
 
 Se não houver dados, confira endpoint de ingestão (não painel), protocolo,
 DNS/TLS, autorização e o nome exato `dsc-eq10`. A stack local não inclui Loki;

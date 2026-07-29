@@ -393,6 +393,15 @@ No servidor, configure `.env.prod` com:
 - `AI_DATABASE_URL` ou `AI_DB_*` completos para a base DATASUS readonly;
 - `AI_LLM_*` quando `AI_USE_LLM=true`;
 - `EMAIL_*`, `APP_PUBLIC_BASE_URL` e outros opcionais conforme o ambiente.
+- `OTEL_EXPORTER_OTLP_ENDPOINT` e `OTEL_EXPORTER_OTLP_HEADERS` fornecidos pela
+  infraestrutura institucional. Os demais valores OTEL de produção são
+  declarados sem segredo no `docker-compose.prod.yml`.
+
+O `.env.prod` existente deve ser editado no servidor, nunca substituído pelo
+workflow. Isso preserva as configurações de banco, IA e e-mail já administradas
+pelo professor. Não são necessários novos GitHub Secrets para OpenTelemetry.
+Consulte `docs/OBSERVABILITY_OPENTELEMETRY_GRAFANA.md` para os passos seguros,
+diagnóstico permitido e validação no Tempo.
 
 O container Streamlit escuta internamente em `0.0.0.0:8501`, e o Nginx do mesmo container publica a aplicacao em `8080`. No compose de producao, o mapeamento externo atual e `127.0.0.1:8110:8080`.
 
