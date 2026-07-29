@@ -447,11 +447,23 @@ class HealthService:
                 "analytical_database": {
                     "status": "healthy" if analytical_db.status == STATUS_OK else "degraded",
                     "connection_category": analytical_db.details.get("connection_category"),
+                    "failure_stage": analytical_db.details.get("failure_stage"),
+                    "readonly_category": analytical_db.details.get("readonly_category"),
+                    "readonly_set": analytical_db.details.get("readonly_set", False),
+                    "readonly_verified": analytical_db.details.get(
+                        "readonly_verified", False
+                    ),
                     "view_available": analytical_db.details.get("view_available", False),
                     "view_query_success": analytical_db.details.get("view_query_success", False),
+                    "view_query_category": analytical_db.details.get(
+                        "view_query_category", "not_checked"
+                    ),
                     "session_readonly": analytical_db.details.get("session_readonly", False),
                     "maximum_date_query_success": analytical_db.details.get(
                         "maximum_date_query_success", False
+                    ),
+                    "maximum_date_category": analytical_db.details.get(
+                        "maximum_date_category", "not_checked"
                     ),
                     "maximum_available_data_date": analytical_db.details.get("maximum_available_data_date"),
                     "configuration_source": analytical_db.details.get(
@@ -463,6 +475,12 @@ class HealthService:
                     ),
                     "underlying_metadata_check": analytical_db.details.get(
                         "underlying_metadata_check", "not_required"
+                    ),
+                    "optional_metadata_available": analytical_db.details.get(
+                        "optional_metadata_available", False
+                    ),
+                    "optional_metadata_category": analytical_db.details.get(
+                        "optional_metadata_category", "not_checked"
                     ),
                     "warning_categories": analytical_db.details.get("warning_categories", []),
                     "checked_at": analytical_db.checked_at,
@@ -661,12 +679,20 @@ class HealthService:
             "host_type": "unknown",
             "ssl_mode": "unknown",
             "connection_category": "configuration_missing",
+            "failure_stage": None,
+            "readonly_category": "not_checked",
+            "view_query_category": "not_checked",
+            "maximum_date_category": "not_checked",
+            "optional_metadata_category": "not_checked",
+            "readonly_set": False,
+            "readonly_verified": False,
             "view_available": False,
             "select_permission": False,
             "session_readonly": False,
             "view_query_success": False,
             "maximum_date_query_success": False,
             "underlying_metadata_check": "not_required",
+            "optional_metadata_available": False,
             "essential_checks_passed": False,
             "warning_categories": [],
             "maximum_available_data_date": None,
@@ -675,29 +701,53 @@ class HealthService:
             engine = self._get_analytics_engine()
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
+                details["connection_category"] = "connection_success"
+                details["readonly_set"] = True
+                details["readonly_category"] = "configured"
                 dialect = getattr(getattr(conn, "dialect", None), "name", "")
                 if dialect == "postgresql":
-                    readonly_value = conn.execute(text("SHOW transaction_read_only")).scalar()
+                    readonly_value = conn.execute(
+                        text("SHOW default_transaction_read_only")
+                    ).scalar()
                     details["session_readonly"] = str(readonly_value).strip().lower() in {"on", "true", "1"}
                 else:
                     # Engines injected into unit tests are already isolated; the
                     # production path always uses the readonly provider above.
                     details["session_readonly"] = True
-                conn.execute(text(f"SELECT 1 FROM {AI_DATA_SOURCE} LIMIT 1"))
+                details["readonly_verified"] = details["session_readonly"]
+                details["readonly_category"] = (
+                    "verified" if details["session_readonly"] else "verification_failed"
+                )
+                if not details["session_readonly"]:
+                    details["failure_stage"] = "readonly_verify"
+                    return details
+                try:
+                    conn.execute(text(f"SELECT 1 FROM {AI_DATA_SOURCE} LIMIT 1"))
+                except Exception as exc:
+                    details["view_query_category"] = classify_analytical_database_failure(exc)
+                    details["failure_stage"] = "view_select"
+                    return details
                 details["view_available"] = True
                 details["view_query_success"] = True
+                details["view_query_category"] = "success"
                 details["select_permission"] = True
-                maximum_date = conn.execute(
-                    text(f"SELECT MAX(data) AS ultima_data FROM {AI_DATA_SOURCE}")
-                ).scalar()
+                try:
+                    maximum_date = conn.execute(
+                        text(f"SELECT MAX(data) AS ultima_data FROM {AI_DATA_SOURCE}")
+                    ).scalar()
+                except Exception as exc:
+                    details["maximum_date_category"] = classify_analytical_database_failure(exc)
+                    details["failure_stage"] = "maximum_date"
+                    return details
                 details["maximum_date_query_success"] = True
+                details["maximum_date_category"] = "success"
                 details["maximum_available_data_date"] = (
                     str(maximum_date) if maximum_date is not None else None
                 )
-                details["connection_category"] = "connection_success"
                 details["essential_checks_passed"] = True
         except Exception as exc:
             details["connection_category"] = classify_analytical_database_failure(exc)
+            details["failure_stage"] = "connection_open"
         return details
 
     @staticmethod

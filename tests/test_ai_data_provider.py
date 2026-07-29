@@ -9,6 +9,7 @@ import pandas as pd
 from src.ai.config import AI_ALLOWED_COLUMNS, AI_DATA_SOURCE
 from src.ai.data_provider import load_controlled_datasus_dataframe
 from src.ai.read_only_datasus import (
+    ReadonlyInitializationError,
     AI_CONFIG_ERROR_MESSAGE,
     _get_readonly_database_url,
     classify_analytical_database_failure,
@@ -114,16 +115,28 @@ class TestAiReadOnlyDataLayer(unittest.TestCase):
         cursor.execute.assert_called_once_with("SET default_transaction_read_only = on")
         cursor.close.assert_called_once_with()
 
+    def test_permission_denied_while_setting_readonly_is_safely_wrapped(self):
+        dbapi_connection = Mock()
+        cursor = dbapi_connection.cursor.return_value
+        cursor.execute.side_effect = RuntimeError("permission denied password=secret")
+
+        with self.assertRaises(ReadonlyInitializationError) as raised:
+            _set_session_read_only(dbapi_connection, Mock())
+
+        self.assertEqual(raised.exception.category, "permission_denied")
+        self.assertNotIn("secret", str(raised.exception))
+        cursor.close.assert_called_once_with()
+
     def test_safe_diagnostic_reports_success_without_credentials(self):
         engine = Mock()
         connection = Mock()
         engine.connect.return_value.__enter__ = Mock(return_value=connection)
         engine.connect.return_value.__exit__ = Mock(return_value=False)
         connection.execute.side_effect = [
-            Mock(),
             Mock(scalar=Mock(return_value="on")),
             Mock(),
             Mock(scalar=Mock(return_value=date(2026, 7, 1))),
+            Mock(scalar=Mock(return_value="vw_data_sus_ia")),
         ]
         env = {
             "ENVIRONMENT": "test",
@@ -149,14 +162,22 @@ class TestAiReadOnlyDataLayer(unittest.TestCase):
         self.assertTrue(diagnostic["view_query_success"])
         self.assertTrue(diagnostic["maximum_date_query_success"])
         self.assertTrue(diagnostic["essential_checks_passed"])
-        self.assertEqual(diagnostic["underlying_metadata_check"], "not_required")
+        self.assertEqual(diagnostic["underlying_metadata_check"], "available")
+        self.assertIsNone(diagnostic["failure_stage"])
         self.assertEqual(diagnostic["maximum_available_data_date"], "2026-07-01")
         self.assertNotIn("secret", str(diagnostic))
         self.assertNotIn("ep-example", str(diagnostic))
 
         executed_sql = " ".join(str(call.args[0]) for call in connection.execute.call_args_list)
-        self.assertNotIn("to_regclass", executed_sql)
+        self.assertEqual(
+            str(connection.execute.call_args_list[0].args[0]),
+            "SHOW default_transaction_read_only",
+        )
         self.assertNotIn("has_table_privilege", executed_sql)
+        self.assertLess(
+            executed_sql.index("SELECT MAX(data)"),
+            executed_sql.index("to_regclass"),
+        )
 
     def test_empty_view_with_null_maximum_date_is_healthy(self):
         engine = Mock()
@@ -164,10 +185,10 @@ class TestAiReadOnlyDataLayer(unittest.TestCase):
         engine.connect.return_value.__enter__ = Mock(return_value=connection)
         engine.connect.return_value.__exit__ = Mock(return_value=False)
         connection.execute.side_effect = [
-            Mock(),
             Mock(scalar=Mock(return_value="on")),
             Mock(),
             Mock(scalar=Mock(return_value=None)),
+            Mock(scalar=Mock(return_value="vw_data_sus_ia")),
         ]
         env = {
             "ENVIRONMENT": "test",
@@ -203,7 +224,6 @@ class TestAiReadOnlyDataLayer(unittest.TestCase):
             engine.connect.return_value.__enter__ = Mock(return_value=connection)
             engine.connect.return_value.__exit__ = Mock(return_value=False)
             connection.execute.side_effect = [
-                Mock(),
                 Mock(scalar=Mock(return_value="on")),
                 RuntimeError(message),
             ]
@@ -214,10 +234,147 @@ class TestAiReadOnlyDataLayer(unittest.TestCase):
             ):
                 diagnostic = get_analytical_database_diagnostic()
 
-            self.assertEqual(diagnostic["connection_category"], expected_category)
+            self.assertEqual(diagnostic["connection_category"], "connection_success")
+            self.assertEqual(diagnostic["view_query_category"], expected_category)
+            self.assertEqual(diagnostic["failure_stage"], "view_select")
             self.assertFalse(diagnostic["essential_checks_passed"])
             self.assertFalse(diagnostic["view_query_success"])
             self.assertNotIn("secret", str(diagnostic))
+
+    def test_safe_failure_stages_and_optional_permission_semantics(self):
+        env = {
+            "ENVIRONMENT": "test",
+            "AI_DATABASE_URL": (
+                "postgresql+psycopg2://ia_readonly:secret@ep-example.neon.tech:5432/"
+                "analytics?sslmode=require"
+            ),
+        }
+
+        connection_failure_engine = Mock()
+        connection_failure_engine.connect.side_effect = RuntimeError(
+            "permission denied password=raw-secret"
+        )
+        readonly_failure_engine = Mock()
+        readonly_failure_engine.connect.side_effect = ReadonlyInitializationError(
+            "permission_denied"
+        )
+
+        for engine, stage, connection_category, readonly_category in (
+            (
+                connection_failure_engine,
+                "connection_open",
+                "permission_denied",
+                "not_checked",
+            ),
+            (
+                readonly_failure_engine,
+                "readonly_set",
+                "connection_success",
+                "permission_denied",
+            ),
+        ):
+            with self.subTest(stage=stage), patch.dict(
+                os.environ, env, clear=True
+            ), patch(
+                "src.ai.read_only_datasus._create_readonly_engine",
+                return_value=engine,
+            ):
+                diagnostic = get_analytical_database_diagnostic()
+
+            self.assertEqual(diagnostic["failure_stage"], stage)
+            self.assertEqual(diagnostic["connection_category"], connection_category)
+            self.assertEqual(diagnostic["readonly_category"], readonly_category)
+            self.assertNotIn("raw-secret", str(diagnostic))
+            self.assertNotIn("ep-example", str(diagnostic))
+
+        query_cases = [
+            (
+                "readonly_verify",
+                [
+                    RuntimeError("permission denied password=raw-secret"),
+                    Mock(),
+                    Mock(scalar=Mock(return_value=date(2026, 7, 1))),
+                    Mock(scalar=Mock(return_value="vw_data_sus_ia")),
+                ],
+                "readonly_verify",
+                True,
+            ),
+            (
+                "view_select",
+                [
+                    Mock(scalar=Mock(return_value="on")),
+                    RuntimeError("permission denied password=raw-secret"),
+                ],
+                "view_select",
+                False,
+            ),
+            (
+                "maximum_date",
+                [
+                    Mock(scalar=Mock(return_value="on")),
+                    Mock(),
+                    RuntimeError("permission denied password=raw-secret"),
+                ],
+                "maximum_date",
+                False,
+            ),
+            (
+                "optional_catalog",
+                [
+                    Mock(scalar=Mock(return_value="on")),
+                    Mock(),
+                    Mock(scalar=Mock(return_value=date(2026, 7, 1))),
+                    RuntimeError("permission denied password=raw-secret"),
+                ],
+                "optional_catalog",
+                True,
+            ),
+        ]
+        for label, side_effect, failure_stage, essential_success in query_cases:
+            engine = Mock()
+            connection = Mock()
+            engine.connect.return_value.__enter__ = Mock(return_value=connection)
+            engine.connect.return_value.__exit__ = Mock(return_value=False)
+            connection.execute.side_effect = side_effect
+            with self.subTest(stage=label), patch.dict(
+                os.environ, env, clear=True
+            ), patch(
+                "src.ai.read_only_datasus._create_readonly_engine",
+                return_value=engine,
+            ):
+                diagnostic = get_analytical_database_diagnostic()
+
+            self.assertEqual(diagnostic["failure_stage"], failure_stage)
+            self.assertEqual(
+                diagnostic["essential_checks_passed"], essential_success
+            )
+            self.assertEqual(diagnostic["connection_category"], "connection_success")
+            self.assertNotIn("raw-secret", str(diagnostic))
+
+            if label == "readonly_verify":
+                self.assertEqual(
+                    diagnostic["readonly_category"], "permission_denied"
+                )
+                self.assertIn(
+                    "readonly_verification_permission_denied",
+                    diagnostic["warning_categories"],
+                )
+            elif label == "view_select":
+                self.assertEqual(
+                    diagnostic["view_query_category"], "permission_denied"
+                )
+            elif label == "maximum_date":
+                self.assertEqual(
+                    diagnostic["maximum_date_category"], "permission_denied"
+                )
+            else:
+                self.assertEqual(
+                    diagnostic["optional_metadata_category"], "permission_denied"
+                )
+                self.assertIn(
+                    "optional_catalog_permission_denied",
+                    diagnostic["warning_categories"],
+                )
 
     def test_safe_diagnostic_reports_missing_configuration(self):
         with patch.dict(os.environ, {"ENVIRONMENT": "test"}, clear=True):

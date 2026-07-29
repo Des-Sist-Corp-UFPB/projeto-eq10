@@ -24,6 +24,23 @@ AI_DB_POOL_TIMEOUT_SECONDS = 10
 _DEFAULT_SSLMODE = "require"
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "postgres", "db"}
 _VALID_SSLMODES = {"disable", "allow", "prefer", "require", "verify-ca", "verify-full"}
+DIAGNOSTIC_FAILURE_STAGES = {
+    "connection_open",
+    "readonly_set",
+    "readonly_verify",
+    "view_select",
+    "maximum_date",
+    "optional_catalog",
+    "optional_underlying_metadata",
+}
+
+
+class ReadonlyInitializationError(RuntimeError):
+    """Falha segura do listener readonly, sem propagar detalhes do driver."""
+
+    def __init__(self, category: str):
+        self.category = category
+        super().__init__("readonly_initialization_failed")
 
 
 def _build_db_url(user: str, password: str, host: str, port: str, dbname: str) -> str:
@@ -127,7 +144,12 @@ def _set_session_read_only(dbapi_connection, _connection_record) -> None:
     """Ativa readonly depois do handshake, compativel com poolers Neon."""
     cursor = dbapi_connection.cursor()
     try:
-        cursor.execute("SET default_transaction_read_only = on")
+        try:
+            cursor.execute("SET default_transaction_read_only = on")
+        except Exception as exc:
+            raise ReadonlyInitializationError(
+                classify_analytical_database_failure(exc)
+            ) from None
     finally:
         cursor.close()
 
@@ -164,6 +186,8 @@ def _host_type(host: str | None) -> str:
 
 def classify_analytical_database_failure(exc: BaseException) -> str:
     """Classifica falhas sem devolver a mensagem potencialmente sensivel."""
+    if isinstance(exc, ReadonlyInitializationError):
+        return exc.category
     if str(exc) == AI_CONFIG_ERROR_MESSAGE:
         return "configuration_missing"
     original = getattr(exc, "orig", None)
@@ -206,12 +230,20 @@ def get_analytical_database_diagnostic(
         "host_type": "unknown",
         "ssl_mode": "unknown",
         "connection_category": "configuration_missing",
+        "failure_stage": None,
+        "readonly_category": "not_checked",
+        "view_query_category": "not_checked",
+        "maximum_date_category": "not_checked",
+        "optional_metadata_category": "not_checked",
+        "readonly_set": False,
+        "readonly_verified": False,
         "view_available": False,
         "select_permission": False,
         "session_readonly": False,
         "view_query_success": False,
         "maximum_date_query_success": False,
-        "underlying_metadata_check": "not_required",
+        "optional_metadata_available": False,
+        "underlying_metadata_check": "not_checked",
         "essential_checks_passed": False,
         "warning_categories": [],
         "maximum_available_data_date": None,
@@ -230,11 +262,14 @@ def get_analytical_database_diagnostic(
         diagnostic["ssl_mode"] = parsed.query.get("sslmode", "unknown")
         engine = _create_readonly_engine(database_url)
     except Exception as exc:
+        configuration_missing = str(exc) == AI_CONFIG_ERROR_MESSAGE
         diagnostic["connection_category"] = (
             "configuration_missing"
-            if str(exc) == AI_CONFIG_ERROR_MESSAGE
+            if configuration_missing
             else classify_analytical_database_failure(exc)
         )
+        if not configuration_missing:
+            diagnostic["failure_stage"] = "connection_open"
         logger.warning("Analytical database diagnostic | details=%s", diagnostic)
         return diagnostic
 
@@ -242,44 +277,104 @@ def get_analytical_database_diagnostic(
         diagnostic["connection_category"] = classify_analytical_database_failure(
             connection_error
         )
+        diagnostic["failure_stage"] = "connection_open"
         logger.warning("Analytical database diagnostic | details=%s", diagnostic)
         return diagnostic
 
     try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-            diagnostic["connection_category"] = "connection_success"
+        connection_context = engine.connect()
+    except ReadonlyInitializationError as exc:
+        diagnostic["connection_category"] = "connection_success"
+        diagnostic["readonly_category"] = classify_analytical_database_failure(exc)
+        diagnostic["failure_stage"] = "readonly_set"
+        logger.warning("Analytical database diagnostic | details=%s", diagnostic)
+        return diagnostic
+    except Exception as exc:
+        diagnostic["connection_category"] = classify_analytical_database_failure(exc)
+        diagnostic["failure_stage"] = "connection_open"
+        logger.warning("Analytical database diagnostic | details=%s", diagnostic)
+        return diagnostic
 
+    diagnostic["connection_category"] = "connection_success"
+    diagnostic["readonly_set"] = True
+    diagnostic["readonly_category"] = "configured"
+
+    with connection_context as conn:
+        try:
             readonly_value = conn.execute(
-                text("SHOW transaction_read_only")
+                text("SHOW default_transaction_read_only")
             ).scalar()
-            diagnostic["session_readonly"] = str(readonly_value).strip().lower() in {
+            readonly_verified = str(readonly_value).strip().lower() in {
                 "on",
                 "true",
                 "1",
             }
-            if not diagnostic["session_readonly"]:
-                diagnostic["connection_category"] = "permission_denied"
+            diagnostic["readonly_verified"] = readonly_verified
+            diagnostic["session_readonly"] = readonly_verified
+            diagnostic["readonly_category"] = (
+                "verified" if readonly_verified else "verification_failed"
+            )
+            if not readonly_verified:
+                diagnostic["failure_stage"] = "readonly_verify"
                 logger.warning("Analytical database diagnostic | details=%s", diagnostic)
                 return diagnostic
+        except Exception as exc:
+            category = classify_analytical_database_failure(exc)
+            diagnostic["readonly_category"] = category
+            diagnostic["failure_stage"] = "readonly_verify"
+            diagnostic["warning_categories"].append(
+                f"readonly_verification_{category}"
+            )
 
-            # A consulta real e a verificacao autoritativa. Consultas de catalogo
-            # podem ser negadas ao papel readonly mesmo quando a view e utilizavel.
+        try:
             conn.execute(text(f"SELECT 1 FROM {AI_DATA_SOURCE} LIMIT 1"))
             diagnostic["view_available"] = True
             diagnostic["view_query_success"] = True
             diagnostic["select_permission"] = True
+            diagnostic["view_query_category"] = "success"
+        except Exception as exc:
+            diagnostic["view_query_category"] = classify_analytical_database_failure(exc)
+            diagnostic["failure_stage"] = "view_select"
+            logger.warning("Analytical database diagnostic | details=%s", diagnostic)
+            return diagnostic
 
+        try:
             maximum_date = conn.execute(
                 text(f"SELECT MAX(data)::date FROM {AI_DATA_SOURCE}")
             ).scalar()
             diagnostic["maximum_date_query_success"] = True
+            diagnostic["maximum_date_category"] = "success"
             diagnostic["maximum_available_data_date"] = (
                 str(maximum_date) if maximum_date is not None else None
             )
-            diagnostic["essential_checks_passed"] = True
-    except Exception as exc:
-        diagnostic["connection_category"] = classify_analytical_database_failure(exc)
+        except Exception as exc:
+            diagnostic["maximum_date_category"] = classify_analytical_database_failure(exc)
+            diagnostic["failure_stage"] = "maximum_date"
+            logger.warning("Analytical database diagnostic | details=%s", diagnostic)
+            return diagnostic
+
+        diagnostic["essential_checks_passed"] = True
+
+        try:
+            metadata_name = conn.execute(
+                text("SELECT to_regclass(:source)"),
+                {"source": AI_DATA_SOURCE},
+            ).scalar()
+            diagnostic["optional_metadata_available"] = metadata_name is not None
+            diagnostic["optional_metadata_category"] = (
+                "available" if metadata_name is not None else "unavailable"
+            )
+            diagnostic["underlying_metadata_check"] = diagnostic[
+                "optional_metadata_category"
+            ]
+        except Exception as exc:
+            category = classify_analytical_database_failure(exc)
+            diagnostic["optional_metadata_category"] = category
+            diagnostic["underlying_metadata_check"] = category
+            diagnostic["failure_stage"] = "optional_catalog"
+            diagnostic["warning_categories"].append(
+                f"optional_catalog_{category}"
+            )
 
     logger.info("Analytical database diagnostic | details=%s", diagnostic)
     return diagnostic

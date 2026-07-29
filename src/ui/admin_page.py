@@ -971,11 +971,20 @@ def _render_observability_diagnostics() -> None:
                     "status_geral": report.get("overall_status"),
                     "fonte_configuracao_analitica": analytical_db.get("configuration_source"),
                     "categoria_conexao": analytical_db.get("connection_category"),
+                    "etapa_falha": analytical_db.get("failure_stage"),
+                    "readonly_configurado": analytical_db.get("readonly_set"),
+                    "readonly_verificado": analytical_db.get("readonly_verified"),
+                    "categoria_readonly": analytical_db.get("readonly_category"),
                     "consulta_view": analytical_db.get("view_query_success"),
+                    "categoria_consulta_view": analytical_db.get("view_query_category"),
                     "consulta_data_maxima": analytical_db.get("maximum_date_query_success"),
+                    "categoria_data_maxima": analytical_db.get("maximum_date_category"),
                     "checks_essenciais": analytical_db.get("essential_checks_passed"),
                     "metadata_objetos_subjacentes": analytical_db.get(
                         "underlying_metadata_check"
+                    ),
+                    "categoria_metadata_opcional": analytical_db.get(
+                        "optional_metadata_category"
                     ),
                     "avisos": analytical_db.get("warning_categories", []),
                 }
