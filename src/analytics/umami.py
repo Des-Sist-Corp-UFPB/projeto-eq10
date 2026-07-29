@@ -25,13 +25,13 @@ _ONCE_SESSION_PREFIX = "_eq10_umami_event_once_"
 _TRACKER_ELEMENT_ID = "eq10-umami-tracker"
 
 ALLOWED_PAGES = {
-    "/estatisticas": "statistics",
-    "/login": "login",
-    "/cadastro": "registration",
-    "/recuperar-senha": "password-reset",
-    "/chat-ia": "chat",
-    "/auditoria": "audit",
-    "/administracao": "admin",
+    "/estatisticas": "Estatísticas",
+    "/login": "Login",
+    "/cadastro": "Cadastro",
+    "/recuperar-senha": "Recuperar senha",
+    "/chat-ia": "Chat IA",
+    "/auditoria": "Auditoria",
+    "/administracao": "Administração",
 }
 
 ALLOWED_EVENTS = {
@@ -172,10 +172,20 @@ def _bootstrap_markup(config: Mapping[str, Any]) -> str:
     const p = window.parent;
     const c = {values};
     p.__eq10UmamiQueue = p.__eq10UmamiQueue || [];
-    p.__eq10UmamiTrack = p.__eq10UmamiTrack || function() {{
-      const args = Array.from(arguments);
-      if (p.umami && typeof p.umami.track === "function") p.umami.track.apply(p.umami, args);
-      else p.__eq10UmamiQueue.push(args);
+    p.__eq10UmamiDispatch = p.__eq10UmamiDispatch || function(command) {{
+      if (!(p.umami && typeof p.umami.track === "function")) {{
+        p.__eq10UmamiQueue.push(command);
+        return;
+      }}
+      if (command.type === "page_view") {{
+        p.umami.track(props => ({{
+          ...props,
+          url: command.url,
+          title: command.title
+        }}));
+      }} else if (command.type === "custom_event") {{
+        p.umami.track(command.name, command.data);
+      }}
     }};
     let tracker = p.document.getElementById(c.elementId);
     if (!tracker) {{
@@ -192,7 +202,7 @@ def _bootstrap_markup(config: Mapping[str, Any]) -> str:
     const flush = () => {{
       if (!(p.umami && typeof p.umami.track === "function")) return;
       const pending = p.__eq10UmamiQueue.splice(0);
-      pending.forEach(args => p.umami.track.apply(p.umami, args));
+      pending.forEach(command => p.__eq10UmamiDispatch(command));
     }};
     tracker.addEventListener("load", flush, {{ once: true }});
     flush();
@@ -201,13 +211,13 @@ def _bootstrap_markup(config: Mapping[str, Any]) -> str:
 </script>"""
 
 
-def _tracking_markup(*arguments: Any) -> str:
-    args = json.dumps(arguments, ensure_ascii=True, separators=(",", ":")).replace("</", "<\\/")
+def _tracking_markup(command: Mapping[str, Any]) -> str:
+    payload = json.dumps(command, ensure_ascii=True, separators=(",", ":")).replace("</", "<\\/")
     return f"""<script>
 (() => {{
   try {{
     const p = window.parent;
-    if (typeof p.__eq10UmamiTrack === "function") p.__eq10UmamiTrack.apply(p, {args});
+    if (typeof p.__eq10UmamiDispatch === "function") p.__eq10UmamiDispatch({payload});
   }} catch (_) {{}}
 }})();
 </script>"""
@@ -284,7 +294,16 @@ def track_event(
     if not configure_umami(st_module=st_module, renderer=renderer).enabled:
         return False
     try:
-        _render(_tracking_markup(event_name, safe_data), renderer)
+        _render(
+            _tracking_markup(
+                {
+                    "type": "custom_event",
+                    "name": event_name,
+                    "data": safe_data,
+                }
+            ),
+            renderer,
+        )
         _record_attempt("custom_event")
         return True
     except Exception:
@@ -325,7 +344,13 @@ def track_page_view(
         return False
     try:
         _render(
-            _tracking_markup({"url": page_name, "title": ALLOWED_PAGES[page_name]}),
+            _tracking_markup(
+                {
+                    "type": "page_view",
+                    "url": page_name,
+                    "title": ALLOWED_PAGES[page_name],
+                }
+            ),
             renderer,
         )
         state[_LAST_PAGE_SESSION_KEY] = page_name

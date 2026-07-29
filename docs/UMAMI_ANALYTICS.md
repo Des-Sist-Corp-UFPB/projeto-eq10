@@ -42,8 +42,10 @@ unica tag `script` ao `parent.document.head`.
 
 O elemento tem ID estavel e `st.session_state` impede nova injecao em reruns. O
 tracker usa `data-auto-track=false`: page views sao chamadas explicitamente
-apenas quando a pagina logica muda. Uma fila no navegador retem chamadas feitas
-enquanto `script.js` ainda carrega.
+apenas quando a pagina logica muda. A chamada de page view usa
+`umami.track(props => ({...props, url, title}))`; eventos de produto continuam
+usando `umami.track(nome, dados)`. Uma fila tipada no navegador distingue os
+dois comandos e retem chamadas feitas enquanto `script.js` ainda carrega.
 
 Essa tecnica depende de o componente continuar autorizado a acessar
 `window.parent`. Uma CSP que bloqueie o dominio do Umami ou uma futura mudanca

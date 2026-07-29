@@ -44,6 +44,10 @@ def test_initialization_is_idempotent_per_streamlit_session(configured_env):
     assert len(rendered) == 1
     assert 'data-auto-track", "false"' in rendered[0]
     assert "p.document.head.appendChild" in rendered[0]
+    assert 'command.type === "page_view"' in rendered[0]
+    assert "p.umami.track(props => ({" in rendered[0]
+    assert 'command.type === "custom_event"' in rendered[0]
+    assert "p.umami.track(command.name, command.data)" in rendered[0]
 
 
 def test_page_views_are_deduplicated_until_page_changes(configured_env):
@@ -52,9 +56,52 @@ def test_page_views_are_deduplicated_until_page_changes(configured_env):
     assert umami.track_page_view("/login", st_module=fake, renderer=rendered.append)
     assert not umami.track_page_view("/login", st_module=fake, renderer=rendered.append)
     assert umami.track_page_view("/chat-ia", st_module=fake, renderer=rendered.append)
+    assert umami.track_page_view("/login", st_module=fake, renderer=rendered.append)
     payload = "\n".join(rendered)
-    assert payload.count("/login") == 1
+    assert payload.count("/login") == 2
     assert payload.count("/chat-ia") == 1
+
+
+@pytest.mark.parametrize(
+    ("path", "json_title"),
+    [
+        ("/estatisticas", r"Estat\u00edsticas"),
+        ("/login", "Login"),
+        ("/cadastro", "Cadastro"),
+        ("/recuperar-senha", "Recuperar senha"),
+        ("/chat-ia", "Chat IA"),
+        ("/auditoria", "Auditoria"),
+        ("/administracao", r"Administra\u00e7\u00e3o"),
+    ],
+)
+def test_page_view_uses_predefined_url_and_title(configured_env, path, json_title):
+    fake = FakeStreamlit()
+    rendered = []
+
+    assert umami.track_page_view(path, st_module=fake, renderer=rendered.append)
+
+    command = rendered[-1]
+    assert '"type":"page_view"' in command
+    assert f'"url":"{path}"' in command
+    assert f'"title":"{json_title}"' in command
+    assert '"name":' not in command
+    assert '"type":"custom_event"' not in command
+
+
+def test_page_view_rejects_query_parameters_and_sensitive_urls(configured_env):
+    fake = FakeStreamlit()
+    rendered = []
+
+    assert not umami.track_page_view(
+        "/login?email=pessoa@example.com&token=segredo",
+        st_module=fake,
+        renderer=rendered.append,
+    )
+
+    payload = "\n".join(rendered)
+    assert "pessoa@example.com" not in payload
+    assert "segredo" not in payload
+    assert "?" not in payload
 
 
 @pytest.mark.parametrize(
@@ -71,7 +118,11 @@ def test_required_safe_events_are_emitted(configured_env, name):
     fake = FakeStreamlit()
     rendered = []
     assert umami.track_event(name, {"result": "failure"}, st_module=fake, renderer=rendered.append)
-    assert name in rendered[-1]
+    command = rendered[-1]
+    assert '"type":"custom_event"' in command
+    assert f'"name":"{name}"' in command
+    assert '"type":"page_view"' not in command
+    assert '"url":' not in command
 
 
 def test_sensitive_or_arbitrary_payloads_are_rejected(configured_env):
@@ -103,6 +154,7 @@ def test_renderer_failure_never_escapes(configured_env):
     assert not umami.track_event(
         "login_failed", {"result": "failure"}, st_module=fake, renderer=fail
     )
+    assert not umami.track_page_view("/login", st_module=fake, renderer=fail)
 
 
 def test_safe_masked_status(configured_env):
