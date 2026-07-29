@@ -17,9 +17,11 @@ project, now adapted to DSC/UFPB course standards). Two independent runtimes sha
 
 Never merge these. `AuditLogService.from_environment()` reuses the **auth** engine
 (`get_auth_engine()`), not the analytics one — audit data lives with app/auth data by design.
-`src/diagnostics/health_service.py` pings both engines separately (`check_application_database`,
-`check_datasus_view`, `run_heartbeat`) and never logs credentials (see `_redact_text`,
-`SENSITIVE_KEY_RE`).
+`src/diagnostics/health_service.py` verifica os engines separadamente
+(`check_application_database`, `check_analytical_database`,
+`run_unified_report`, `run_heartbeat`) e nunca registra credenciais. Falha no
+banco da aplicacao torna o app unhealthy; falha analitica degrada apenas a IA;
+falha de telemetria nao derruba o app.
 
 ## Directory map
 
@@ -27,7 +29,7 @@ Never merge these. `AuditLogService.from_environment()` reuses the **auth** engi
 app_ai_chat.py            Entry point: routing, auth gates, chat rendering, response sanitization
 src/ui/
   styles.py                GLOBAL_LIGHT_THEME_CSS + AUDIT_PAGE_CSS (centralized style helper)
-  admin_page.py             Audit page: filters, table, event-detail dialog (render_admin_page)
+  admin_page.py             Audit page plus admin-only safe health/observability diagnostics
   sidebar.py, header.py     Nav shell, auth header
   auth_modal.py             Login/register/reset modal
   statistics_page.py        Public statistics dashboard

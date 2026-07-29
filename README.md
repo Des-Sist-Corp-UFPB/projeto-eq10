@@ -20,9 +20,21 @@ Ela detalha a arquitetura, estrutura de pastas, fluxo ETL, configuracao de ambie
 
 ## Observabilidade
 
-O app possui OpenTelemetry opcional para traces, métricas e logs correlacionados,
-com serviço `dsc-eq10`. Há uma stack local Alloy, Tempo, Prometheus e Grafana,
-além de dashboard provisionado. Consulte
+O app usa OpenTelemetry para traces, métricas e logs correlacionados. Em
+produção, o serviço deve ser identificado exatamente como `dsc-eq10` e envia
+OTLP/HTTP para o coletor institucional:
+
+```text
+Streamlit -> OpenTelemetry SDK -> OTLP/HTTP -> coletor institucional
+          -> Tempo / Prometheus / Loki -> Grafana
+```
+
+Em 2026-07-29, `dsc-eq10` e os traces de startup, autenticação, auditoria e
+saúde dos bancos foram confirmados no Grafana Tempo. A credencial Bearer
+permanece somente no `.env.prod` protegido.
+
+Para demonstração independente, há também uma stack local Alloy, Tempo,
+Prometheus e Grafana com dashboard provisionado. Consulte
 [docs/OBSERVABILITY_OPENTELEMETRY_GRAFANA.md](docs/OBSERVABILITY_OPENTELEMETRY_GRAFANA.md).
 
 ## Camada de IA

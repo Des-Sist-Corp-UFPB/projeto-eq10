@@ -327,24 +327,28 @@ Criterios de aceite:
 
 Objetivo: facilitar suporte local e em servidor sem expor segredos.
 
-Implementacao inicial: foi adicionado o modulo interno `src/diagnostics/health_service.py` com resultados estruturados e seguros para app, banco de aplicacao, tabelas de aplicacao, view `vw_data_sus_ia`, configuracao de IA e configuracao de e-mail. A implementacao nao cria rota publica nem pagina aberta de diagnostico; os checks ficam prontos para uso interno ou futura area administrativa. A validacao da view analitica usa apenas consulta `SELECT` pela conexao readonly da IA.
+Implementacao concluida: `src/diagnostics/health_service.py` produz resultados
+estruturados e seguros para app, banco de aplicacao, banco analitico, IA,
+e-mail e OpenTelemetry. O relatorio unificado distingue `healthy`, `degraded`
+e `unhealthy`, e existe uma secao restrita na area administrativa. Nenhuma
+rota publica adicional foi criada. A validacao analitica usa apenas consultas
+readonly pela conexao da IA.
 
 Tarefas:
 
-- [ ] Adicionar diagnostico de app vivo.
-- [ ] Adicionar diagnostico de conexao com banco.
-- [ ] Validar se `vw_data_sus_ia` esta acessivel.
-- [ ] Validar se configuracao de IA esta presente.
-- [ ] Validar presenca de chave/provedor sem expor a chave.
-- [ ] Se nao houver REST API, documentar diagnosticos como secao interna do Streamlit ou checks seguros.
-- [ ] Manter `/ping` ou equivalente se ja existir.
+- [x] Adicionar diagnostico de app vivo.
+- [x] Adicionar diagnosticos separados para os dois bancos.
+- [x] Validar se `vw_data_sus_ia` esta acessivel.
+- [x] Validar configuracao de IA sem expor chave.
+- [x] Disponibilizar diagnosticos na secao administrativa do Streamlit.
+- [x] Manter `/ping` sobre o health nativo do Streamlit.
 
 Criterios de aceite:
 
-- [ ] Diagnostico informa status sem exibir credenciais.
-- [ ] Falha de banco e distinguida de falha de provedor de IA.
-- [ ] Acesso a `vw_data_sus_ia` pode ser testado com consulta somente leitura.
-- [ ] Checks sensiveis sao admin-only ou internos.
+- [x] Diagnostico informa status sem exibir credenciais.
+- [x] Falha de banco e distinguida de falha de provedor de IA.
+- [x] Acesso a `vw_data_sus_ia` e testado com consulta somente leitura.
+- [x] Checks sensiveis sao admin-only ou internos.
 
 ### Phase 10 - P2 - Revisao LGPD e Seguranca
 

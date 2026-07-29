@@ -119,7 +119,11 @@ e seguranca de mensagens.
 - [ ] Confirmar que o check `app` retorna `ok`.
 - [ ] Confirmar que o banco de aplicacao responde a `SELECT 1`.
 - [ ] Confirmar que `usuarios`, `chat_sessions` e `chat_messages` aparecem como tabelas de aplicacao.
-- [ ] Confirmar que a view `vw_data_sus_ia` e validada apenas com consulta `SELECT`.
+- [ ] Confirmar objetos criticos de autenticacao e objetos de auditoria/reset/verificacao.
+- [ ] Confirmar que o banco analitico usa somente `AI_DB_*` ou `AI_DATABASE_URL`.
+- [ ] Confirmar sessao readonly, SSL cloud, permissao `SELECT`, acesso a `vw_data_sus_ia` e `MAX(data)`.
+- [ ] Confirmar que falha analitica degrada a IA sem indisponibilizar login.
+- [ ] Confirmar que falha de telemetria nao indisponibiliza a aplicacao.
 - [ ] Confirmar que status de IA mostra provedor/modelo/chave configurada apenas como booleano.
 - [ ] Confirmar que status de e-mail mostra modo fake/local ou configuracao incompleta sem exibir segredos.
 - [ ] Confirmar que nenhum diagnostico mostra senha, token, API key, SMTP password ou string de conexao completa.

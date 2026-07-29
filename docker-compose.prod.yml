@@ -19,7 +19,8 @@ services:
       - AI_FALLBACK_TO_SIMPLE=true
 
       # OpenTelemetry: valores nao secretos e estaveis ficam versionados.
-      # Endpoint e Authorization continuam exclusivamente no .env.prod do servidor.
+      # Endpoint institucional e Authorization=Bearer <token> ficam
+      # exclusivamente no .env.prod protegido do servidor.
       - OTEL_ENABLED=true
       - OTEL_SERVICE_NAME=dsc-eq10
       - OTEL_RESOURCE_ATTRIBUTES=service.namespace=dsc,deployment.environment=production

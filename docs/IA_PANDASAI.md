@@ -399,9 +399,11 @@ No servidor, configure `.env.prod` com:
 - `AI_DATABASE_URL` ou `AI_DB_*` completos para a base DATASUS readonly;
 - `AI_LLM_*` quando `AI_USE_LLM=true`;
 - `EMAIL_*`, `APP_PUBLIC_BASE_URL` e outros opcionais conforme o ambiente.
-- `OTEL_EXPORTER_OTLP_ENDPOINT` e `OTEL_EXPORTER_OTLP_HEADERS` fornecidos pela
-  infraestrutura institucional. Os demais valores OTEL de produção são
-  declarados sem segredo no `docker-compose.prod.yml`.
+- `OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.dsc.rodrigor.com`;
+- `OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>` fornecido pela
+  infraestrutura institucional e mantido somente no `.env.prod` protegido.
+  Os demais valores OTEL de produção são declarados sem segredo no
+  `docker-compose.prod.yml`.
 
 O `.env.prod` existente deve ser editado no servidor, nunca substituído pelo
 workflow. Isso preserva as configurações de banco, IA e e-mail já administradas

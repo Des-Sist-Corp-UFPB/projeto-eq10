@@ -2,17 +2,29 @@
 
 ## Arquitetura e fluxo atual
 
+### Produção institucional
+
 ```text
-Navegador -> Nginx :8080 -> Streamlit :8501
-                             +-> autenticação/auditoria -> PostgreSQL da aplicação
-                             +-> Prompt Guard -> validação temporal
-                                 -> vw_data_sus_ia (Neon/read-only)
-                                 -> estatística simples -> LLM/fallback
-                             +-> OTLP/HTTP opcional -> Alloy
-                                  +-> Tempo (traces)
-                                  +-> Prometheus (métricas)
-                                  +-> Grafana (consulta/dashboard)
+Streamlit
+  -> OpenTelemetry SDK
+  -> OTLP/HTTP
+  -> coletor institucional
+  -> Tempo / Prometheus / Loki
+  -> Grafana
 ```
+
+O Nginx publica o Streamlit em `8080`. Autenticação e auditoria usam o
+PostgreSQL da aplicação. O Prompt Guard valida a solicitação antes do provider
+analítico readonly acessar `vw_data_sus_ia` no Neon.
+
+### Demonstração local
+
+```text
+Streamlit -> OpenTelemetry SDK -> OTLP/HTTP -> Alloy
+          -> Tempo / Prometheus -> Grafana
+```
+
+A stack local é independente da infraestrutura institucional e não inclui Loki.
 
 O Prompt Guard continua antes da leitura analítica. A instrumentação não muda
 decisões, consultas, autenticação ou interface.
@@ -32,8 +44,10 @@ providers, processors, handlers, instrumentos nem `app.startup`.
 
 ## Sinais e privacidade
 
-- Traces: `ai.request` e etapas de classificação, validação, carga, estatística
-  e LLM; conexão/consulta analítica; autenticação e auditoria.
+- Traces implementados: `app.startup`, `observability.test`, `auth.login`,
+  `audit.persist`, `audit.list`, `ai.request`,
+  `health.application.database` e `health.analytical.database`, além dos spans
+  filhos do pipeline de IA e banco.
 - Métricas: requisições/bloqueios/falhas/fallback/duração de IA, duração/erros
   de consulta, logins e falhas de login/e-mail.
 - Logs: correlação por trace, span e serviço; exportação é opt-in.
@@ -41,6 +55,11 @@ providers, processors, handlers, instrumentos nem `app.startup`.
 Prompts, e-mails, IDs de usuário, SQL, URLs de banco, tokens e credenciais não
 são atributos. Exceções são reduzidas a categorias. O header OTLP nunca é
 registrado.
+
+Em produção foram observados no Tempo: `app.startup`, `auth.login`,
+`audit.list`, `health.application.database` e `health.analytical.database`.
+`observability.test`, `audit.persist` e `ai.request` estão implementados, mas
+não fizeram parte da evidência de produção registrada nesta auditoria.
 
 ## Configuração institucional
 
@@ -52,19 +71,16 @@ OTEL_TRACES_EXPORTER=otlp
 OTEL_METRICS_EXPORTER=otlp
 OTEL_LOGS_EXPORTER=otlp
 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-OTEL_EXPORTER_OTLP_ENDPOINT=<endpoint-de-ingestao-confirmado>
-OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <credencial-base64>
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.dsc.rodrigor.com
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>
 OTEL_EXPORTER_OTLP_TIMEOUT=10000
 ```
 
-Valores reais ficam somente no gerenciador de segredos ou `.env.prod` fora do
-Git. `OTEL_ENABLED=false` é o padrão do código; o Compose de produção ativa
+O token real fica somente no `.env.prod` protegido ou em mecanismo equivalente
+de secrets, nunca no Git. `.env.example` mantém o header vazio. O nome do
+serviço deve ser exatamente `dsc-eq10`, e o protocolo é `http/protobuf`.
+`OTEL_ENABLED=false` é o padrão do código; o Compose de produção ativa
 explicitamente a telemetria.
-
-A URL chamada “Panel” pode ser apenas a interface Grafana. O professor deve
-confirmar o endpoint OTLP/HTTP e se a base inclui `/otlp`. O SDK acrescenta
-`/v1/traces`, `/v1/metrics` e `/v1/logs`. Não use a URL do painel como ingestão
-sem confirmação e não execute comandos verbosos que imprimam headers.
 
 Para o endpoint global `https://otel.dsc.rodrigor.com`, os exporters usam:
 
@@ -72,19 +88,8 @@ Para o endpoint global `https://otel.dsc.rodrigor.com`, os exporters usam:
 - `https://otel.dsc.rodrigor.com/v1/metrics`;
 - `https://otel.dsc.rodrigor.com/v1/logs`.
 
-Se a base terminar em `/otlp`, o resultado será `/otlp/v1/<signal>`. Se já
-terminar no caminho específico `/v1/traces`, `/v1/metrics` ou `/v1/logs`, o
-código não duplica o sufixo.
-
-Use o header percent-encoded:
-
-```dotenv
-OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20<base64>
-```
-
-O parser do SDK decodifica `%20` para o espaço do header HTTP. A versão atual é
-liberal e também pode aceitar espaço literal, mas `%20` é o formato aderente à
-especificação e evita diferenças entre shells, Compose e versões do SDK.
+O valor institucional confirmado usa autenticação Bearer exatamente no formato
+mostrado. Não codifique, transforme ou registre o token.
 
 ## Deploy no servidor do professor
 
@@ -100,8 +105,8 @@ e estáveis estão no próprio Compose; somente estes dois valores devem ser
 acrescentados ao `.env.prod` já existente:
 
 ```dotenv
-OTEL_EXPORTER_OTLP_ENDPOINT=<endpoint-OTLP-institucional-confirmado>
-OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <credencial-fornecida>
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.dsc.rodrigor.com
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>
 ```
 
 O administrador deve editar o arquivo diretamente no servidor, sem recriá-lo e
@@ -136,9 +141,8 @@ O status usa nível WARNING deliberadamente porque é emitido antes de o
 Streamlit configurar o logging. Depois gere uma
 pergunta permitida e procure no Tempo por
 `resource.service.name = "dsc-eq10"`. Se a inicialização estiver configurada,
-mas não houver traces, o administrador deve confirmar com o professor o
-endpoint de ingestão, caminho `/otlp`, tipo de autorização e conectividade de
-saída do container.
+mas não houver traces, verifique se o Bearer token está presente no `.env.prod`,
+se o container foi recriado e se possui conectividade de saída.
 
 ## Demonstração local
 
@@ -194,26 +198,66 @@ que o Tempo recebeu o span.
 
 O relatório unificado diferencia:
 
-- banco da aplicação: usa somente `AUTH_DB_*`/`AUTH_DATABASE_URL`; falha torna
-  a aplicação `unhealthy`;
-- banco analítico: usa somente `AI_DB_*`/`AI_DATABASE_URL`, verifica sessão
-  readonly, `vw_data_sus_ia`, permissão e `MAX(data)`; falha deixa a aplicação
-  `degraded`, preservando login;
+- banco da aplicação: usa somente `AUTH_DB_*`; verifica configuração, conexão,
+  `SELECT 1`, objetos críticos de autenticação, auditoria, reset e verificação,
+  além de uma categoria segura de latência. Uma falha torna a aplicação
+  `unhealthy`;
+- banco analítico: usa somente `AI_DB_*` ou `AI_DATABASE_URL`; exige SSL para
+  cloud, preserva a compatibilidade com o pooler Neon configurando readonly
+  depois do handshake, verifica a sessão readonly, disponibilidade de
+  `vw_data_sus_ia`, permissão `SELECT`, acesso aos objetos subjacentes e
+  `MAX(data)`. Uma falha deixa a IA `degraded`, preservando login;
 - OpenTelemetry: falha ou indisponibilidade nunca altera a disponibilidade.
 
 Somente categorias, booleanos, bucket de latência, timestamp e a data máxima
-permitida aparecem. Host, usuário, URL, SQL e mensagens PostgreSQL não aparecem.
+permitida aparecem. Credenciais, URLs, SQL, exceções cruas e dados pessoais não
+aparecem.
+
+## Validação de produção — 2026-07-29
+
+Foi confirmado no Grafana Tempo institucional:
+
+- `resource.service.name = "dsc-eq10"`;
+- recebimento de `app.startup`;
+- recebimento de `auth.login` e `audit.list`;
+- recebimento dos spans de saúde do banco da aplicação e do banco analítico.
+
+Os traces inspecionados não continham valores secretos. A evidência registrada
+não incluiu `observability.test`, `audit.persist` ou `ai.request`; esses spans
+continuam implementados e podem ser validados com ações administrativas e de
+chat apropriadas.
+
+## Troubleshooting de produção
+
+- **Nenhum serviço no Tempo:** confirme endpoint, protocolo, Bearer token,
+  conectividade de saída e reinicialização do container.
+- **Nome de serviço incorreto:** configure exatamente
+  `OTEL_SERVICE_NAME=dsc-eq10`.
+- **Bearer token ausente:** adicione
+  `OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>` ao `.env.prod`
+  protegido.
+- **HTTP 401:** solicite ou atualize o token institucional; não o imprima nos
+  logs.
+- **Endpoint não configurado:** defina
+  `OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.dsc.rodrigor.com`.
+- **Provider SDK não instalado:** o diagnóstico seguro deve mostrar
+  `provider_type=sdk` e `processor_configured=true`.
+- **Exporter configurado sem traces:** emita `observability.test`, gere uma
+  operação instrumentada e verifique conectividade/timeout.
+- **Container não reiniciado:** recrie o serviço `app` depois de editar
+  `.env.prod`; alterar o arquivo não modifica o ambiente de um container já em
+  execução.
 
 ## Produção, diagnóstico e limitações
 
-O app pode enviar diretamente ao OTLP institucional ou a um Alloy intermediário.
+Em produção, o app envia diretamente ao coletor OTLP institucional. Alloy é
+mantido somente para a demonstração local.
 Falhas do exportador não afetam a saúde e lotes podem ser descartados após o
 timeout. `HealthService.run_all_checks()` e o log de startup expõem somente
 enabled, service name, exporter configurado, protocolo, categoria do endpoint e
 último resultado de inicialização.
 
-Se não houver dados, confira endpoint de ingestão (não painel), protocolo,
-DNS/TLS, autorização e o nome exato `dsc-eq10`. A stack local não inclui Loki;
-logs locais permanecem no Docker. Não foi adicionada instrumentação específica
-de Streamlit: os spans ficam nos limites de negócio. Confirmar o endpoint e
-consultar o ambiente do professor exigem acesso institucional.
+Se não houver dados, confira endpoint, protocolo, Bearer token, DNS/TLS e o nome
+exato `dsc-eq10`. A stack local não inclui Loki; logs locais permanecem no
+Docker. Não foi adicionada instrumentação específica de Streamlit: os spans
+ficam nos limites de negócio.

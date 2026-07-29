@@ -1,5 +1,9 @@
 # Stack local de observabilidade
 
+Esta stack é exclusivamente para demonstração local. A produção institucional
+usa `https://otel.dsc.rodrigor.com`, autenticação Bearer mantida no `.env.prod`
+protegido e os backends institucionais Tempo, Prometheus e Loki.
+
 Execute a partir da raiz:
 
 ```bash

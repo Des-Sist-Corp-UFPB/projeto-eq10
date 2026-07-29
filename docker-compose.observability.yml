@@ -1,3 +1,5 @@
+# Demonstracao local independente. A producao institucional nao usa esta stack:
+# envia OTLP/HTTP diretamente para o coletor configurado no .env.prod protegido.
 services:
   alloy:
     image: grafana/alloy:v1.9.2
