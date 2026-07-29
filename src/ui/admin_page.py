@@ -21,6 +21,8 @@ from src.auth.roles import (
     role_display_name,
 )
 from src.auth.session import get_authenticated_user
+from src.diagnostics.health_service import HealthService
+from src.observability.telemetry import emit_verification_span
 from src.ui.styles import AUDIT_PAGE_CSS as ADMIN_PAGE_CSS
 from src.ui.styles import apply_audit_light_styles
 
@@ -892,6 +894,47 @@ def render_admin_page() -> None:
         _render_admin_page_body()
 
 
+def _render_observability_diagnostics() -> None:
+    st.subheader("Diagnosticos de saude e observabilidade")
+    try:
+        report = HealthService().run_unified_report()
+        application = report["application"]
+        app_db = report["application_database"]
+        analytical_db = report["analytical_database"]
+        telemetry = report["opentelemetry"]
+
+        columns = st.columns(4)
+        columns[0].metric("Streamlit", application["status"])
+        columns[1].metric("Banco da aplicacao", app_db["status"])
+        columns[2].metric("Banco analitico", analytical_db["status"])
+        columns[3].metric("OpenTelemetry", telemetry["status"])
+
+        st.caption(
+            "View analitica: "
+            f"{'disponivel' if analytical_db.get('view_available') else 'indisponivel'} | "
+            f"Ultima data: {analytical_db.get('maximum_available_data_date') or 'nao informada'} | "
+            f"Provider: {telemetry.get('provider_type', 'noop')} | "
+            f"Verificado em: {application.get('checked_at', 'nao informado')}"
+        )
+    except Exception as exc:
+        logger.warning(
+            "admin_page: diagnostico interno indisponivel | tipo=%s",
+            type(exc).__name__,
+        )
+        st.warning("Diagnosticos internos indisponiveis no momento.")
+
+    if _safe_button(
+        "Emitir trace de verificacao",
+        key="emit-observability-verification",
+        use_container_width=False,
+    ):
+        attempted = emit_verification_span()
+        if attempted:
+            st.success("Criacao local do trace foi solicitada.")
+        else:
+            st.warning("OpenTelemetry nao esta configurado para emitir o trace.")
+
+
 def _render_admin_page_body() -> None:
     user = get_authenticated_user(st.session_state)
 
@@ -938,3 +981,7 @@ def _render_admin_page_body() -> None:
             type(exc).__name__,
         )
         st.error("Nao foi possivel carregar os logs agora. Tente novamente mais tarde.")
+
+    st.divider()
+    with st.expander("Saude e observabilidade", expanded=False):
+        _render_observability_diagnostics()

@@ -374,6 +374,12 @@ O `Dockerfile.chat` cria `/app/.venv` no proprio estagio final da imagem e insta
 
 O endpoint `/ping` publicado pelo Nginx do container deve proxyar o healthcheck nativo do Streamlit em `/_stcore/health`. Assim, um HTTP 200 em `/ping` confirma que o Streamlit esta respondendo, e nao apenas que o Nginx esta vivo.
 
+No startup de produção, `start.sh` inicia Streamlit, aguarda o socket `8501`
+ficar disponível e somente então inicia o Nginx. Isso evita a corrida em que
+Nginx aceitava `/ping` antes de existir upstream. O `HEALTHCHECK` mantém
+`start-period=90s` e retries; nenhuma rota ou framework web adicional foi
+introduzido.
+
 ## Deploy do chat via GitHub Actions
 
 O workflow `.github/workflows/deploy.yml` publica a imagem do chat no GitHub Container Registry usando `Dockerfile.chat` e aciona um deploy remoto via SSH. O workflow usa `runs-on: [self-hosted, dsc-selfhosted]`. Ele nao injeta variaveis `AUTH_*`, `AI_*` ou arquivo `.env` no container; essas configuracoes devem existir no servidor, por exemplo em `.env.prod` usado pelo `docker-compose.prod.yml`.

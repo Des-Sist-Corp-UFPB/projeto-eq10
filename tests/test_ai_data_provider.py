@@ -121,6 +121,7 @@ class TestAiReadOnlyDataLayer(unittest.TestCase):
         engine.connect.return_value.__exit__ = Mock(return_value=False)
         connection.execute.side_effect = [
             Mock(),
+            Mock(scalar=Mock(return_value="on")),
             Mock(scalar=Mock(return_value="vw_data_sus_ia")),
             Mock(scalar=Mock(return_value=True)),
             Mock(scalar=Mock(return_value=date(2026, 7, 1))),
@@ -145,6 +146,7 @@ class TestAiReadOnlyDataLayer(unittest.TestCase):
         self.assertEqual(diagnostic["connection_category"], "connection_success")
         self.assertTrue(diagnostic["view_available"])
         self.assertTrue(diagnostic["select_permission"])
+        self.assertTrue(diagnostic["session_readonly"])
         self.assertTrue(diagnostic["underlying_objects_accessible"])
         self.assertEqual(diagnostic["maximum_available_data_date"], "2026-07-01")
         self.assertNotIn("secret", str(diagnostic))

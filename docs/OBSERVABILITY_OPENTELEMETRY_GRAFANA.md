@@ -17,6 +17,19 @@ Navegador -> Nginx :8080 -> Streamlit :8501
 O Prompt Guard continua antes da leitura analítica. A instrumentação não muda
 decisões, consultas, autenticação ou interface.
 
+### Ordem real de startup
+
+`Dockerfile.chat` executa `start.sh`. O script inicia o processo Streamlit em
+background, espera por até 60 segundos o socket `127.0.0.1:8501` aceitar
+conexões e somente então inicia o Nginx em `8080`. Assim, `/ping` continua
+proxyando `/_stcore/health`, mas o Nginx não produz erros esperados de
+`connection refused` durante o bootstrap.
+
+Ao importar `app_ai_chat.py`, imediatamente depois de importar Streamlit e antes
+dos serviços de negócio, `configure_telemetry()` é executado. A inicialização é
+protegida por lock e flag de processo; reruns do Streamlit não duplicam
+providers, processors, handlers, instrumentos nem `app.startup`.
+
 ## Sinais e privacidade
 
 - Traces: `ai.request` e etapas de classificação, validação, carga, estatística
@@ -52,6 +65,26 @@ A URL chamada “Panel” pode ser apenas a interface Grafana. O professor deve
 confirmar o endpoint OTLP/HTTP e se a base inclui `/otlp`. O SDK acrescenta
 `/v1/traces`, `/v1/metrics` e `/v1/logs`. Não use a URL do painel como ingestão
 sem confirmação e não execute comandos verbosos que imprimam headers.
+
+Para o endpoint global `https://otel.dsc.rodrigor.com`, os exporters usam:
+
+- `https://otel.dsc.rodrigor.com/v1/traces`;
+- `https://otel.dsc.rodrigor.com/v1/metrics`;
+- `https://otel.dsc.rodrigor.com/v1/logs`.
+
+Se a base terminar em `/otlp`, o resultado será `/otlp/v1/<signal>`. Se já
+terminar no caminho específico `/v1/traces`, `/v1/metrics` ou `/v1/logs`, o
+código não duplica o sufixo.
+
+Use o header percent-encoded:
+
+```dotenv
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20<base64>
+```
+
+O parser do SDK decodifica `%20` para o espaço do header HTTP. A versão atual é
+liberal e também pode aceitar espaço literal, mas `%20` é o formato aderente à
+especificação e evita diferenças entre shells, Compose e versões do SDK.
 
 ## Deploy no servidor do professor
 
@@ -93,9 +126,14 @@ docker compose -f docker-compose.prod.yml logs --tail=200 app |
   grep "OpenTelemetry status"
 ```
 
-O resultado esperado contém `enabled=True`, `service_name=dsc-eq10`,
-`exporter_configured=True`, `protocol=http/protobuf`,
-`endpoint_category=remote` e `initialization=configured`. Depois gere uma
+O resultado esperado é:
+
+```text
+OpenTelemetry status | enabled=true | service_name=dsc-eq10 | endpoint_configured=true | headers_configured=true | provider_type=sdk | processor_configured=true | protocol=http/protobuf | initialization=configured
+```
+
+O status usa nível WARNING deliberadamente porque é emitido antes de o
+Streamlit configurar o logging. Depois gere uma
 pergunta permitida e procure no Tempo por
 `resource.service.name = "dsc-eq10"`. Se a inicialização estiver configurada,
 mas não houver traces, o administrador deve confirmar com o professor o
@@ -137,6 +175,34 @@ git diff --check
 
 Gere uma pergunta permitida e outra bloqueada. Confirme séries no Prometheus e
 traces no Tempo pelo serviço `dsc-eq10`.
+
+## Verificação determinística e saúde
+
+Uma inicialização SDK bem-sucedida emite uma vez por processo:
+
+```text
+app.startup
+  app.framework=streamlit
+  deployment.environment=production
+  telemetry.verification=startup
+```
+
+Na área administrativa **Saúde e observabilidade**, o botão **Emitir trace de
+verificação** chama `emit_verification_span()` e cria `observability.test`. A
+mensagem da UI confirma somente a tentativa local de criação/flush; não afirma
+que o Tempo recebeu o span.
+
+O relatório unificado diferencia:
+
+- banco da aplicação: usa somente `AUTH_DB_*`/`AUTH_DATABASE_URL`; falha torna
+  a aplicação `unhealthy`;
+- banco analítico: usa somente `AI_DB_*`/`AI_DATABASE_URL`, verifica sessão
+  readonly, `vw_data_sus_ia`, permissão e `MAX(data)`; falha deixa a aplicação
+  `degraded`, preservando login;
+- OpenTelemetry: falha ou indisponibilidade nunca altera a disponibilidade.
+
+Somente categorias, booleanos, bucket de latência, timestamp e a data máxima
+permitida aparecem. Host, usuário, URL, SQL e mensagens PostgreSQL não aparecem.
 
 ## Produção, diagnóstico e limitações
 

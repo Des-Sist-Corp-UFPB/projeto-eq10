@@ -207,6 +207,7 @@ def get_analytical_database_diagnostic(
         "connection_category": "configuration_missing",
         "view_available": False,
         "select_permission": False,
+        "session_readonly": False,
         "underlying_objects_accessible": False,
         "maximum_available_data_date": None,
     }
@@ -242,6 +243,19 @@ def get_analytical_database_diagnostic(
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
             diagnostic["connection_category"] = "connection_success"
+
+            readonly_value = conn.execute(
+                text("SHOW transaction_read_only")
+            ).scalar()
+            diagnostic["session_readonly"] = str(readonly_value).strip().lower() in {
+                "on",
+                "true",
+                "1",
+            }
+            if not diagnostic["session_readonly"]:
+                diagnostic["connection_category"] = "permission_denied"
+                logger.warning("Analytical database diagnostic | details=%s", diagnostic)
+                return diagnostic
 
             view_name = conn.execute(
                 text("SELECT to_regclass(:source) AS view_name"),

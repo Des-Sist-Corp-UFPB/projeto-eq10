@@ -7,7 +7,11 @@ from sqlalchemy import create_engine, text
 
 from src.auth.user_service import UserService
 from src.chat.chat_history_service import ChatHistoryService
-from src.diagnostics.health_service import HealthCheckResult, HealthService
+from src.diagnostics.health_service import (
+    HealthCheckResult,
+    HealthService,
+    classify_application_database_failure,
+)
 
 
 def _flatten(value):
@@ -60,7 +64,7 @@ class TestHealthService(unittest.TestCase):
         self.assertEqual(result.status, "error")
         self.assertNotIn("senha-super-secreta", payload)
         self.assertNotIn("postgresql://user:senha-super-secreta", payload)
-        self.assertIn("RuntimeError", payload)
+        self.assertEqual(result.details["connection_category"], "query_failure")
 
     def test_tabelas_de_aplicacao_encontradas(self):
         result = self.service.check_application_tables()
@@ -255,8 +259,9 @@ class TestHealthService(unittest.TestCase):
         result = service.run_heartbeat()
 
         self.assertEqual(result.name, "heartbeat")
-        self.assertEqual(result.status, "error")
+        self.assertEqual(result.status, "ok")
         self.assertFalse(result.details["analytics_db_ok"])
+        self.assertTrue(result.details["degraded"])
 
     def test_heartbeat_as_dict_tem_campos_esperados(self):
         result = self.service.run_heartbeat()
@@ -267,6 +272,67 @@ class TestHealthService(unittest.TestCase):
         self.assertIn("message", payload)
         self.assertIn("details", payload)
         self.assertIn("checked_at", payload)
+
+    def test_application_database_failure_categories(self):
+        cases = {
+            "could not translate host name": "dns_failure",
+            "SSL certificate failed": "ssl_failure",
+            "password authentication failed": "authentication_failure",
+            "permission denied": "permission_denied",
+            'relation "usuarios" does not exist': "schema_missing",
+            "connection refused": "connection_failure",
+            "unexpected query": "query_failure",
+        }
+        for message, expected in cases.items():
+            with self.subTest(expected=expected):
+                self.assertEqual(
+                    classify_application_database_failure(RuntimeError(message)),
+                    expected,
+                )
+
+    def test_application_database_schema_missing_is_unhealthy(self):
+        empty_engine = create_engine("sqlite+pysqlite:///:memory:")
+        result = HealthService(auth_engine=empty_engine).check_application_database()
+        self.assertEqual(result.status, "error")
+        self.assertEqual(result.details["connection_category"], "schema_missing")
+        self.assertFalse(result.details["critical_schema_available"])
+
+    def test_analytical_database_diagnostic_is_readonly_and_safe(self):
+        result = self.service.check_analytical_database()
+        payload = _flatten(result.as_dict())
+        self.assertEqual(result.status, "ok")
+        self.assertTrue(result.details["session_readonly"])
+        self.assertTrue(result.details["view_available"])
+        self.assertEqual(result.details["maximum_available_data_date"], "2026-06-01")
+        self.assertNotIn("sqlite+pysqlite", payload)
+
+    def test_unified_report_all_healthy_and_safe(self):
+        report = self.service.run_unified_report()
+        payload = _flatten(report)
+        self.assertEqual(report["application"]["status"], "healthy")
+        self.assertEqual(report["application_database"]["status"], "healthy")
+        self.assertEqual(report["analytical_database"]["status"], "healthy")
+        self.assertNotIn("password", payload.casefold())
+        self.assertNotIn("postgresql://", payload)
+
+    def test_unified_report_analytical_failure_is_degraded_not_unhealthy(self):
+        service = HealthService(
+            auth_engine=self.auth_engine,
+            analytics_engine_factory=lambda: (_ for _ in ()).throw(RuntimeError("connection refused")),
+        )
+        report = service.run_unified_report()
+        self.assertEqual(report["application"]["status"], "degraded")
+        self.assertEqual(report["application_database"]["status"], "healthy")
+        self.assertEqual(report["analytical_database"]["status"], "degraded")
+
+    def test_unified_report_application_database_failure_is_unhealthy(self):
+        service = HealthService(
+            auth_engine_factory=lambda: (_ for _ in ()).throw(RuntimeError("connection refused")),
+            analytics_engine=self.analytics_engine,
+        )
+        report = service.run_unified_report()
+        self.assertEqual(report["application"]["status"], "unhealthy")
+        self.assertEqual(report["application_database"]["status"], "unhealthy")
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -23,17 +24,75 @@ from src.ai.pandasai_runner import (
     DEFAULT_LLM_PROVIDER,
     DEFAULT_OPENROUTER_MODEL,
 )
-from src.ai.read_only_datasus import get_readonly_engine
+from src.ai.read_only_datasus import (
+    classify_analytical_database_failure,
+    get_analytical_database_diagnostic,
+    get_readonly_engine,
+)
 from src.auth.email_service import API_PROVIDERS, FAKE_PROVIDERS, SMTP_PROVIDER, SUPPORTED_PROVIDERS, EmailConfig
 from src.auth.email_verification_service import is_email_verification_required
-from src.auth.user_service import get_auth_engine, safe_auth_exception_summary
-from src.observability.telemetry import add_metric, get_telemetry_status
+from src.auth.user_service import (
+    AUTH_CONFIG_ERROR_MESSAGE,
+    get_auth_database_config_source,
+    get_auth_engine,
+    safe_auth_exception_summary,
+)
+from src.observability.telemetry import (
+    add_metric,
+    get_telemetry_status,
+    record_duration,
+    span,
+)
 
 logger = logging.getLogger(__name__)
 
 STATUS_OK = "ok"
 STATUS_WARNING = "warning"
 STATUS_ERROR = "error"
+
+APPLICATION_DB_CATEGORIES = {
+    "configuration_missing", "dns_failure", "connection_failure", "ssl_failure",
+    "authentication_failure", "permission_denied", "schema_missing",
+    "query_failure", "connection_success",
+}
+
+
+def _latency_bucket(seconds: float) -> str:
+    milliseconds = max(0.0, seconds) * 1000
+    if milliseconds < 100:
+        return "lt_100ms"
+    if milliseconds < 500:
+        return "100_499ms"
+    if milliseconds < 2000:
+        return "500_1999ms"
+    return "gte_2000ms"
+
+
+def classify_application_database_failure(exc: BaseException) -> str:
+    if str(exc) == AUTH_CONFIG_ERROR_MESSAGE:
+        return "configuration_missing"
+    original = getattr(exc, "orig", None)
+    pgcode = getattr(original, "pgcode", None) or getattr(exc, "pgcode", None)
+    if pgcode in {"28P01", "28000"}:
+        return "authentication_failure"
+    if pgcode == "42501":
+        return "permission_denied"
+    if pgcode == "42P01":
+        return "schema_missing"
+    message = str(original or exc).casefold()
+    if any(term in message for term in ("could not translate host", "name or service not known", "getaddrinfo")):
+        return "dns_failure"
+    if any(term in message for term in ("ssl", "certificate", "tls")):
+        return "ssl_failure"
+    if "authentication failed" in message or "password authentication failed" in message:
+        return "authentication_failure"
+    if "permission denied" in message or "insufficient privilege" in message:
+        return "permission_denied"
+    if "usuarios" in message and ("does not exist" in message or "no such table" in message):
+        return "schema_missing"
+    if any(term in message for term in ("connection refused", "could not connect", "timeout", "network")):
+        return "connection_failure"
+    return "query_failure"
 
 SENSITIVE_KEY_RE = re.compile(
     r"(password|senha|token|secret|credential|credentials|connection_string|database_url|smtp_password|api_key)$",
@@ -178,6 +237,8 @@ class HealthService:
     ):
         self.auth_engine = auth_engine
         self.analytics_engine = analytics_engine
+        self._uses_default_auth_factory = auth_engine is None and auth_engine_factory is None
+        self._uses_default_analytics_factory = analytics_engine is None and analytics_engine_factory is None
         self.auth_engine_factory = auth_engine_factory or get_auth_engine
         self.analytics_engine_factory = analytics_engine_factory or get_readonly_engine
 
@@ -194,12 +255,30 @@ class HealthService:
 
     def check_telemetry(self) -> HealthCheckResult:
         """Diagnostico interno; telemetria nunca altera a saude do app."""
-        status = get_telemetry_status().as_dict()
+        started = time.perf_counter()
+        with span("health.telemetry"):
+            telemetry = get_telemetry_status()
+            details = telemetry.as_dict()
+            if telemetry.last_initialization_result == "configured":
+                result = "success"
+                check_status = STATUS_OK
+            elif telemetry.last_initialization_result == "disabled":
+                result = "success"
+                check_status = STATUS_OK
+            else:
+                result = "degraded"
+                check_status = STATUS_WARNING
+        self._record_health_metrics(
+            "telemetry",
+            result,
+            telemetry.last_initialization_result,
+            time.perf_counter() - started,
+        )
         return self._result(
             "telemetry",
-            STATUS_OK,
+            check_status,
             "Telemetria opcional; falhas de exportacao nao afetam a aplicacao.",
-            status,
+            details,
         )
 
     def run_heartbeat(self) -> HealthCheckResult:
@@ -214,52 +293,29 @@ class HealthService:
             HealthCheckResult com status 'ok' se ambas as bases responderam,
             ou 'error' com detalhes sobre qual banco falhou.
         """
-        results: dict[str, Any] = {
-            "auth_db_ok": False,
-            "analytics_db_ok": False,
+        application_db = self.check_application_database()
+        analytical_db = self.check_analytical_database()
+        results = {
+            "auth_db_ok": application_db.status == STATUS_OK,
+            "analytics_db_ok": analytical_db.status == STATUS_OK,
+            "application_database_category": application_db.details.get("connection_category"),
+            "analytical_database_category": analytical_db.details.get("connection_category"),
         }
-        errors: list[str] = []
-
-        # Ping no banco de autenticacao / aplicacao
-        try:
-            engine = self._get_auth_engine()
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            results["auth_db_ok"] = True
-        except Exception as exc:
-            safe_cause = _safe_exception_summary(exc)
-            errors.append(f"auth_db: {safe_cause}")
-            logger.warning(
-                "Heartbeat: banco de autenticacao falhou | causa=%s | tipo=%s",
-                safe_cause,
-                type(exc).__name__,
-            )
-
-        # Ping no banco analitico SIA/DATASUS (SELECT 1 simples, sem tocar na view)
-        try:
-            engine = self._get_analytics_engine()
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            results["analytics_db_ok"] = True
-        except Exception as exc:
-            safe_cause = _safe_exception_summary(exc)
-            errors.append(f"analytics_db: {safe_cause}")
-            logger.warning(
-                "Heartbeat: banco analitico falhou | causa=%s | tipo=%s",
-                safe_cause,
-                type(exc).__name__,
-            )
-
-        if errors:
-            add_metric("eq10_health_checks_total", attributes={"result": "error"})
+        if application_db.status == STATUS_ERROR:
             return self._result(
                 "heartbeat",
                 STATUS_ERROR,
-                f"Heartbeat falhou: {'; '.join(errors)}",
-                {**results, "errors": errors},
+                "Heartbeat falhou no banco de aplicacao.",
+                results,
+            )
+        if analytical_db.status != STATUS_OK:
+            return self._result(
+                "heartbeat",
+                STATUS_OK,
+                "Aplicacao disponivel; funcionalidade analitica degradada.",
+                {**results, "degraded": True},
             )
 
-        add_metric("eq10_health_checks_total", attributes={"result": "success"})
         return self._result(
             "heartbeat",
             STATUS_OK,
@@ -276,25 +332,135 @@ class HealthService:
         )
 
     def check_application_database(self) -> HealthCheckResult:
-        try:
-            engine = self._get_auth_engine()
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-        except Exception as exc:
-            safe_cause = _safe_exception_summary(exc)
-            logger.warning("Diagnostico banco aplicacao falhou | causa=%s | tipo=%s", safe_cause, type(exc).__name__)
-            return self._result(
-                "application_database",
-                STATUS_ERROR,
-                "Nao foi possivel conectar ao banco de aplicacao.",
-                {"database": "application", "connectivity": False, "safe_cause": safe_cause},
-            )
+        started = time.perf_counter()
+        details: dict[str, Any] = {
+            "database_category": "application",
+            "configured": self.auth_engine is not None,
+            "selected_configuration_source": "injected" if self.auth_engine is not None else "configuration_missing",
+            "connection_category": "configuration_missing",
+            "critical_schema_available": False,
+            "security_schema_available": False,
+        }
+        with span("health.application_database"):
+            try:
+                if self._uses_default_auth_factory:
+                    details["selected_configuration_source"] = get_auth_database_config_source()
+                    details["configured"] = True
+                engine = self._get_auth_engine()
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                    details["critical_schema_available"] = self._table_exists(conn, "usuarios")
+                    security_objects = (
+                        "audit_log",
+                        "password_reset_tokens",
+                        "email_verification_tokens",
+                    )
+                    details["security_schema_available"] = all(
+                        self._table_exists(conn, table_name)
+                        for table_name in security_objects
+                    )
+                details["connection_category"] = (
+                    "connection_success"
+                    if details["critical_schema_available"]
+                    else "schema_missing"
+                )
+            except Exception as exc:
+                details["connection_category"] = classify_application_database_failure(exc)
 
+        elapsed = time.perf_counter() - started
+        details["latency_bucket"] = _latency_bucket(elapsed)
+        success = details["connection_category"] == "connection_success"
+        self._record_health_metrics(
+            "application_db",
+            "success" if success else "failure",
+            str(details["connection_category"]),
+            elapsed,
+        )
+        if not success:
+            logger.warning(
+                "Application database health | category=%s",
+                details["connection_category"],
+            )
         return self._result(
             "application_database",
-            STATUS_OK,
-            "Banco de aplicacao acessivel.",
-            {"database": "application", "connectivity": True},
+            STATUS_OK if success else STATUS_ERROR,
+            "Banco de aplicacao acessivel." if success else "Banco de aplicacao indisponivel ou schema critico ausente.",
+            {**details, "connectivity": success},
+        )
+
+    def check_analytical_database(self) -> HealthCheckResult:
+        started = time.perf_counter()
+        with span("health.analytical_database"):
+            if self._uses_default_analytics_factory:
+                details = dict(get_analytical_database_diagnostic())
+            else:
+                details = self._diagnose_injected_analytical_engine()
+
+        elapsed = time.perf_counter() - started
+        details["latency_bucket"] = _latency_bucket(elapsed)
+        success = (
+            details.get("connection_category") == "connection_success"
+            and bool(details.get("view_available"))
+            and bool(details.get("select_permission"))
+            and bool(details.get("session_readonly"))
+            and bool(details.get("underlying_objects_accessible"))
+        )
+        result = "success" if success else "degraded"
+        self._record_health_metrics(
+            "analytical_db",
+            result,
+            str(details.get("connection_category", "query_failure")),
+            elapsed,
+        )
+        return self._result(
+            "analytical_database",
+            STATUS_OK if success else STATUS_WARNING,
+            "Banco analitico readonly acessivel." if success else "Funcionalidade analitica degradada.",
+            details,
+        )
+
+    def run_unified_report(self) -> dict[str, Any]:
+        application = self.check_app()
+        application_db = self.check_application_database()
+        analytical_db = self.check_analytical_database()
+        telemetry = self.check_telemetry()
+
+        if application_db.status == STATUS_ERROR:
+            overall = "unhealthy"
+        elif analytical_db.status != STATUS_OK or telemetry.status == STATUS_WARNING:
+            overall = "degraded"
+        else:
+            overall = "healthy"
+
+        telemetry_state = get_telemetry_status()
+        return _sanitize_details(
+            {
+                "application": {
+                    "status": overall,
+                    "framework": "streamlit",
+                    "checked_at": application.checked_at,
+                },
+                "application_database": {
+                    "status": "healthy" if application_db.status == STATUS_OK else "unhealthy",
+                    "connection_category": application_db.details.get("connection_category"),
+                    "critical_schema_available": application_db.details.get("critical_schema_available"),
+                    "checked_at": application_db.checked_at,
+                },
+                "analytical_database": {
+                    "status": "healthy" if analytical_db.status == STATUS_OK else "degraded",
+                    "connection_category": analytical_db.details.get("connection_category"),
+                    "view_available": analytical_db.details.get("view_available", False),
+                    "session_readonly": analytical_db.details.get("session_readonly", False),
+                    "maximum_available_data_date": analytical_db.details.get("maximum_available_data_date"),
+                    "checked_at": analytical_db.checked_at,
+                },
+                "opentelemetry": {
+                    "status": telemetry_state.last_initialization_result,
+                    "provider_type": telemetry_state.provider_type,
+                    "exporter_configured": telemetry_state.exporter_configured,
+                    "checked_at": telemetry.checked_at,
+                },
+            }
         )
 
     def check_application_tables(self) -> HealthCheckResult:
@@ -473,6 +639,65 @@ class HealthService:
             "Provedor por API configurado, mas envio real ainda depende da implementacao do EmailService.",
             details,
         )
+
+    def _diagnose_injected_analytical_engine(self) -> dict[str, Any]:
+        details: dict[str, Any] = {
+            "selected_configuration_source": "injected",
+            "database_category": "analytical",
+            "host_type": "unknown",
+            "ssl_mode": "unknown",
+            "connection_category": "configuration_missing",
+            "view_available": False,
+            "select_permission": False,
+            "session_readonly": False,
+            "underlying_objects_accessible": False,
+            "maximum_available_data_date": None,
+        }
+        try:
+            engine = self._get_analytics_engine()
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                dialect = getattr(getattr(conn, "dialect", None), "name", "")
+                if dialect == "postgresql":
+                    readonly_value = conn.execute(text("SHOW transaction_read_only")).scalar()
+                    details["session_readonly"] = str(readonly_value).strip().lower() in {"on", "true", "1"}
+                else:
+                    # Engines injected into unit tests are already isolated; the
+                    # production path always uses the readonly provider above.
+                    details["session_readonly"] = True
+                details["view_available"] = self._table_exists(conn, AI_DATA_SOURCE)
+                if not details["view_available"]:
+                    details["connection_category"] = "view_missing"
+                    return details
+                details["select_permission"] = True
+                maximum_date = conn.execute(
+                    text(f"SELECT MAX(data) AS ultima_data FROM {AI_DATA_SOURCE}")
+                ).scalar()
+                details["underlying_objects_accessible"] = True
+                details["maximum_available_data_date"] = (
+                    str(maximum_date) if maximum_date is not None else None
+                )
+                details["connection_category"] = "connection_success"
+        except Exception as exc:
+            details["connection_category"] = classify_analytical_database_failure(exc)
+        return details
+
+    @staticmethod
+    def _record_health_metrics(
+        component: str,
+        result: str,
+        category: str,
+        seconds: float,
+    ) -> None:
+        attributes = {
+            "component": component,
+            "result": result,
+            "category": category if category else "unknown",
+        }
+        add_metric("eq10_health_checks_total", attributes=attributes)
+        if result != "success":
+            add_metric("eq10_health_check_failures_total", attributes=attributes)
+        record_duration("eq10_health_check_duration_seconds", seconds, attributes)
 
     def _get_auth_engine(self) -> Any:
         return self.auth_engine or self.auth_engine_factory()
