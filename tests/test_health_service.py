@@ -52,6 +52,57 @@ class TestHealthService(unittest.TestCase):
         self.assertTrue(result.details["connectivity"])
         self.assertNotIn("sqlite+pysqlite://", _flatten(result.as_dict()))
 
+    def test_application_database_readiness_executes_only_core_probe(self):
+        result = self.service.check_application_database_readiness()
+
+        self.assertEqual(result.status, "ok")
+        self.assertTrue(result.details["connectivity"])
+        self.assertEqual(
+            result.details["connection_category"], "connection_success"
+        )
+
+    def test_application_database_readiness_failure_is_safe(self):
+        service = HealthService(
+            auth_engine_factory=lambda: (_ for _ in ()).throw(
+                RuntimeError("postgresql://user:secret@private-host/database")
+            )
+        )
+
+        result = service.check_application_database_readiness()
+        payload = _flatten(result.as_dict())
+
+        self.assertEqual(result.status, "error")
+        self.assertFalse(result.details["connectivity"])
+        self.assertNotIn("secret", payload)
+        self.assertNotIn("private-host", payload)
+
+    def test_application_database_readiness_span_uses_safe_attributes(self):
+        current_span = object()
+
+        class SpanContext:
+            def __enter__(self):
+                return current_span
+
+            def __exit__(self, *_args):
+                return False
+
+        with patch(
+            "src.diagnostics.health_service.span",
+            return_value=SpanContext(),
+        ) as span_mock, patch(
+            "src.diagnostics.health_service.set_span_attributes"
+        ) as set_attributes:
+            result = self.service.check_application_database_readiness()
+
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(span_mock.call_args.args[0], "health.application.database")
+        initial_attributes = span_mock.call_args.args[1]
+        self.assertEqual(initial_attributes["health.endpoint"], "readiness")
+        final_attributes = set_attributes.call_args.args[1]
+        self.assertEqual(final_attributes["health.result"], "success")
+        self.assertEqual(final_attributes["health.category"], "connection_success")
+        self.assertNotIn("url", str(initial_attributes).lower())
+
     def test_falha_de_banco_de_aplicacao_e_segura(self):
         def failing_factory():
             raise RuntimeError("postgresql://user:senha-super-secreta@localhost/db")

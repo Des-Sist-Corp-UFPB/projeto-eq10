@@ -91,7 +91,10 @@ class TestDockerChatConfig(unittest.TestCase):
         self.assertIn('"$STREAMLIT_PYTHON" -m streamlit run "$STREAMLIT_APP"', start_source)
         self.assertIn('STREAMLIT_PID=$!', start_source)
         self.assertIn('status=listening', start_source)
-        self.assertLess(start_source.index('status=listening'), start_source.index("\nnginx\n"))
+        self.assertLess(
+            start_source.index("component=readiness | status=listening"),
+            start_source.index('nginx -g "daemon off;"'),
+        )
         self.assertIn("--server.port=\"${STREAMLIT_PORT}\"", start_source)
         self.assertIn("--server.headless=true", start_source)
         self.assertIn('STREAMLIT_PORT="8501"', start_source)
@@ -100,6 +103,25 @@ class TestDockerChatConfig(unittest.TestCase):
         self.assertNotIn("main.py", start_source)
         self.assertIn("proxy_pass http://127.0.0.1:8501", nginx_source)
         self.assertIn("http://127.0.0.1:8080/ping", dockerfile_source)
+
+    def test_readiness_server_is_internal_and_supervised(self):
+        start_source = START_SCRIPT_PATH.read_text(encoding="utf-8")
+        nginx_source = NGINX_PATH.read_text(encoding="utf-8")
+        dockerfile_source = DOCKERFILE_PATH.read_text(encoding="utf-8")
+        compose_sources = (
+            COMPOSE_PATH.read_text(encoding="utf-8")
+            + PROD_COMPOSE_PATH.read_text(encoding="utf-8")
+        )
+
+        self.assertIn("-m src.diagnostics.readiness_server", start_source)
+        self.assertIn('READINESS_PORT="8502"', start_source)
+        self.assertIn('READINESS_PID=$!', start_source)
+        self.assertIn('"$READINESS_PID" "$STREAMLIT_PID" "$NGINX_PID"', start_source)
+        self.assertIn("location = /health", nginx_source)
+        self.assertIn("proxy_pass http://127.0.0.1:8502/health", nginx_source)
+        self.assertIn("proxy_connect_timeout 5s", nginx_source)
+        self.assertNotIn("8502:", compose_sources)
+        self.assertNotIn("EXPOSE 8502", dockerfile_source)
 
     def test_ping_prova_saude_do_streamlit(self):
         nginx_source = NGINX_PATH.read_text(encoding="utf-8")

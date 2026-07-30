@@ -274,7 +274,11 @@ def get_auth_database_config_source() -> str:
     return source
 
 
-def get_auth_engine():
+def get_auth_engine(
+    *,
+    connect_timeout_seconds: int | None = None,
+    pool_timeout_seconds: int | None = None,
+):
     """Cria engine para persistencia de autenticacao."""
     _load_env_files()
 
@@ -286,7 +290,14 @@ def get_auth_engine():
     from sqlalchemy import create_engine
 
     logger.info("Auth database source selected | source=%s", source)
-    return create_engine(database_url, **_auth_engine_options(database_url))
+    return create_engine(
+        database_url,
+        **_auth_engine_options(
+            database_url,
+            connect_timeout_seconds=connect_timeout_seconds,
+            pool_timeout_seconds=pool_timeout_seconds,
+        ),
+    )
 
 
 def get_application_engine():
@@ -294,14 +305,27 @@ def get_application_engine():
     return get_auth_engine()
 
 
-def _auth_engine_options(database_url: str) -> dict[str, Any]:
+def _auth_engine_options(
+    database_url: str,
+    *,
+    connect_timeout_seconds: int | None = None,
+    pool_timeout_seconds: int | None = None,
+) -> dict[str, Any]:
     """Pool options safe for auth/audit engines without breaking SQLite tests."""
     options: dict[str, Any] = {
         "pool_pre_ping": True,
         "pool_recycle": AUTH_DB_POOL_RECYCLE_SECONDS,
     }
     if not database_url.strip().lower().startswith("sqlite"):
-        options["pool_timeout"] = AUTH_DB_POOL_TIMEOUT_SECONDS
+        options["pool_timeout"] = (
+            pool_timeout_seconds
+            if pool_timeout_seconds is not None
+            else AUTH_DB_POOL_TIMEOUT_SECONDS
+        )
+        if connect_timeout_seconds is not None:
+            options["connect_args"] = {
+                "connect_timeout": max(1, int(connect_timeout_seconds))
+            }
     return options
 
 

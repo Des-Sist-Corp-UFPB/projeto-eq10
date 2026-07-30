@@ -37,6 +37,16 @@ Para demonstração independente, há também uma stack local Alloy, Tempo,
 Prometheus e Grafana com dashboard provisionado. Consulte
 [docs/OBSERVABILITY_OPENTELEMETRY_GRAFANA.md](docs/OBSERVABILITY_OPENTELEMETRY_GRAFANA.md).
 
+## Liveness e readiness
+
+Em producao, `GET /ping` confirma apenas que o Streamlit esta respondendo.
+`GET /health` executa uma consulta leve no banco principal da aplicacao e
+retorna HTTP 200 com `{"status":"healthy","database":"connected"}` ou HTTP 503
+com uma resposta segura. O banco analitico nao interfere nesse endpoint.
+
+Arquitetura, timeouts e comandos de validacao:
+[docs/READINESS.md](docs/READINESS.md).
+
 ## Analytics de uso
 
 O Streamlit integra o Umami institucional para page views logicas e poucos

@@ -41,6 +41,7 @@ from src.observability.telemetry import (
     add_metric,
     get_telemetry_status,
     record_duration,
+    set_span_attributes,
     span,
 )
 
@@ -386,6 +387,59 @@ class HealthService:
             STATUS_OK if success else STATUS_ERROR,
             "Banco de aplicacao acessivel." if success else "Banco de aplicacao indisponivel ou schema critico ausente.",
             {**details, "connectivity": success},
+        )
+
+    def check_application_database_readiness(self) -> HealthCheckResult:
+        """Executa somente o probe essencial usado pelo endpoint publico."""
+        started = time.perf_counter()
+        category = "query_failure"
+        with span(
+            "health.application.database",
+            {
+                "health.endpoint": "readiness",
+                "health.result": "pending",
+                "health.category": "pending",
+            },
+        ) as current:
+            try:
+                engine = self._get_auth_engine()
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                category = "connection_success"
+                status = STATUS_OK
+                result = "success"
+            except Exception as exc:
+                category = classify_application_database_failure(exc)
+                status = STATUS_ERROR
+                result = "failure"
+
+            set_span_attributes(
+                current,
+                {
+                    "health.result": result,
+                    "health.category": category,
+                },
+            )
+
+        elapsed = time.perf_counter() - started
+        self._record_health_metrics(
+            "application_db_readiness",
+            result,
+            category,
+            elapsed,
+        )
+        return self._result(
+            "application_database_readiness",
+            status,
+            "Banco da aplicacao acessivel."
+            if status == STATUS_OK
+            else "Banco da aplicacao indisponivel.",
+            {
+                "database_category": "application",
+                "connection_category": category,
+                "connectivity": status == STATUS_OK,
+                "latency_bucket": _latency_bucket(elapsed),
+            },
         )
 
     def check_analytical_database(self) -> HealthCheckResult:
