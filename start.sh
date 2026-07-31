@@ -9,6 +9,30 @@ NGINX_PORT="8080"
 READINESS_PID=""
 STREAMLIT_PID=""
 NGINX_PID=""
+READINESS_PID_FILE="/tmp/eq10-readiness.pid"
+STREAMLIT_PID_FILE="/tmp/eq10-streamlit.pid"
+NGINX_PID_FILE="/tmp/eq10-nginx.pid"
+
+write_pid_file() {
+  pid_file="$1"
+  pid="$2"
+  case "$pid" in
+    ''|*[!0-9]*)
+      echo "Startup error | component=supervisor | code=invalid_child_pid"
+      exit 1
+      ;;
+  esac
+  printf '%s\n' "$pid" > "$pid_file"
+}
+
+remove_pid_files() {
+  rm -f \
+    "$READINESS_PID_FILE" \
+    "$STREAMLIT_PID_FILE" \
+    "$NGINX_PID_FILE"
+}
+
+remove_pid_files
 
 if [ ! -x "$STREAMLIT_PYTHON" ]; then
   echo "Startup error | component=streamlit | code=venv_python_missing"
@@ -31,6 +55,7 @@ terminate() {
       wait "$pid" 2>/dev/null || true
     fi
   done
+  remove_pid_files
 }
 trap terminate INT TERM EXIT
 
@@ -47,6 +72,7 @@ report_exit() {
 echo "STARTUP | stage=readiness_start | status=starting"
 "$STREAMLIT_PYTHON" -m src.diagnostics.readiness_server &
 READINESS_PID=$!
+write_pid_file "$READINESS_PID_FILE" "$READINESS_PID"
 
 echo "STARTUP | stage=streamlit_start | status=starting"
 "$STREAMLIT_PYTHON" -m streamlit run "$STREAMLIT_APP" \
@@ -54,6 +80,7 @@ echo "STARTUP | stage=streamlit_start | status=starting"
   --server.port="${STREAMLIT_PORT}" \
   --server.headless=true &
 STREAMLIT_PID=$!
+write_pid_file "$STREAMLIT_PID_FILE" "$STREAMLIT_PID"
 
 # Nginx so passa a aceitar trafego quando o socket do Streamlit existe.
 STREAMLIT_READY=false
@@ -88,12 +115,14 @@ else
     report_exit "readiness" "$READINESS_PID"
   fi
   READINESS_PID=""
+  rm -f "$READINESS_PID_FILE"
   echo "STARTUP | stage=readiness_start | status=unavailable"
 fi
 
 echo "STARTUP | stage=nginx_start | status=starting"
 nginx -g "daemon off;" &
 NGINX_PID=$!
+write_pid_file "$NGINX_PID_FILE" "$NGINX_PID"
 
 NGINX_READY=false
 attempt=0
@@ -130,6 +159,7 @@ while :; do
   if [ -n "$READINESS_PID" ] && ! kill -0 "$READINESS_PID" 2>/dev/null; then
     report_exit "readiness" "$READINESS_PID"
     READINESS_PID=""
+    rm -f "$READINESS_PID_FILE"
   fi
   sleep 1
 done

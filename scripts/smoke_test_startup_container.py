@@ -11,6 +11,16 @@ import urllib.request
 
 CONTAINER_NAME = "eq10-startup-smoke"
 HOST_PORT = 18080
+PID_FILES = {
+    "readiness": "/tmp/eq10-readiness.pid",
+    "streamlit": "/tmp/eq10-streamlit.pid",
+    "nginx": "/tmp/eq10-nginx.pid",
+}
+EXPECTED_COMMAND_ARGUMENTS = {
+    "readiness": "src.diagnostics.readiness_server",
+    "streamlit": "streamlit",
+    "nginx": "nginx",
+}
 
 
 def _run(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -48,21 +58,56 @@ def _wait_for(path: str, expected_status: int, timeout: float = 60) -> bytes:
     raise RuntimeError(f"safe_http_wait_failed:{path}:{last_status}")
 
 
-def _signal_process(marker: str) -> None:
-    code = (
+def _process_signal_script(component: str) -> str:
+    if component not in PID_FILES:
+        raise ValueError("unknown_component")
+    pid_file = PID_FILES[component]
+    expected_argument = EXPECTED_COMMAND_ARGUMENTS[component]
+    return (
         "import os,signal;"
-        f"marker={marker!r}.encode();"
-        "matches=[];"
-        "\nfor name in os.listdir('/proc'):\n"
-        "  if name.isdigit():\n"
-        "    try:\n"
-        "      cmd=open(f'/proc/{name}/cmdline','rb').read()\n"
-        "      if marker in cmd: matches.append(int(name))\n"
-        "    except OSError: pass\n"
-        "\nif len(matches)!=1: raise SystemExit(3)\n"
-        "os.kill(matches[0],signal.SIGTERM)"
+        f"component={component!r};"
+        f"pid_file={pid_file!r};"
+        f"expected={expected_argument!r}.encode();"
+        "\ntry:\n"
+        " raw=open(pid_file,'rb').read().strip()\n"
+        "except OSError:\n"
+        " print(f'PROCESS_LOOKUP | component={component} | status=not_found');"
+        " raise SystemExit(3)\n"
+        "if not raw.isdigit() or int(raw)<=1:\n"
+        " print(f'PROCESS_LOOKUP | component={component} | status=invalid');"
+        " raise SystemExit(3)\n"
+        "pid=int(raw)\n"
+        "if pid==os.getpid() or not os.path.isdir(f'/proc/{pid}'):\n"
+        " print(f'PROCESS_LOOKUP | component={component} | status=stale');"
+        " raise SystemExit(3)\n"
+        "try:\n"
+        " args=open(f'/proc/{pid}/cmdline','rb').read().split(b'\\0')\n"
+        "except OSError:\n"
+        " print(f'PROCESS_LOOKUP | component={component} | status=stale');"
+        " raise SystemExit(3)\n"
+        "if expected not in args:\n"
+        " print(f'PROCESS_LOOKUP | component={component} | status=wrong_component');"
+        " raise SystemExit(3)\n"
+        "print(f'PROCESS_LOOKUP | component={component} | status=verified | pid={pid}')\n"
+        "os.kill(pid,signal.SIGTERM)"
     )
-    _run("docker", "exec", CONTAINER_NAME, "/app/.venv/bin/python", "-c", code)
+
+
+def _signal_process(component: str) -> None:
+    code = _process_signal_script(component)
+    result = _run(
+        "docker",
+        "exec",
+        CONTAINER_NAME,
+        "/app/.venv/bin/python",
+        "-c",
+        code,
+        check=False,
+    )
+    if result.stdout:
+        print(result.stdout.strip())
+    if result.returncode != 0:
+        raise RuntimeError(f"process_lookup_failed:{component}")
 
 
 def _container_running() -> bool:
@@ -146,7 +191,7 @@ def main() -> int:
             internal_probe,
         )
 
-        _signal_process("src.diagnostics.readiness_server")
+        _signal_process("readiness")
         _wait_for("/ping", 200)
         unavailable_body = _wait_for("/health", 503)
         if unavailable_body != b'{"status":"unhealthy","database":"unavailable"}':
