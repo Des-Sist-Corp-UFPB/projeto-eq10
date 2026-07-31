@@ -51,9 +51,10 @@ interno de cinco segundos para evitar uma nova conexao a cada probe; falhas nao
 ficam ocultas por mais que esse intervalo.
 
 O processo escuta somente em `127.0.0.1:8502`. A porta não e publicada pelo
-Compose. `start.sh` inicia e supervisiona readiness, Streamlit e Nginx; a saida
-de qualquer processo encerra o container e permite que a politica de restart o
-recrie sem deixar processos orfaos.
+Compose. `start.sh` inicia os tres processos e trata Streamlit e Nginx como
+componentes criticos: a saida de um deles encerra o container. Readiness e
+isolado; se ele falhar, `/ping` e o app continuam acessiveis e o Nginx devolve
+o JSON seguro de indisponibilidade com HTTP 503 em `/health`.
 
 O `HEALTHCHECK` do Docker permanece em `/ping`. Ele representa liveness e evita
 reinicios por indisponibilidade de componentes nao essenciais. A readiness do

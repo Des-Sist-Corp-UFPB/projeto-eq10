@@ -10,6 +10,7 @@ START_SCRIPT_PATH = Path("start.sh")
 NGINX_PATH = Path("nginx.conf")
 STREAMLIT_CONFIG_PATH = Path(".streamlit/config.toml")
 DOCKERIGNORE_PATH = Path(".dockerignore")
+DEPLOY_WORKFLOW_PATH = Path(".github/workflows/deploy.yml")
 
 
 class TestDockerChatConfig(unittest.TestCase):
@@ -92,7 +93,7 @@ class TestDockerChatConfig(unittest.TestCase):
         self.assertIn('STREAMLIT_PID=$!', start_source)
         self.assertIn('status=listening', start_source)
         self.assertLess(
-            start_source.index("component=readiness | status=listening"),
+            start_source.index("stage=readiness_start | status=listening"),
             start_source.index('nginx -g "daemon off;"'),
         )
         self.assertIn("--server.port=\"${STREAMLIT_PORT}\"", start_source)
@@ -116,12 +117,47 @@ class TestDockerChatConfig(unittest.TestCase):
         self.assertIn("-m src.diagnostics.readiness_server", start_source)
         self.assertIn('READINESS_PORT="8502"', start_source)
         self.assertIn('READINESS_PID=$!', start_source)
-        self.assertIn('"$READINESS_PID" "$STREAMLIT_PID" "$NGINX_PID"', start_source)
+        self.assertIn('report_exit "readiness" "$READINESS_PID"', start_source)
+        self.assertIn("PROCESS_EXIT | component=${component}", start_source)
+        for stage in ("readiness_start", "streamlit_start", "nginx_start"):
+            self.assertIn(f"STARTUP | stage={stage} | status=starting", start_source)
+            self.assertIn(f"STARTUP | stage={stage} | status=listening", start_source)
         self.assertIn("location = /health", nginx_source)
         self.assertIn("proxy_pass http://127.0.0.1:8502/health", nginx_source)
         self.assertIn("proxy_connect_timeout 5s", nginx_source)
+        self.assertIn("error_page 502 504 = @readiness_unavailable", nginx_source)
+        self.assertIn(
+            """return 503 '{"status":"unhealthy","database":"unavailable"}'""",
+            nginx_source,
+        )
         self.assertNotIn("8502:", compose_sources)
         self.assertNotIn("EXPOSE 8502", dockerfile_source)
+
+    def test_start_script_has_unix_line_endings_and_docker_normalizes_permissions(self):
+        start_bytes = START_SCRIPT_PATH.read_bytes()
+        dockerfile_source = DOCKERFILE_PATH.read_text(encoding="utf-8")
+
+        self.assertNotIn(b"\r\n", start_bytes)
+        self.assertTrue(start_bytes.startswith(b"#!/bin/sh\n"))
+        self.assertIn("sed -i 's/\\r$//' start.sh", dockerfile_source)
+        self.assertIn("chmod +x start.sh", dockerfile_source)
+
+    def test_deploy_requires_real_container_smoke_before_remote_deploy(self):
+        workflow = DEPLOY_WORKFLOW_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("load: true", workflow)
+        self.assertIn(
+            'python scripts/smoke_test_startup_container.py "${IMAGE}"',
+            workflow,
+        )
+        self.assertIn(
+            "docker compose -f docker-compose.prod.yml --env-file .env.prod config --quiet",
+            workflow,
+        )
+        self.assertLess(
+            workflow.index("Valida startup real do container"),
+            workflow.index("Deploy no servidor"),
+        )
 
     def test_ping_prova_saude_do_streamlit(self):
         nginx_source = NGINX_PATH.read_text(encoding="utf-8")

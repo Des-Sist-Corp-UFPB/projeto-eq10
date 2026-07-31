@@ -35,7 +35,16 @@ jobs:
           context: .
           file: Dockerfile.chat
           push: true
+          load: true
           tags: ${{ env.IMAGE }}
+
+      - name: Valida startup real do container
+        run: |
+          set -Eeuo pipefail
+          python scripts/smoke_test_startup_container.py "${IMAGE}"
+          touch .env.prod
+          docker compose -f docker-compose.prod.yml --env-file .env.prod config --quiet
+          rm -f .env.prod
 
       - name: Deploy no servidor
         run: |
