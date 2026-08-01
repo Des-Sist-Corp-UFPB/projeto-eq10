@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Secretaria de Saúde{% endblock %} — Mamanguape</title>
+    <link rel="stylesheet" href="{{ request.url_for('static', path='css/base.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% set user = get_authenticated_user(request) %}
+    {% set show_admin = can_view_audit_log(user) %}
+
+    <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Abrir menu">&#9776;</button>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <aside class="app-sidebar" id="app-sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-mark">
+                {% if logo_url %}
+                <img class="brand-logo" src="{{ logo_url }}" alt="Brasão de Mamanguape"
+                     onerror="this.hidden=true;this.nextElementSibling.hidden=false;">
+                <span class="brand-logo-fallback" hidden>SM</span>
+                {% else %}
+                <span class="brand-logo-fallback">SM</span>
+                {% endif %}
+            </div>
+            <div class="brand-copy">
+                <p class="brand-title">Secretaria de Saúde</p>
+                <p class="brand-subtitle">Mamanguape</p>
+            </div>
+        </div>
+        <nav class="sidebar-nav" role="navigation" aria-label="Navegação principal">
+            <div class="sidebar-nav-item">
+                <a class="sidebar-link{% if active_page == 'Estatísticas' %} active{% endif %}" href="/estatisticas">
+                    <span class="nav-icon stats"></span>
+                    <span>Estatísticas</span>
+                </a>
+            </div>
+            <div class="sidebar-nav-item">
+                <a class="sidebar-link{% if active_page == 'Chat IA' %} active{% endif %}" href="/chat">
+                    <span class="nav-icon chat"></span>
+                    <span>Chat IA</span>
+                </a>
+            </div>
+            {% if show_admin %}
+            <div class="sidebar-nav-item">
+                <a class="sidebar-link{% if active_page == 'Auditoria' %} active{% endif %}" href="/auditoria">
+                    <span class="nav-icon audit"></span>
+                    <span>Auditoria</span>
+                </a>
+            </div>
+            {% endif %}
+        </nav>
+    </aside>
+
+    <div class="app-content">
+        <header class="top-header">
+            <div class="top-auth-bar">
+                {% if user %}
+                <div>
+                    <p class="top-auth-title">Sessão ativa</p>
+                    <p class="top-auth-user">{{ user.nome }}</p>
+                </div>
+                {% else %}
+                <div>
+                    <p class="top-auth-title">Áreas públicas liberadas</p>
+                    <p class="top-auth-user">Entre para usar o chat inteligente</p>
+                </div>
+                {% endif %}
+
+                <div class="auth-actions">
+                    {% if user %}
+                    <button type="button" class="btn profile-trigger" id="profile-trigger">Perfil · {{ user.nome }}</button>
+                    <div class="profile-menu" id="profile-menu">
+                        <p class="profile-menu-email">{{ user.email }}</p>
+                        <a class="btn" href="/auth/profile">Meu perfil</a>
+                        <form method="post" action="/auth/logout">
+                            <button type="submit" class="btn btn-danger btn-block">Sair</button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <a class="btn btn-primary" href="/auth/login">Entrar</a>
+                    {% endif %}
+                </div>
+            </div>
+        </header>
+
+        <main class="block-container">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script src="{{ request.url_for('static', path='js/base.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

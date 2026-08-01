@@ -1,0 +1,35 @@
+{% extends "sidebar.html" %}
+
+{% block title %}Estatísticas{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/estatisticas.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="app-hero">
+    <div class="hero-content">
+        <span class="hero-badge">DataSUS Analytics</span>
+        <h1>Painel de Estatísticas</h1>
+        <p class="app-subtitle">
+            Consulte os indicadores consolidados de Saúde em um painel visual e interativo.
+        </p>
+    </div>
+</section>
+
+<section class="public-dashboard-card">
+    <div class="public-dashboard-copy">
+        <h2>Painel de Estatísticas</h2>
+        <p>
+            Consulte os principais indicadores de saúde em um painel visual e interativo.
+            Esta área é pública e pode ser acessada sem login.
+        </p>
+        <div class="powerbi-actions">
+            <a class="powerbi-link" href="{{ powerbi_url }}" target="_blank" rel="noopener noreferrer">
+                Ver painel de estatísticas
+            </a>
+            <span class="powerbi-note">O painel será aberto em uma nova aba.</span>
+        </div>
+    </div>
+</section>
+{% endblock %}
