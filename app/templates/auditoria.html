@@ -1,0 +1,174 @@
+{% extends "sidebar.html" %}
+
+{% block title %}Auditoria{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/auditoria.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="audit-header">
+    <h1>Painel de Auditoria</h1>
+    <p class="audit-subtitle">Área restrita para administradores. Acompanhe eventos recentes do sistema.</p>
+</div>
+
+{% if show_user_management_link %}
+<section class="card audit-admin-link">
+    <div>
+        <h2>Gestão de usuários</h2>
+        <p>Gerencie papéis, acesso à auditoria e desativação de contas.</p>
+    </div>
+    <a class="btn btn-primary" href="/admin/users">Abrir gestão de usuários</a>
+</section>
+{% endif %}
+
+<section class="audit-summary-grid">
+    <div class="card audit-summary-card">
+        <span class="audit-summary-label">Total de eventos</span>
+        <span class="audit-summary-value">{{ summary.total }}</span>
+    </div>
+    <div class="card audit-summary-card">
+        <span class="audit-summary-label">Logins</span>
+        <span class="audit-summary-value">{{ summary.logins }}</span>
+    </div>
+    <div class="card audit-summary-card">
+        <span class="audit-summary-label">Falhas</span>
+        <span class="audit-summary-value">{{ summary.failures }}</span>
+    </div>
+    <div class="card audit-summary-card">
+        <span class="audit-summary-label">Prompts bloqueados</span>
+        <span class="audit-summary-value">{{ summary.blocked_prompts }}</span>
+    </div>
+</section>
+
+<section class="card audit-filters">
+    <h2>Filtros</h2>
+    <p class="audit-subtitle">Use os filtros para localizar eventos por tipo, status, e-mail ou período.</p>
+    <form method="get" action="/auditoria" class="audit-filter-form">
+        <div class="form-field">
+            <label for="filter-limit">Limite</label>
+            <select id="filter-limit" name="limit">
+                {% for option in limit_options %}
+                <option value="{{ option }}" {% if filters.limit == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-field">
+            <label for="filter-event-type">Tipo de evento</label>
+            <select id="filter-event-type" name="event_type">
+                {% for option in event_options %}
+                <option value="{{ option }}" {% if filters.event_type == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-field">
+            <label for="filter-status">Status</label>
+            <select id="filter-status" name="status">
+                {% for option in status_options %}
+                <option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ status_labels[option] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-field">
+            <label for="filter-user-search">E-mail</label>
+            <input type="text" id="filter-user-search" name="user_search" value="{{ filters.user_search }}" placeholder="Buscar por e-mail">
+        </div>
+        <div class="form-field">
+            <label for="filter-start-date">De</label>
+            <input type="date" id="filter-start-date" name="start_date" value="{{ filters.start_date }}">
+        </div>
+        <div class="form-field">
+            <label for="filter-end-date">Até</label>
+            <input type="date" id="filter-end-date" name="end_date" value="{{ filters.end_date }}">
+        </div>
+        <div class="form-actions audit-filter-actions">
+            <a class="btn" href="/auditoria">Limpar filtros</a>
+            <button type="submit" class="btn btn-primary">Aplicar filtros</button>
+        </div>
+    </form>
+</section>
+
+<section class="card audit-table-card">
+    <h2>Eventos recentes</h2>
+    <p class="audit-subtitle">Mostrando {{ visible_count }} de {{ total_filtered }} eventos.</p>
+
+    {% if rows %}
+    <div class="audit-table-wrap">
+        <table class="audit-table">
+            <thead>
+                <tr>
+                    <th>Data/Hora</th>
+                    <th>Evento</th>
+                    <th>E-mail</th>
+                    <th>Status</th>
+                    <th>Detalhe</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr class="audit-row"
+                    data-evento="{{ row.evento }}"
+                    data-data-hora="{{ row.data_hora }}"
+                    data-email="{{ row.email }}"
+                    data-status-key="{{ row.status_key }}"
+                    data-status-label="{{ row.status_label }}"
+                    data-prompt="{{ row.prompt }}"
+                    data-detalhe="{{ row.detalhe_full }}"
+                    data-metadados="{{ row.metadados }}">
+                    <td>{{ row.data_hora }}</td>
+                    <td>{{ row.evento }}</td>
+                    <td>{{ row.email }}</td>
+                    <td><span class="status-badge status-{{ row.status_key }}">{{ row.status_label }}</span></td>
+                    <td>{{ row.detalhe }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="audit-empty">Nenhum evento encontrado para os filtros selecionados.</p>
+    {% endif %}
+</section>
+
+<div class="audit-detail-backdrop" id="audit-detail-backdrop"></div>
+<div class="audit-detail-modal" id="audit-detail-modal">
+    <h2>Detalhes do evento</h2>
+    <div class="audit-detail-grid">
+        <div>
+            <span class="audit-detail-label">Evento</span>
+            <p id="audit-detail-evento"></p>
+        </div>
+        <div>
+            <span class="audit-detail-label">Status</span>
+            <p><span class="status-badge" id="audit-detail-status"></span></p>
+        </div>
+        <div>
+            <span class="audit-detail-label">Data/Hora</span>
+            <p id="audit-detail-data-hora"></p>
+        </div>
+        <div>
+            <span class="audit-detail-label">E-mail</span>
+            <p id="audit-detail-email"></p>
+        </div>
+    </div>
+    <div class="audit-detail-field">
+        <span class="audit-detail-label">Prompt</span>
+        <p id="audit-detail-prompt"></p>
+    </div>
+    <div class="audit-detail-field">
+        <span class="audit-detail-label">Detalhe</span>
+        <p id="audit-detail-detalhe"></p>
+    </div>
+    <div class="audit-detail-field">
+        <span class="audit-detail-label">Metadados</span>
+        <p id="audit-detail-metadados"></p>
+    </div>
+    <div class="form-actions">
+        <button type="button" class="btn btn-primary" id="audit-detail-close">Fechar</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ request.url_for('static', path='js/auditoria.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,196 @@
+/* Chat IA page — intro card, suggestion grid, chat input form, auth/verification gate.
+   Ported from app_ai_chat.py _apply_style(). Chat bubbles themselves live in base.css
+   since the prompt calls them out as a global/shared component. */
+
+.intro-card {
+    display: flex;
+    gap: 1.05rem;
+    background: var(--color-card);
+    color: var(--color-text);
+    border: 1px solid rgba(15, 23, 42, 0.05);
+    border-radius: 1rem;
+    padding: 1.55rem;
+    margin: 0 0 1rem;
+    box-shadow: var(--shadow-card);
+}
+
+.intro-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    flex: 0 0 3rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--color-purple) 0%, var(--color-blue) 100%);
+    color: #FFFFFF;
+    box-shadow: 0 14px 22px rgba(76, 29, 149, 0.18);
+}
+
+.intro-icon::before {
+    content: "";
+    position: absolute;
+    inset: 0.88rem 0.76rem 1.04rem;
+    border: 2px solid currentColor;
+    border-radius: 0.18rem;
+}
+
+.intro-icon::after {
+    content: "";
+    position: absolute;
+    left: 1.04rem;
+    bottom: 0.78rem;
+    width: 0.42rem;
+    height: 0.42rem;
+    border-left: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: skewX(-18deg);
+}
+
+.intro-body {
+    width: 100%;
+}
+
+.intro-card h2 {
+    margin: 0 0 0.55rem;
+    color: var(--color-text);
+    font-size: 1.32rem;
+    font-weight: 760;
+}
+
+.intro-card p {
+    margin: 0;
+    color: var(--color-muted);
+    line-height: 1.65;
+}
+
+.usage-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.48rem;
+    margin-top: 1rem;
+    padding: 0.58rem 0.72rem;
+    border-radius: 0.62rem;
+    background: var(--color-success-bg);
+    color: #155E75;
+    font-size: 0.86rem;
+    line-height: 1.35;
+    font-weight: 650;
+}
+
+.usage-note::before {
+    content: "";
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 999px;
+    background: var(--color-cyan);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+    flex: 0 0 auto;
+}
+
+.auth-gate {
+    max-width: 36rem;
+    margin: 1.5rem auto 0;
+    padding: 1.55rem;
+    text-align: center;
+    background: var(--color-card);
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-left: 5px solid var(--color-purple);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-card);
+}
+
+.auth-gate h2 {
+    margin: 0 0 0.45rem;
+    color: var(--color-text);
+    font-size: 1.25rem;
+    font-weight: 780;
+}
+
+.auth-gate p {
+    margin: 0;
+    color: var(--color-muted);
+    line-height: 1.55;
+}
+
+.suggestion-heading {
+    margin: 0.25rem 0 0.75rem;
+    color: var(--color-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.suggestion-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.72rem;
+    margin: 0 0 1.25rem;
+}
+
+.suggestion-chip {
+    min-height: 3.2rem;
+    text-align: left;
+    white-space: normal;
+    line-height: 1.28;
+    font-size: 0.88rem;
+    justify-content: flex-start;
+}
+
+.chat-input-form {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 1rem;
+    background: #FFFFFF;
+    border-radius: 1rem;
+    box-shadow: var(--shadow-card);
+}
+
+.chat-input-form input {
+    flex: 1;
+    min-height: 3rem;
+    background: var(--color-input);
+    color: var(--color-text);
+    border: 1px solid rgba(100, 116, 139, 0.22);
+    border-radius: 0.875rem;
+    outline: none;
+    padding: 0 1rem;
+    font-size: 0.98rem;
+}
+
+.chat-input-form input:focus {
+    border-color: rgba(37, 99, 235, 0.64);
+    box-shadow: 0 0 0 3px rgba(123, 44, 191, 0.16);
+}
+
+.chat-input-form button {
+    flex: 0 0 auto;
+    width: 3rem;
+    height: 3rem;
+    min-height: 3rem;
+    padding: 0;
+    border-radius: 999px;
+    font-size: 1.18rem;
+}
+
+@media (max-width: 820px) {
+    .suggestion-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .intro-card {
+        padding: 1.2rem;
+    }
+}
+
+@media (max-width: 560px) {
+    .intro-card {
+        display: block;
+    }
+
+    .intro-icon {
+        margin-bottom: 0.9rem;
+    }
+}

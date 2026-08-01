@@ -14,7 +14,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.auth.roles import can_view_audit_log, is_super_admin
 from app.auth.session import get_authenticated_user
 from app.config.settings import get_settings
-from app.routes import estatisticas
+from app.routes import audit, auth, chat, estatisticas, healthcheck, users
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,11 @@ def create_app() -> FastAPI:
     app.state.settings = settings
 
     app.include_router(estatisticas.router)
+    app.include_router(auth.router)
+    app.include_router(chat.router)
+    app.include_router(audit.router)
+    app.include_router(users.router)
+    app.include_router(healthcheck.router)
 
     @app.get("/")
     def root() -> RedirectResponse:

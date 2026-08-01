@@ -1,0 +1,65 @@
+{% extends "sidebar.html" %}
+
+{% block title %}Chat IA{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/chat.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="app-hero">
+    <div class="hero-content">
+        <span class="hero-badge">Área protegida</span>
+        <h1>Chat IA</h1>
+        <p class="app-subtitle">Converse com os dados disponíveis do SIA/DATASUS</p>
+    </div>
+</section>
+
+{% if email_verification_gate %}
+<section class="auth-gate">
+    <h2>E-mail pendente de verificação</h2>
+    <p>Verifique seu e-mail para continuar usando o Chat IA. Você pode reenviar a verificação em Meu perfil.</p>
+</section>
+{% else %}
+<section class="intro-card">
+    <div class="intro-icon" aria-hidden="true"></div>
+    <div class="intro-body">
+        <h2>Olá! Como posso ajudar?</h2>
+        <p>
+            Explore os dados disponíveis com perguntas diretas sobre produção,
+            valores, perfis de atendimento e rankings.
+        </p>
+        <div class="usage-note">
+            Faça perguntas sobre totais, frequências, médias, rankings e comparações dos dados disponíveis.
+        </div>
+    </div>
+</section>
+
+<p class="suggestion-heading">Sugestões de perguntas</p>
+<div class="suggestion-grid" id="suggestion-grid">
+    {% for suggestion in suggestions %}
+    <button type="button" class="btn suggestion-chip">{{ suggestion }}</button>
+    {% endfor %}
+</div>
+
+<section class="chat-stack" id="chat-stack">
+    {% for message in messages %}
+    <div class="chat-row {{ message.role }}">
+        <div class="chat-bubble {{ message.role }}">
+            <span class="chat-label">{{ "Você" if message.role == "user" else "Assistente" }}</span>
+            <div class="chat-content">{{ message.html | safe }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</section>
+
+<form id="chat-form" class="chat-input-form">
+    <input type="text" id="chat-prompt" name="prompt" placeholder="Digite uma pergunta estatística..." autocomplete="off" required>
+    <button type="submit" class="btn btn-primary" id="chat-submit">&#10148;</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ request.url_for('static', path='js/chat.js') }}"></script>
+{% endblock %}

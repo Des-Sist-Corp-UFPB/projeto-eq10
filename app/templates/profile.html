@@ -1,0 +1,73 @@
+{% extends "sidebar.html" %}
+
+{% block title %}Meu perfil{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/auth.css') }}">
+{% endblock %}
+
+{% block content %}
+{% if success %}
+<div class="form-success">{{ success }}</div>
+{% endif %}
+{% if error %}
+<div class="form-error">{{ error }}</div>
+{% endif %}
+
+<section class="card auth-card profile-section">
+    <h2>Nome</h2>
+    <form method="post" action="/auth/profile/name">
+        <div class="form-field">
+            <label for="profile-nome">Nome</label>
+            <input type="text" id="profile-nome" name="nome" value="{{ profile_user.nome }}" required>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Salvar nome</button>
+        </div>
+    </form>
+</section>
+
+<section class="card auth-card profile-section">
+    <h2>E-mail</h2>
+    <form method="post" action="/auth/profile/email">
+        <div class="form-field">
+            <label for="profile-email">E-mail</label>
+            <input type="email" id="profile-email" name="email" value="{{ profile_user.email }}" required>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Salvar e-mail</button>
+        </div>
+    </form>
+</section>
+
+<section class="card auth-card profile-section">
+    <h2>Alterar senha</h2>
+    <form method="post" action="/auth/profile/password">
+        <div class="form-field">
+            <label for="profile-senha-atual">Senha atual</label>
+            <input type="password" id="profile-senha-atual" name="senha_atual" required>
+        </div>
+        <div class="form-field">
+            <label for="profile-nova-senha">Nova senha</label>
+            <input type="password" id="profile-nova-senha" name="nova_senha" required minlength="8">
+        </div>
+        <div class="form-field">
+            <label for="profile-confirmar-senha">Confirmar nova senha</label>
+            <input type="password" id="profile-confirmar-senha" name="confirmar_senha" required minlength="8">
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Alterar senha</button>
+        </div>
+    </form>
+</section>
+
+<section class="card auth-card profile-section profile-danger-zone">
+    <h2>Desativar conta</h2>
+    <p class="auth-subtitle">Sua conta será desativada e você perderá o acesso imediatamente. Fale com um administrador para reativá-la.</p>
+    <form method="post" action="/auth/profile/deactivate" onsubmit="return confirm('Tem certeza que deseja desativar sua conta?');">
+        <div class="form-actions">
+            <button type="submit" class="btn btn-danger">Desativar minha conta</button>
+        </div>
+    </form>
+</section>
+{% endblock %}
