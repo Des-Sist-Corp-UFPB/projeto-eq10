@@ -32,31 +32,45 @@ def check_usuarios_columns(conn: Any) -> list[str]:
     return [column for column in EXPECTED_USER_COLUMNS if column not in existing]
 
 
+# Arbitrary fixed key for a Postgres advisory lock scoped to this one bootstrap step.
+# uvicorn --workers N starts N independent processes that each run this lifespan hook —
+# without serializing, concurrent `CREATE TABLE IF NOT EXISTS` calls can raise
+# UniqueViolation/DuplicateTable on Postgres's system catalogs (the existence check and
+# the creation aren't atomic across concurrent transactions). The lock makes every worker
+# but one block briefly and then find the table already there, instead of racing.
+_PASSWORD_RESET_TOKENS_LOCK_KEY = 542_871_003
+
+
 def ensure_password_reset_tokens_table(conn: Any) -> None:
     """Non-destructive CREATE TABLE IF NOT EXISTS — same shape as the legacy
     PasswordResetService.ensure_schema(), for environments where that service hasn't run
     against this database yet. Never drops or alters an existing table.
     """
     with conn.cursor() as cur:
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS password_reset_tokens (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
-                token_hash TEXT NOT NULL,
-                criado_em TIMESTAMP NOT NULL,
-                expira_em TIMESTAMP NOT NULL,
-                usado_em TIMESTAMP NULL
+        cur.execute("SELECT pg_advisory_lock(%s)", (_PASSWORD_RESET_TOKENS_LOCK_KEY,))
+        try:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    token_hash TEXT NOT NULL,
+                    criado_em TIMESTAMP NOT NULL,
+                    expira_em TIMESTAMP NOT NULL,
+                    usado_em TIMESTAMP NULL
+                )
+                """
             )
-            """
-        )
-        cur.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS ux_password_reset_tokens_hash ON password_reset_tokens (token_hash)"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_user ON password_reset_tokens (user_id)"
-        )
-    conn.commit()
+            cur.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_password_reset_tokens_hash ON password_reset_tokens (token_hash)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_user ON password_reset_tokens (user_id)"
+            )
+            conn.commit()
+        finally:
+            cur.execute("SELECT pg_advisory_unlock(%s)", (_PASSWORD_RESET_TOKENS_LOCK_KEY,))
+            conn.commit()
 
 
 def run_startup_checks() -> None:
