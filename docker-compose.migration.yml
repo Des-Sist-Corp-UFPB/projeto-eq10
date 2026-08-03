@@ -1,0 +1,57 @@
+# Usage: docker compose -f docker-compose.migration.yml up --build
+# Runs FastAPI + a local Postgres for development. Does NOT run the Streamlit app,
+# does NOT touch docker-compose.yml or docker-compose.prod.yml.
+#
+# IMPORTANT: a fresh postgres container here has NO tables. app/database/ deliberately
+# never runs schema DDL for usuarios/audit_log/chat_sessions/chat_messages — that's owned
+# by the legacy app's ensure_schema() calls (UserService, AuditLogService,
+# ChatHistoryService), which still run every time app_ai_chat.py starts. Only
+# password_reset_tokens gets a non-destructive CREATE TABLE IF NOT EXISTS from this app's
+# own startup check (app/database/schema_check.py), because the migration prompt asked for
+# that one specifically. To get a working `usuarios` table against this fresh local
+# postgres before login will work, either:
+#   1. Point AUTH_DB_* at a real, already-migrated Postgres instead (comment out the
+#      `postgres` service below and the fastapi service's AUTH_DB_HOST override), or
+#   2. Run the legacy Streamlit app once against this same postgres container first —
+#      its ensure_schema() calls create every table this app expects.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-eq10}
+      POSTGRES_USER: ${POSTGRES_USER:-eq10}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eq10_local_password}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pg-migration-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile.fastapi
+    ports:
+      - "127.0.0.1:8080:8080"
+    env_file:
+      - .env
+    environment:
+      - ENVIRONMENT=development
+      - AUTH_DB_HOST=postgres
+      - AUTH_DB_PORT=5432
+      - AUTH_DB_NAME=${POSTGRES_DB:-eq10}
+      - AUTH_DB_USER=${POSTGRES_USER:-eq10}
+      - AUTH_DB_PASSWORD=${POSTGRES_PASSWORD:-eq10_local_password}
+      - AUTH_DB_SSLMODE=disable
+      - SESSION_SECRET_KEY=${SESSION_SECRET_KEY:-dev-change-me}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pg-migration-data:

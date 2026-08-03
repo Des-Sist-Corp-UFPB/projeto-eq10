@@ -1,0 +1,44 @@
+{% extends "sidebar.html" %}
+
+{% block title %}Criar conta{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/auth.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="card auth-card">
+    <h1>Criar conta</h1>
+    <p class="auth-subtitle">Cadastre-se para usar o Chat IA.</p>
+
+    {% if error %}
+    <div class="form-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/auth/register">
+        <div class="form-field">
+            <label for="register-nome">Nome</label>
+            <input type="text" id="register-nome" name="nome" value="{{ nome }}" required autofocus>
+        </div>
+        <div class="form-field">
+            <label for="register-email">E-mail</label>
+            <input type="email" id="register-email" name="email" value="{{ email }}" required>
+        </div>
+        <div class="form-field">
+            <label for="register-senha">Senha</label>
+            <input type="password" id="register-senha" name="senha" required minlength="8">
+        </div>
+        <div class="form-field">
+            <label for="register-confirmar-senha">Confirmar senha</label>
+            <input type="password" id="register-confirmar-senha" name="confirmar_senha" required minlength="8">
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-block">Criar conta</button>
+        </div>
+    </form>
+
+    <p class="auth-footer">
+        Já tem conta? <a href="/auth/login">Entrar</a>
+    </p>
+</section>
+{% endblock %}

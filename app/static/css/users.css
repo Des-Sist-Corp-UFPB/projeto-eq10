@@ -1,0 +1,56 @@
+/* User management page — one card per user, three-column action layout. */
+
+.user-card {
+    margin-bottom: 1rem;
+}
+
+.user-card-header {
+    margin-bottom: 0.9rem;
+    color: var(--color-text);
+}
+
+.user-role-tag {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: #F1F5F9;
+    color: var(--color-muted);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.user-role-tag-self {
+    background: rgba(123, 44, 191, 0.12);
+    color: var(--color-purple-dark);
+}
+
+.user-card-columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.user-card-column label {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--color-text);
+    font-size: 0.85rem;
+    font-weight: 720;
+}
+
+.user-card-column select {
+    width: 100%;
+    min-height: 2.6rem;
+    margin-bottom: 0.6rem;
+    background: var(--color-input);
+    border: 1px solid rgba(100, 116, 139, 0.22);
+    border-radius: 0.7rem;
+    padding: 0 0.75rem;
+}
+
+@media (max-width: 820px) {
+    .user-card-columns {
+        grid-template-columns: 1fr;
+    }
+}

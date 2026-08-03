@@ -1,4 +1,22 @@
-"""Smoke test Linux/Docker do stack Streamlit + readiness + Nginx."""
+"""Smoke test Linux/Docker do stack FastAPI (uvicorn) + Nginx.
+
+Rewritten for the app/ FastAPI container (Dockerfile.fastapi / start_fastapi.sh).
+The previous version of this script tested the Streamlit container's 3-process
+supervisor (readiness_server + streamlit + nginx, /ping + /health with exact JSON
+bodies, ports 8501/8502, PID files under /tmp/eq10-{readiness,streamlit,nginx}.pid).
+None of that exists in the FastAPI image: it's a 2-process supervisor (uvicorn +
+nginx), the only HTTP endpoint is /healthcheck (always HTTP 200, status "ok" or
+"error" in the JSON body — see app/routes/healthcheck.py), and PID files are
+/tmp/eq10-{uvicorn,nginx}.pid (see start_fastapi.sh). Same test *shape* as before —
+verify the container starts, verify the supervisor brings the whole container down
+when its core process dies — just re-pointed at the real process model.
+
+Deliberately does NOT require a reachable Postgres: AUTH_DB_HOST is set to a
+hostname that can't resolve, so get_auth_connection() fails fast. This is fine by
+design — app/database/schema_check.py's startup check tolerates that (logs a
+warning, doesn't crash), and GET /healthcheck always returns HTTP 200 with
+status: "error" in that case, which is exactly what this test asserts.
+"""
 
 from __future__ import annotations
 
@@ -12,13 +30,11 @@ import urllib.request
 CONTAINER_NAME = "eq10-startup-smoke"
 HOST_PORT = 18080
 PID_FILES = {
-    "readiness": "/tmp/eq10-readiness.pid",
-    "streamlit": "/tmp/eq10-streamlit.pid",
+    "uvicorn": "/tmp/eq10-uvicorn.pid",
     "nginx": "/tmp/eq10-nginx.pid",
 }
 EXPECTED_COMMAND_ARGUMENTS = {
-    "readiness": "src.diagnostics.readiness_server",
-    "streamlit": "streamlit",
+    "uvicorn": "uvicorn",
     "nginx": "nginx",
 }
 
@@ -166,21 +182,42 @@ def main() -> int:
             "--env",
             "ENVIRONMENT=test",
             "--env",
-            "AUTH_DATABASE_URL=sqlite+pysqlite:////tmp/readiness.sqlite3",
+            "SESSION_SECRET_KEY=smoke-test-secret",
+            # Deliberately unresolvable — see module docstring. get_auth_connection()
+            # fails fast; GET /healthcheck must still return 200 either way.
+            "--env",
+            "AUTH_DB_HOST=eq10-smoke-test-unresolvable.invalid",
+            "--env",
+            "AUTH_DB_PORT=5432",
+            "--env",
+            "AUTH_DB_NAME=smoketest",
+            "--env",
+            "AUTH_DB_USER=smoketest",
+            "--env",
+            "AUTH_DB_PASSWORD=smoketest",
+            "--env",
+            "AUTH_DB_SSLMODE=disable",
             image,
         )
-        _run("docker", "exec", CONTAINER_NAME, "sh", "-n", "/app/start.sh")
+        _run("docker", "exec", CONTAINER_NAME, "sh", "-n", "/app/start_fastapi.sh")
         _run("docker", "exec", CONTAINER_NAME, "nginx", "-t")
 
-        _wait_for("/ping", 200)
-        health_body = _wait_for("/health", 200)
-        if health_body != b'{"status":"healthy","database":"connected"}':
-            raise RuntimeError("unexpected_healthy_body")
+        health_body = _wait_for("/healthcheck", 200)
+        try:
+            health_data = json.loads(health_body)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"healthcheck_body_not_json:{health_body!r}") from exc
+        if "status" not in health_data:
+            raise RuntimeError(f"healthcheck_missing_status_key:{health_body!r}")
+
+        estatisticas_status, estatisticas_body = _request("/estatisticas")
+        if estatisticas_status != 200 or b"Mamanguape" not in estatisticas_body:
+            raise RuntimeError(f"estatisticas_unexpected_response:{estatisticas_status}")
 
         internal_probe = (
             "import socket;"
             "[socket.create_connection(('127.0.0.1',p),timeout=2).close() "
-            "for p in (8501,8502,8080)]"
+            "for p in (8811, 8080)]"
         )
         _run(
             "docker",
@@ -191,13 +228,7 @@ def main() -> int:
             internal_probe,
         )
 
-        _signal_process("readiness")
-        _wait_for("/ping", 200)
-        unavailable_body = _wait_for("/health", 503)
-        if unavailable_body != b'{"status":"unhealthy","database":"unavailable"}':
-            raise RuntimeError("unexpected_unhealthy_body")
-
-        _signal_process("streamlit")
+        _signal_process("uvicorn")
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline and _container_running():
             time.sleep(1)

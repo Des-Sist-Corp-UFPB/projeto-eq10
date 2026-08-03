@@ -1,0 +1,79 @@
+{% extends "sidebar.html" %}
+
+{% block title %}Gestão de usuários{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/users.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="audit-header">
+    <h1>Gestão de Usuários</h1>
+    <p class="audit-subtitle">Área restrita a Super Administradores.</p>
+    <p><a href="/auditoria">&larr; Voltar para Auditoria</a></p>
+</div>
+
+{% if success %}
+<div class="form-success">{{ success }}</div>
+{% endif %}
+{% if error %}
+<div class="form-error">{{ error }}</div>
+{% endif %}
+
+{% if not users %}
+<p class="audit-empty">Nenhum usuário encontrado.</p>
+{% endif %}
+
+{% for u in users %}
+<section class="card user-card">
+    <div class="user-card-header">
+        <div>
+            <strong>{{ u.nome }}</strong> — {{ u.email }}
+            <span class="user-role-tag">{{ role_display_name(u.role) }}</span>
+            {% if u.id == admin_user.id %}
+            <span class="user-role-tag user-role-tag-self">você</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if u.id == admin_user.id %}
+    <p class="audit-subtitle">Este é seu próprio perfil. Não é possível alterar seu papel aqui.</p>
+    {% else %}
+    <div class="user-card-columns">
+        <form method="post" action="/admin/users/{{ u.id }}/role" class="user-card-column">
+            <label for="role-{{ u.id }}">Papel</label>
+            <select id="role-{{ u.id }}" name="new_role">
+                {% for option in role_options %}
+                <option value="{{ option }}" {% if u.role == option %}selected{% endif %}>{{ role_display_name(option) }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary btn-block">Salvar papel</button>
+        </form>
+
+        <div class="user-card-column">
+            <p class="audit-subtitle">
+                {% if u.can_view_audit %}Tem acesso ao log{% else %}Sem acesso ao log{% endif %}
+            </p>
+            <form method="post" action="/admin/users/{{ u.id }}/audit-access">
+                {% if u.can_view_audit %}
+                <input type="hidden" name="grant" value="0">
+                <button type="submit" class="btn btn-block">Revogar acesso ao log</button>
+                {% else %}
+                <input type="hidden" name="grant" value="1">
+                <button type="submit" class="btn btn-primary btn-block">Conceder acesso ao log</button>
+                {% endif %}
+            </form>
+        </div>
+
+        <div class="user-card-column">
+            <p class="audit-subtitle">Zona de perigo</p>
+            <form method="post" action="/admin/users/{{ u.id }}/deactivate"
+                  onsubmit="return confirm('Confirmar exclusão de {{ u.nome }}?');">
+                <button type="submit" class="btn btn-danger btn-block">Excluir conta</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

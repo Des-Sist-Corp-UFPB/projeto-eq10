@@ -6,129 +6,159 @@ project, now adapted to DSC/UFPB course standards). Two independent runtimes sha
 1. **ETL pipeline** (`main.py`, `Dockerfile`) — extracts DATASUS/SIA data via `pysus`, transforms,
    loads into the analytical Postgres (Neon). Runs standalone, not part of the web app request path.
 2. **Streamlit chat/audit app** (`app_ai_chat.py`, `Dockerfile.chat`) — auth, chat UI, statistics
-   page, admin/audit page. This is the production web app referenced in Parts A/B below.
+   page, admin/audit page. This is the production web app referenced below.
 
 ## Two databases — routing is the load-bearing fact of this system
 
 | Concern | Engine getter | Env vars | Host |
 |---|---|---|---|
-| Auth/app data (users, sessions, chat history, **audit_log**) | `src/auth/user_service.py: get_auth_engine()` | `AUTH_DB_*` / `DATABASE_URL`-style (see `user_service.py`) | Professor PostgreSQL |
+| Auth/app data (users, sessions, chat history, audit_log) | `src/auth/user_service.py: get_auth_engine()` | `AUTH_DATABASE_URL` or `AUTH_DB_HOST/PORT/NAME/USER/PASSWORD` | Professor PostgreSQL |
 | DATASUS analytics (AI layer, `vw_data_sus_ia` view) | `src/ai/read_only_datasus.py: get_readonly_engine()` | `AI_DATABASE_URL` or `AI_DB_USER/PASSWORD/HOST/PORT/NAME` (+`AI_DB_SSLMODE`, default `require`) | Neon (read-only) |
 
-Never merge these. `AuditLogService.from_environment()` reuses the **auth** engine
-(`get_auth_engine()`), not the analytics one — audit data lives with app/auth data by design.
-`src/diagnostics/health_service.py` verifica os engines separadamente
-(`check_application_database`, `check_analytical_database`,
-`run_unified_report`, `run_heartbeat`) e nunca registra credenciais. Falha no
-banco da aplicacao torna o app unhealthy; falha analitica degrada apenas a IA;
-falha de telemetria nao derruba o app.
+Never merge these. `AuditLogService.from_environment()` reuses the auth engine (`get_auth_engine()`).
+`src/diagnostics/health_service.py` checks both engines separately and never logs credentials.
+Analytics DB failure degrades only AI; auth DB failure makes app unhealthy.
+
+## Roles and RBAC
+
+```
+ROLE_USER        = "user"        — authenticated, can use chat only
+ROLE_ADMIN       = "admin"       — can view audit log
+ROLE_SUPER_ADMIN = "super_admin" — can manage users (change roles, set_audit_access, soft_delete)
+
+can_view_audit_log(user) — True if role in {admin, super_admin} OR can_view_audit=True flag
+is_super_admin(user)     — True if role == "super_admin" (user management gate)
+```
+
+## Pages and navigation
+
+| Page | Key | Access |
+|---|---|---|
+| Statistics (`render_statistics_page`) | `DEFAULT_PAGE = "Estatísticas"` | Public (no auth required) |
+| Chat IA (`_render_chat_page`) | `CHAT_PAGE = "Chat IA"` | Authenticated + email verified (if `EMAIL_VERIFICATION_REQUIRED=true`) |
+| Audit/Admin (`render_admin_page`) | `ADMIN_PAGE = "Auditoria"` | `can_view_audit_log()` = True |
+
+Navigation state lives in `st.session_state.current_page`. Query param `?page=<slug>` also accepted.
+
+## Session payload (stored in `st.session_state["auth_user"]`)
+
+```python
+{
+  "id": int,
+  "nome": str,
+  "email": str,
+  "role": str,           # "user" | "admin" | "super_admin"
+  "can_view_audit": bool
+}
+```
+
+`login_session()`, `logout_session()`, `get_authenticated_user()` in `src/auth/session.py`.
+`can_access_chat(session_state)` = `get_authenticated_user() is not None`.
 
 ## Directory map
 
 ```
 app_ai_chat.py            Entry point: routing, auth gates, chat rendering, response sanitization
 src/ui/
-  styles.py                GLOBAL_LIGHT_THEME_CSS + AUDIT_PAGE_CSS (centralized style helper)
-  admin_page.py             Audit page plus admin-only safe health/observability diagnostics
-  sidebar.py, header.py     Nav shell, auth header
-  auth_modal.py             Login/register/reset modal
-  statistics_page.py        Public statistics dashboard
-  protected_chat.py         Auth/email-verification gates for chat page
-  notifications.py          Toast queue helpers
-src/auth/                  user_service (auth engine + CRUD), session, roles, security,
-                            google_oauth_service, email_* services, validation
-src/audit/audit_log_service.py   AuditEntry, EVENT_* constants, ensure_schema (auto-migrates
-                            audit_log table), log_event, get_recent_logs — status inferred
-                            into success/failure/blocked/info (see SUCCESS_/FAILURE_/BLOCKED_/
-                            INFO_EVENTS sets)
-src/ai/                     Isolated AI layer (see "AI query engine" below)
-src/diagnostics/health_service.py   Safe health checks, no secret leakage, used by
-                            `?healthcheck=1` query param (Uptime Kuma) and admin diagnostics
-src/chat/chat_history_service.py    Persists chat sessions/messages (auth DB)
-tests/                      unittest-style; one file per service/module; UI tests use a
-                            `_FakeStreamlit` stub (see test_admin_page_ui.py) rather than real Streamlit
+  styles.py               GLOBAL_LIGHT_THEME_CSS + AUDIT_PAGE_CSS (centralized style helper)
+  admin_page.py           Audit log page + user management (super_admin only) + observability
+  sidebar.py              Sidebar nav shell (HTML injection + Streamlit click-target buttons)
+  header.py               Top bar: session info + profile popover + logout
+  auth_modal.py           Login/register/reset/profile modal panels
+  statistics_page.py      Public stats page: hero card + Power BI embedded link
+  protected_chat.py       Auth/email-verification gates for chat page
+  notifications.py        Toast queue helpers
+src/auth/                 user_service (engine, CRUD, soft_delete, set_role, set_audit_access),
+                          session, roles, security (argon2), google_oauth_service,
+                          email_* services, validation
+src/audit/audit_log_service.py
+                          AuditEntry dataclass, EVENT_* constants, VALID_EVENTS,
+                          SUCCESS_/FAILURE_/BLOCKED_/INFO_EVENTS sets,
+                          ensure_schema (auto-migrates), log_event, get_recent_logs,
+                          get_logs_by_user, log_audit_event_safely
+src/ai/                   Isolated AI layer (see below)
+src/chat/chat_history_service.py
+                          ChatSession, ChatMessage dataclasses; get_or_create_active_chat_session,
+                          add_chat_message (persists to auth DB)
+src/diagnostics/health_service.py
+                          run_heartbeat, run_unified_report, check_application_database,
+                          check_analytical_database — no secret leakage
+src/analytics/umami.py   configure_umami, track_event, track_event_once, track_page_view
+src/observability/        OpenTelemetry telemetry (OTEL_ENABLED=true to activate)
+tests/                    unittest-based; UI tests use _FakeStreamlit stub (test_admin_page_ui.py)
 ```
 
 ## AI query engine — request flow (`src/ai/datasus_ai.py: perguntar_datasus`)
 
 ```
 prompt
-  -> prompt_guard.validar_prompt()          # allow/deny by keyword lists (DANGEROUS_TERMS blocks
-  |                                          # write/schema/secret intents; STATISTICAL_TERMS must
-  |                                          # match at least one, else blocked). Blocks logged as
-  |                                          # EVENT_PROMPT_GUARD_BLOCK.
-  -> month_checker.validar_mes_solicitado_no_prompt()   # only checks IF prompt names an explicit
-  |                                          # PT month+4-digit-year; queries analytics DB to see if
-  |                                          # that month has data. No date mentioned => always passes.
-  -> data_provider.load_controlled_datasus_dataframe()  # SELECT allowlisted columns from
-  |                                          # vw_data_sus_ia, last AI_MAX_MONTHS (3) months only,
-  |                                          # LIMIT AI_MAX_ROWS. Any exception here (incl. DB auth
-  |                                          # config errors) is caught by a bare `except Exception`
-  |                                          # in perguntar_datasus and converted to
-  |                                          # GENERIC_AI_ERROR_MESSAGE — this is a single point of
-  |                                          # failure for ALL prompts, not prompt-specific.
-  -> simple_stats_runner.executar_pergunta_estatistica_simples()   # pure-pandas keyword-pattern
-  |                                          # dispatcher (no LLM, no cost). Returns
-  |                                          # SIMPLE_STATS_UNAVAILABLE_MESSAGE sentinel when no
-  |                                          # pattern matches -> caller falls through to LLM.
-  -> [only if simple mode returned the sentinel] pandasai_runner.executar_pergunta_com_pandasai()
-                                             # PandasAI + LiteLLM over the *same* already-filtered
-                                             # DataFrame (never raw SQL from the model). Raises
-                                             # LLMRateLimitError (recoverable, triggers simple-mode
-                                             # fallback notice) or RuntimeError (config/import errors,
-                                             # returned verbatim as the chat message).
+  -> prompt_guard / classify_prompt()        # allow/deny by keyword lists
+  -> month_checker.validar_mes_solicitado_no_prompt()
+  -> data_provider.load_controlled_datasus_dataframe()  # SELECT allowlisted cols from vw_data_sus_ia
+  -> simple_stats_runner.executar_pergunta_simples()    # pure-pandas dispatcher (no LLM)
+  -> [sentinel returned] pandasai_runner.executar_pergunta_com_pandasai()  # LLM fallback
 ```
 
-`AI_ALLOWED_COLUMNS` / `AI_ALLOWED_TABLES` (`src/ai/config.py`) are the single allowlist — the
-data provider raises if `AI_DATA_SOURCE` (`vw_data_sus_ia`) isn't in `AI_ALLOWED_TABLES`, and only
-allowlisted columns are ever selected. `AI_MAX_MONTHS=3`, `AI_MAX_ROWS=5_000_000`.
+`AI_ALLOWED_COLUMNS` / `AI_ALLOWED_TABLES` (`src/ai/config.py`) are the allowlist.
+`AI_MAX_MONTHS=3`, `AI_MAX_ROWS=5_000_000`.
+`app_ai_chat.py: _friendly_response()` sanitizes all rendered AI text (replaces tracebacks/secrets).
 
-`app_ai_chat.py: _friendly_response()` is a second safety net on the **rendered** text: it replaces
-any response containing traceback/connection-string/secret-like substrings with
-`GENERIC_ERROR_MESSAGE`, and maps a few known backend sentinel substrings (e.g. "não foi possível
-processar a pergunta") to friendlier messages. Because the data-provider exception path always
-returns the literal string containing "não foi possível processar a pergunta", **any** analytics-DB
-hiccup for **any** prompt surfaces as the same generic refusal shown to users — this is why
-valid/invalid prompts look the same when they fail.
+## User management (super_admin only, `src/auth/user_service.py`)
 
-`simple_stats_runner.py` dispatch is **ordered keyword matching** on a normalized (accent-stripped,
-lowercased) prompt — not a general grouper. It currently only recognizes: total/soma of a single
-numeric column, ranking/top-N by one dimension + one metric, mean of `idade` (ungrouped only),
-frequency-by-sexo, count of distinct `procedimento`, count of rows, latest available date. It has
-**no branch for a plain COUNT grouped by a dimension** (e.g. "total de atendimentos por sexo") and
-`_media_idade` ignores any "por <dimensão>" suffix in the prompt. Any prompt matching none of the
-branches returns `SIMPLE_STATS_UNAVAILABLE_MESSAGE` and falls through to the LLM path.
+Key methods on `UserService`:
+- `get_all_users()` → list of `UserProfile` (id, nome, email, role, criado_em, can_view_audit)
+- `set_role(user_id, new_role, acting_admin_id, acting_admin_email)` → audit logged
+- `set_audit_access(user_id, bool, acting_admin_id, acting_admin_email)` → audit logged
+- `soft_delete_user(user_id)` → sets `ativo=False`, NEVER runs DELETE
+- `authenticate(email, password)` → returns UserProfile or raises AuthValidationError
 
-`EXAMPLE_PROMPTS` (`app_ai_chat.py`) is the literal suggestion list rendered as buttons — every
-entry must have a matching `simple_stats_runner` branch (or working LLM) or the UI teaches users a
-question the backend can't answer.
+## Audit log columns (`audit_log` table)
 
-## Audit page styling — where light theme lives
+```
+id, evento, user_id, user_email, prompt_text, detalhe,
+status (success|failure|blocked|info), source, action, criado_em
+```
 
-- `.streamlit/config.toml` — `base="light"` + explicit palette (source of truth for Streamlit's own
-  theme; without it Streamlit falls back to a theme that can render native widgets dark regardless
-  of custom CSS, since native controls like selects/dataframes/dialogs are BaseWeb components
-  themed by Streamlit's internal CSS variables, not by page CSS).
-- `src/ui/styles.py` — `apply_global_light_styles()` (page background, called once) and
-  `apply_audit_light_styles()` / `AUDIT_PAGE_CSS` (scoped to `.st-key-audit-page-shell`: metrics,
-  expander, selectbox/text/date inputs, dataframe grid + header, buttons, `stDialog`).
-- `src/ui/admin_page.py: render_admin_page()` wraps everything in
-  `st.container(key="audit-page-shell")` so the scoped CSS above applies. The event-detail modal
-  (`_render_selected_audit_event_dialog`) uses `st.dialog` + native `st.caption`/`st.write`/
-  `st.button` only — **no raw HTML** is rendered inside it.
-- **`Dockerfile.chat` does not `COPY .streamlit`** into the image — this is the actual root cause of
-  dark native widgets in production (page background looks light via forced CSS, but Streamlit's
-  own theme, absent config.toml, does not).
+`AuditLogService.log_event(evento, user_id, user_email, prompt_text, detalhe, status, source, action)`
+All text sanitized before persistence: strips passwords, tokens, connection strings.
 
-## Conventions worth knowing
+## Audit page — filter/display logic (`src/ui/admin_page.py`)
 
-- All AI/audit-adjacent modules sanitize before logging or displaying: strip `password=`/`token=`/
-  connection strings/tracebacks (see `_sanitize_text` in both `admin_page.py` and
-  `audit_log_service.py`, and `_redact_text` in `health_service.py`). Follow the same pattern for
-  any new user-facing or logged string.
-- Status vocabulary is fixed: `success | failure | blocked | info`, colors green/red/yellow-orange/
-  blue respectively (`STATUS_BADGE_STYLES` in `admin_page.py`).
-- Tests are unittest-based, one module per source file, and UI tests fake `st` rather than run a
-  real Streamlit server (`_FakeStreamlit` in `tests/test_admin_page_ui.py`).
-- `ENVIRONMENT=test` short-circuits all `_load_env_files()` dotenv loading across `src/ai/*` — tests
-  rely on `patch.dict(os.environ, ..., clear=True)` instead.
+- Event categories: Login, Conta, Prompt bloqueado, Administracao, Outros
+- Status vocabulary: success | failure | blocked | info (colors green/red/orange/blue)
+- Filters: limit (20/50/100), event_type, status, user_search (email), start_date, end_date
+- `_filter_audit_entries()` applies all filters client-side (entries already fetched)
+- `_render_audit_table()` renders `st.dataframe` + selectbox to pick event for detail dialog
+- `_render_user_management()` visible only to super_admin
+
+## Observability and health
+
+- `?healthcheck=1` query param → runs `HealthService.run_heartbeat()` → returns JSON for Uptime Kuma
+- Admin page expander "Saude e observabilidade" → `_render_observability_diagnostics()`
+- `src/observability/telemetry.py` → OpenTelemetry spans (no-op if `OTEL_ENABLED` not set)
+- `src/analytics/umami.py` → Umami web analytics (no-op if not configured)
+
+## Auth services
+
+- `GoogleOAuthService` — OAuth2 PKCE flow (env `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)
+- `EmailVerificationService` — token-based verification (env `EMAIL_VERIFICATION_REQUIRED`)
+- `PasswordResetService` — token-based reset (SMTP via `email_service.py`)
+- `EmailChangeService` — code-based email change (SMTP)
+- `AccountReactivationService` — soft-deleted user reactivation via email code
+- `PendingRegistrationService` — pending user registration with email confirmation
+
+## Sanitization conventions
+
+All modules: `_sanitize_text()` strips `password=`/`token=`/connection strings/tracebacks
+before logging or displaying. `_sanitize_audit_text()` in `admin_page.py` also truncates to 90 chars.
+Status vocabulary is fixed: `success | failure | blocked | info`.
+
+## Tests
+
+unittest-based, one module per source file. UI tests fake `st` via `_FakeStreamlit`
+(see `tests/test_admin_page_ui.py`). `ENVIRONMENT=test` short-circuits all `_load_env_files()`.
+
+## ETL pipeline (`main.py`)
+
+Independent runtime. Uses `pysus.SIA`, `src/extract.py`, `src/transform.py`, `src/load.py`.
+Connects to analytical Neon DB. Not part of the web app request path.

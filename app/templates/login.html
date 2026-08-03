@@ -1,0 +1,40 @@
+{% extends "sidebar.html" %}
+
+{% block title %}Entrar{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ request.url_for('static', path='css/auth.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="card auth-card">
+    <h1>Entrar</h1>
+    <p class="auth-subtitle">Acesse sua conta para usar o Chat IA.</p>
+
+    {% if error %}
+    <div class="form-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/auth/login">
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="form-field">
+            <label for="login-email">E-mail</label>
+            <input type="email" id="login-email" name="email" value="{{ email }}" required autofocus>
+        </div>
+        <div class="form-field">
+            <label for="login-senha">Senha</label>
+            <input type="password" id="login-senha" name="senha" required>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+        </div>
+    </form>
+
+    <p class="auth-footer">
+        Esqueceu sua senha? <a href="/auth/forgot-password">Recuperar acesso</a>
+    </p>
+    <p class="auth-footer">
+        Não tem conta? <a href="/auth/register">Cadastre-se</a>
+    </p>
+</section>
+{% endblock %}

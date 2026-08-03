@@ -1,0 +1,48 @@
+/* Auth pages (login/register/profile) — narrow centered card, ported spacing/shape
+   from app_ai_chat.py _apply_style() form + auth-gate rules. */
+
+.auth-card {
+    max-width: 30rem;
+    margin: 1.5rem auto 0;
+    padding: 1.55rem 1.4rem;
+}
+
+.auth-card h1 {
+    margin: 0 0 0.35rem;
+    color: var(--color-text);
+    font-size: 1.32rem;
+    font-weight: 780;
+}
+
+.auth-card p.auth-subtitle {
+    margin: 0 0 1.3rem;
+    color: var(--color-muted);
+    line-height: 1.55;
+}
+
+.auth-footer {
+    margin-top: 1.1rem;
+    text-align: center;
+    color: var(--color-muted);
+    font-size: 0.88rem;
+}
+
+.auth-footer a {
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.profile-section {
+    margin-bottom: 1.4rem;
+}
+
+.profile-section h2 {
+    margin: 0 0 0.9rem;
+    color: var(--color-text);
+    font-size: 1.05rem;
+    font-weight: 760;
+}
+
+.profile-danger-zone {
+    border-left: 5px solid #B42318;
+}
