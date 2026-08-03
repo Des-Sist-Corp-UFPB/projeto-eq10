@@ -18,6 +18,7 @@ complete and cut over. The ETL pipeline (`main.py`, `Dockerfile`, `src/extract.p
 | F | User Management `/admin/users` | Done. |
 | G | Healthcheck `/healthcheck` | Done. |
 | H | Runtime fix (login 500) + Docker deployment layer | Done — see below. |
+| I | CI/CD cutover prep (deploy.yml → Dockerfile.fastapi, rewritten smoke test) | **Prepped, NOT merged to main.** Everything validated locally; the actual cutover (merge branch-migration → main, push) is deliberately not done — see below. |
 
 ## Stack
 
@@ -312,10 +313,99 @@ visible after the `logging.basicConfig` fix; `docker-compose.migration.yml` and 
 **Not verified** — no docker daemon is reachable in this sandbox (`docker info` fails with
 "cannot connect to the Docker daemon"), so none of the following ran here: `docker build -f
 Dockerfile.fastapi .`, `docker compose -f docker-compose.migration.yml up`, or an actual
-login against a real Postgres. The `Dockerfile.fastapi` base-image fix is reasoned from
-direct evidence (the ETL `Dockerfile`'s own base image choice, PyPI's package listing for
-`gdal==3.8.4`) rather than guessed, but the build itself still needs to be run somewhere with
-Docker to be certain. Do that before relying on this in production.
+login against a real Postgres, at the time this task was done — **since superseded**: Task I
+below got Docker working end to end (the user fixed the daemon/group setup on the host, which
+this environment turned out to share) and everything was actually built, run, and verified,
+including one real bug the local-only static analysis in this task couldn't have caught (the
+`nginx $host`-strips-the-port issue — see Task I). Login against the professor's real
+production Postgres specifically is still unverified; that only happens after Task I's actual
+cutover, which has not happened yet.
+
+## Task I — CI/CD cutover prep (deploy.yml → Dockerfile.fastapi)
+
+Goal: make `https://eq10.dsc.rodrigor.com/` serve the FastAPI app instead of Streamlit, by
+changing what the existing GitHub Actions pipeline (`.github/workflows/deploy.yml`) builds and
+deploys — same image tag, same SSH mechanism, no server-side changes. **This task prepared
+everything on `branch-migration` and validated it locally. It deliberately stopped short of
+merging to `main` and pushing** — that's the one step in this whole migration that immediately
+triggers a real, unattended deploy to a server neither this environment nor the assistant has
+any visibility into (the deploy step SSHs in and hands `github.actor:token` to a forced-command
+script that lives entirely on that server, outside this repo). Given several auth subsystems
+are still deferred (Google OAuth, email verification, email-change confirmation, account
+reactivation — see Task C), cutting over silently drops those for whoever's using the live site
+today. The user explicitly chose "prep only, not yet" when asked.
+
+### What changed
+
+- **`.github/workflows/deploy.yml`** — one line: `file: Dockerfile.chat` → `file:
+  Dockerfile.fastapi`. Image tag, GHCR push, SSH deploy mechanism, and the health-check step
+  are all untouched, exactly as scoped.
+- **`docker-compose.prod.yml`, `Dockerfile.fastapi` HEALTHCHECK** — turned out to need **no
+  changes**. Checked first rather than assumed: the `app` service in
+  `docker-compose.prod.yml` has no `healthcheck:` block to update, and `Dockerfile.fastapi`'s
+  own `HEALTHCHECK` already called `/healthcheck` from Task H.
+- **`scripts/smoke_test_startup_container.py` — fully rewritten, not edited.** The original
+  request assumed this was a URL-poller that needed a one-line swap. Reading it end to end
+  showed otherwise: it's a structural test of the *Streamlit* container's specific 3-process
+  supervisor (`readiness_server` + `streamlit` + `nginx`) — exact-byte-match JSON bodies from
+  `/ping`/`/health` (endpoints that don't exist in the FastAPI image), internal-port checks
+  against `8501`/`8502` (Streamlit's ports, not our `8811`), PID files at
+  `/tmp/eq10-{readiness,streamlit,nginx}.pid` (files `start_fastapi.sh` never wrote), and
+  `AUTH_DATABASE_URL=sqlite+pysqlite:...` (a DSN format `app/database/connection.py`'s
+  psycopg2-only `get_auth_connection()` can't parse at all). None of it applies to a 2-process
+  uvicorn+nginx stack with a single `/healthcheck` endpoint. Surfaced this to the user with the
+  actual evidence rather than force-fitting a 2-line edit that couldn't have worked, and they
+  chose the rewrite option. New version keeps the same shape/rigor as the original (start the
+  real image, validate nginx config, poll the real health endpoint, verify both internal ports,
+  kill the core process via its real PID file, verify the whole container goes down and exits
+  non-zero) rather than a token check — same guarantee, correct process model.
+- **`start_fastapi.sh`** — gained PID-file writing (`/tmp/eq10-uvicorn.pid`,
+  `/tmp/eq10-nginx.pid`) matching `start.sh`'s `write_pid_file`/`report_exit` pattern exactly,
+  since the rewritten smoke test needs a real PID to signal — Task H's version never wrote
+  these because nothing consumed them yet.
+
+### Verified — for real, not just locally-reasoned this time
+
+Partway through this task, `docker info` started working in this environment (previously
+failed identically to the user's own terminal). Turned out to be expected, not a fluke: this
+sandbox and the user's WSL terminal are the same machine/user, and the daemon-group fix the
+user applied earlier (`sudo systemctl start/enable snap.docker.dockerd.service`, `sudo
+groupadd docker` + `usermod -aG docker` + `newgrp docker`) is a persistent OS-level change, not
+a per-shell one. This let every claim below actually run, not just get reasoned about:
+
+- `docker build -f Dockerfile.fastapi .` — succeeds.
+- The rewritten `scripts/smoke_test_startup_container.py` — **passes end to end** against the
+  real built image: nginx config valid, `/healthcheck` returns 200 with a `status` key,
+  `/estatisticas` returns 200 containing "Mamanguape", both internal ports (8811, 8080) accept
+  connections, killing uvicorn by its real PID file brings the whole container down within the
+  timeout, exit code is non-zero. This is the strongest verification any part of this
+  migration has had — a real container, really started, really killed, really supervised.
+- Standalone container run (`docker run` + curl), matching the user's own manual steps:
+  `/healthcheck` → 200 with `status: "error"` (no DB reachable, exactly as expected — proves
+  the graceful-degradation path holds under a real container, not just a mocked one);
+  `/estatisticas` → 200, contains "Mamanguape".
+- `docker compose -f docker-compose.prod.yml --env-file .env.prod config --quiet` — passes
+  with an empty `.env.prod`.
+
+### Not done — deliberately
+
+- **No merge to `main`, no push to `main`.** `.github/workflows/deploy.yml` only triggers on
+  `push: branches: [main]` or manual `workflow_dispatch` — confirmed by reading the trigger
+  block before doing anything else, specifically to establish that committing/pushing this work
+  to `branch-migration` alone could not accidentally kick off a production deploy. Everything
+  above is real local verification; nothing has touched the professor's server.
+- **`APP_HEALTH_URL` GitHub repository variable not changed.** It currently defaults (in
+  `scripts/verify_deploy_health.py`) to `https://eq10.dsc.rodrigor.com/ping` if unset — a
+  Streamlit-only endpoint. Before an actual cutover, this needs to become
+  `https://eq10.dsc.rodrigor.com/healthcheck` via the GitHub web UI (Settings → Variables →
+  Actions) — not something achievable from a terminal in this repo.
+- **`docker-compose.prod.yml`'s separate `fastapi` service (added in Task H, port 8112,
+  different image tag `projeto-eq10-fastapi:latest`) is now redundant with this cutover
+  approach** — the cutover reuses the *same* tag the `app` service already pulls
+  (`projeto-eq10:latest`), so `app` becomes the FastAPI app directly and the `fastapi` service
+  block just sits there pointing at an image nothing ever pushes. Left it in place rather than
+  removing it unasked — it's inert, not broken — but it's worth deleting once the cutover is
+  confirmed, to avoid the two-services-two-mental-models confusion.
 
 ## Corrections to the prompt's schema/env-var sketch (verified against real code + live sqlite dev DB)
 
