@@ -3,6 +3,12 @@
 Soft-delete uses the actual production columns (deletado / deleted_at / deletado_em) —
 NOT an `ativo` flag. See docs/claude-migration.md for why this deviates from the
 prompt's schema sketch.
+
+USER_COLUMNS intentionally omits google_sub and auth_provider: nothing in app/ reads
+either yet (Google OAuth is still deferred — see docs/claude-migration.md), so they were
+dropped rather than kept as untested, unused schema-drift risk. Re-add them together with
+the OAuth callback route when that lands, not before — see EXPECTED_USER_COLUMNS below,
+which app/main.py's startup check verifies against the real `usuarios` table.
 """
 
 from __future__ import annotations
@@ -12,11 +18,18 @@ from typing import Any
 
 ACTIVE_CONDITION = "deletado IS NOT TRUE AND deleted_at IS NULL AND deletado_em IS NULL"
 
+# Columns this module actually selects/writes, kept separate from the SQL string above
+# so app/main.py's startup schema check can verify them without parsing SQL.
+EXPECTED_USER_COLUMNS = (
+    "id", "nome", "email", "senha_hash", "role", "criado_em", "atualizado_em",
+    "ultimo_login_em", "can_view_audit", "email_verificado", "email_verificado_em",
+    "deletado", "deleted_at", "deletado_em",
+)
+
 USER_COLUMNS = """
     id, nome, email, senha_hash, role, criado_em, atualizado_em, ultimo_login_em,
     COALESCE(can_view_audit, false) AS can_view_audit,
-    COALESCE(email_verificado, false) AS email_verificado,
-    google_sub, auth_provider
+    COALESCE(email_verificado, false) AS email_verificado
 """
 
 

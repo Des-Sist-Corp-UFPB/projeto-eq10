@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -14,11 +15,28 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.auth.roles import can_view_audit_log, is_super_admin
 from app.auth.session import get_authenticated_user
 from app.config.settings import get_settings
+from app.database.schema_check import run_startup_checks
 from app.routes import audit, auth, chat, estatisticas, healthcheck, users
+
+# uvicorn only attaches handlers to its own loggers ("uvicorn", "uvicorn.error",
+# "uvicorn.access") — without this, every logger.info()/warning() call anywhere under
+# app/ is silently dropped by the root logger's last-resort WARNING-only handler.
+# Discovered while adding the startup schema-check log line below; not something
+# --log-level on the uvicorn CLI fixes, since that flag only touches uvicorn's own loggers.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s | %(message)s",
+)
 
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    run_startup_checks()
+    yield
 
 
 def _build_templates() -> Jinja2Templates:
@@ -32,14 +50,23 @@ def _build_templates() -> Jinja2Templates:
 def create_app() -> FastAPI:
     settings = get_settings()
 
-    app = FastAPI(title="Secretaria de Saúde — Mamanguape")
+    app = FastAPI(title="Secretaria de Saúde — Mamanguape", lifespan=_lifespan)
 
+    https_only = settings.environment == "production"
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.session_secret_key,
         session_cookie="session",
         same_site="lax",
-        https_only=settings.environment == "production",
+        https_only=https_only,
+    )
+    logger.info(
+        "SessionMiddleware https_only=%s | Secure cookie flag is static, not per-request: "
+        "if https_only=True, cookies are marked Secure unconditionally and will NOT be sent "
+        "back over plain HTTP by any real browser or curl's cookie jar. Only set "
+        "ENVIRONMENT=production once the browser-facing connection is actually HTTPS end to "
+        "end (Starlette's SessionMiddleware does not consult X-Forwarded-Proto for this flag).",
+        https_only,
     )
 
     app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")

@@ -1,0 +1,61 @@
+# Base image matches Dockerfile (the ETL image), NOT python:3.11-slim.
+#
+# pyproject.toml pins gdal==3.8.4 as an unconditional top-level dependency (needed by
+# src/extract.py for the ETL pipeline, not by this app). GDAL's PyPI package ships
+# source-only (no wheel) — building it needs libgdal + gdal-config, which python:3.11-slim
+# does not have. `uv sync --frozen` against this repo's pyproject.toml/uv.lock therefore
+# fails on a plain slim image. Splitting pyproject.toml into dependency groups so this
+# image could skip gdal/pysus/streamlit/pandasai would require the ETL Dockerfile (which
+# we must not touch) to start passing an --extra flag it doesn't pass today, so that route
+# is closed. Reusing the GDAL-preinstalled base is the only fix available without touching
+# forbidden files — heavier than ideal, but it actually builds. See docs/claude-migration.md.
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.4
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/app/.venv \
+    PATH="/app/.venv/bin:$PATH"
+
+WORKDIR /app
+
+COPY --from=ghcr.io/astral-sh/uv:0.5.31 /uv /uvx /usr/local/bin/
+
+# Same apt-get block as Dockerfile (ETL image needs these too), plus nginx
+# (same package Dockerfile.chat installs for its own reverse proxy).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        python3 \
+        python3-dev \
+        python3-venv \
+        nginx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Same pattern as Dockerfile: install from the shared pyproject.toml/uv.lock so this
+# image and the ETL image never drift out of sync on dependency versions.
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-dev --no-install-project \
+    && find "$UV_PROJECT_ENVIRONMENT" -name "__pycache__" -type d -prune -exec rm -rf {} +
+
+# Copy only what the FastAPI app needs — not app_ai_chat.py, not .streamlit/, not main.py.
+# src/ IS needed: app/service/chat_service.py calls src.ai.datasus_ai.perguntar_datasus,
+# and app/routes/healthcheck.py calls src.diagnostics.health_service.HealthService.
+COPY app ./app
+COPY src ./src
+COPY images ./images
+COPY docs ./docs
+
+COPY nginx.fastapi.conf /etc/nginx/nginx.conf
+
+COPY start_fastapi.sh ./
+RUN sed -i 's/\r$//' start_fastapi.sh && chmod +x start_fastapi.sh
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD /app/.venv/bin/python -c \
+        "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthcheck', timeout=5).read()"
+
+CMD ["./start_fastapi.sh"]

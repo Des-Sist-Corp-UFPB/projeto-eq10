@@ -17,10 +17,7 @@ complete and cut over. The ETL pipeline (`main.py`, `Dockerfile`, `src/extract.p
 | E | Audit/Admin `/auditoria` | Done. |
 | F | User Management `/admin/users` | Done. |
 | G | Healthcheck `/healthcheck` | Done. |
-| D | Chat IA `/chat` | Not started |
-| E | Audit/Admin `/auditoria` | Not started |
-| F | User Management `/admin/users` | Not started |
-| G | Healthcheck `/healthcheck` | Not started |
+| H | Runtime fix (login 500) + Docker deployment layer | Done — see below. |
 
 ## Stack
 
@@ -247,6 +244,78 @@ app/
   `status: "error"`, `auth_db_ok: false`, a `dns_failure` category, and no leaked connection
   string/credentials — confirming the graceful-degradation path actually works, not just the
   happy path.
+
+## Task H — Runtime fix (login 500) + Docker deployment layer
+
+Triggered by a report that `POST /auth/login` returned 500 in "the professor's environment."
+**This sandbox has no route to that Postgres** (no docker daemon, no local postgres binary, no
+sudo to install one, `.env`'s `AUTH_DB_HOST=postgres` is a Docker-internal hostname) — same
+limitation noted for Tasks C–F. Everything below is either evidence-based static diagnosis or a
+verified-in-this-sandbox fix; nothing was rubber-stamped from the six hypotheses in the fix
+request without checking it first.
+
+### What the six hypothesized causes actually turned out to be
+
+| # | Hypothesis | Verdict |
+|---|---|---|
+| 1 | `psycopg2` not installed in the venv running uvicorn | Not reproducible here — `import psycopg2` works in this sandbox's `.venv`, and every earlier Task C–F smoke test that reached `get_auth_connection()` got a real `psycopg2.OperationalError` (proves psycopg2 imports and attempts a real connection). If this is the real cause in their environment, it means uvicorn is being run outside `uv run`/the project venv — an operational mistake, not a code bug. No code fix applies; `Dockerfile.fastapi` sidesteps it entirely since `uv sync --frozen` guarantees psycopg2-binary is present in the image. |
+| 2 | `argon2-cffi` not installed | Same as #1 — verified working in this sandbox (`import argon2` + a full hash/verify roundtrip both succeed, see the Task C smoke test). Not a code bug. |
+| 3 | DB connection fails at import time | Confirmed **not** an issue by design — `get_auth_connection()` only connects when called, never at module import. Verified: `app.main` imports cleanly with zero DB access even when Postgres is completely unreachable. |
+| 4 | `auth_provider` column doesn't exist | **Real risk, acted on.** Neither `auth_provider` nor `google_sub` is read anywhere in `app/` (`grep -rn "google_sub\|auth_provider" app/` matched only the `SELECT` itself) — both were only in `USER_COLUMNS` pre-emptively for OAuth, which is still deferred. Removed both rather than guess whether they exist in the real schema; they'll come back with the OAuth callback route. This directly shrinks the blast radius of exactly the class of bug being worried about. |
+| 5 | `ACTIVE_CONDITION`'s three soft-delete columns might not all exist | **Investigated, not simplified.** `src/auth/user_service.py:_usuarios_create_table_sql()` + `_add_usuario_column_if_missing()` add `deleted_at`, `deletado`, AND `deletado_em` unconditionally every time the legacy app's `UserService.ensure_schema()` runs (confirmed by reading that function, and by `PRAGMA table_info(usuarios)` against the local `data/auth.sqlite3` dev DB, which the identical code path built). Since "the professor's environment" is the same Postgres the still-running legacy Streamlit app writes to, `ensure_schema()` has almost certainly already added all three there too. Simplifying `ACTIVE_CONDITION` based on a guess would risk trading a real bug for an invented one. Instead: `app/database/schema_check.py` now checks the actual live columns at startup and logs exactly which are missing, if any — so if this genuinely is the cause, it's a one-line startup log message away from being confirmed, not another round of guessing. |
+| 6 | `https_only=True` + missing `X-Forwarded-Proto` loses the cookie | **Hypothesis was wrong about the mechanism, right that it's worth fixing.** Read Starlette's actual `SessionMiddleware.__call__` source: `https_only` is a **static** flag baked into the `Secure` cookie attribute at middleware-construction time — it is never re-evaluated per-request against `request.url.scheme`, and `X-Forwarded-Proto` is never consulted for this decision at all. The real risk is simpler and starker: if `ENVIRONMENT=production` is set, **every** session cookie gets `Secure` unconditionally, and any real browser (or curl's cookie jar) will silently refuse to send it back over a plain-HTTP connection — regardless of proxy headers. Fixed the *actual* gap this exposed: `nginx.fastapi.conf` was forwarding `X-Forwarded-Proto: $scheme`, which is always `"http"` from this container's nginx's own point of view (it never terminates TLS itself) — silently overwriting whatever an outer TLS-terminating proxy had already set, which matters for `request.url_for()` generating correct absolute URLs later, even though it turned out not to matter for the cookie's `Secure` flag specifically. Changed to `$http_x_forwarded_proto` (pass through, don't overwrite) and added `--proxy-headers --forwarded-allow-ips=127.0.0.1` to uvicorn in `start_fastapi.sh` so it actually honors that header. Documented the real, verified mechanism in a startup log line in `app/main.py` instead of quietly implementing a fix for a mechanism that doesn't exist. |
+
+### Fixes applied
+
+- **`app/database/auth_db.py`** — `USER_COLUMNS` no longer selects `google_sub`/`auth_provider`
+  (see #4 above). Added `EXPECTED_USER_COLUMNS`, a plain tuple (not a SQL string) the new
+  startup check verifies against `information_schema.columns`.
+- **`app/database/schema_check.py`** (new) — `run_startup_checks()`, wired into `app/main.py`
+  via a `lifespan` context manager: on startup, opens one connection, logs exactly which
+  `EXPECTED_USER_COLUMNS` are missing from the real `usuarios` table (if any — never crashes
+  the app either way, matches `src/diagnostics/health_service.py`'s degrade-loud-don't-crash
+  philosophy), and runs a non-destructive `CREATE TABLE IF NOT EXISTS password_reset_tokens`
+  (same shape as `PasswordResetService.ensure_schema()`) — the one narrow schema-bootstrap
+  accommodation the fix request asked for. It does **not** attempt to create `usuarios`,
+  `audit_log`, or `chat_*` — those stay owned by the legacy app's `ensure_schema()` calls,
+  consistent with every other database module in `app/`.
+- **A previously-unnoticed, unrelated bug found while implementing this**: `app/main.py` had
+  `logger.info(...)` calls scattered through Tasks A–G that were **silently dropped** —
+  Python's root logger has no handler by default, so anything below WARNING vanishes into
+  `logging.lastResort`. `uvicorn --log-level info` does **not** fix this; it only configures
+  uvicorn's own loggers (`uvicorn`, `uvicorn.error`, `uvicorn.access`), never the root logger
+  the rest of `app/` propagates to. Added one `logging.basicConfig(level=logging.INFO, ...)`
+  call at the top of `app/main.py`. Verified before/after: the new `https_only` log line and
+  the schema-check warning were both invisible before this, both visible after, over real
+  `uvicorn app.main:app` runs in this sandbox.
+- **`app/main.py`** — logs `SessionMiddleware https_only=<bool>` on startup with the accurate
+  mechanism explained inline (see #6 above), and wires up `_lifespan()` → `run_startup_checks()`.
+
+### Docker deployment layer (new files, additive only)
+
+| File | Purpose |
+|---|---|
+| `Dockerfile.fastapi` | **Base image is `ghcr.io/osgeo/gdal:ubuntu-small-3.8.4` (same as `Dockerfile`), not `python:3.11-slim`.** `pyproject.toml` pins `gdal==3.8.4` as an unconditional dependency; PyPI ships it source-only (confirmed: `pypi.org/pypi/gdal/3.8.4/json` lists only an `sdist`, no wheel), so building it needs `libgdal`/`gdal-config`, which a plain slim image doesn't have — `uv sync --frozen` against this repo's actual `pyproject.toml` would fail on `python:3.11-slim` before a single FastAPI dependency installed. Splitting `gdal`/`pysus`/`streamlit`/`pandasai` into an optional dependency group so a slim image could skip them isn't safe here: the ETL `Dockerfile` (which must not be touched) runs plain `uv sync --frozen --no-dev --no-install-project` with no `--extra` flag, so it would silently stop installing gdal/pysus the moment those became optional-only. Reusing the GDAL image is the only fix available without touching a forbidden file — heavier than ideal (carries GDAL/pysus/streamlit/pandasai binaries this app never uses), and worth revisiting later alongside an ETL Dockerfile update, but it actually builds. |
+| `nginx.fastapi.conf` | Serves `/static/` from disk, proxies everything else + `/healthcheck` to uvicorn on 8811. `X-Forwarded-Proto` is passed through (`$http_x_forwarded_proto`) rather than overwritten (`$scheme`) — see #6 above. |
+| `start_fastapi.sh` | Same supervisor pattern as the legacy `start.sh`: starts uvicorn (2 workers, `--proxy-headers`, port 8811), polls until it accepts connections, starts nginx, polls again, then supervises both and exits if either dies. |
+| `docker-compose.migration.yml` | Local dev: FastAPI + a fresh local Postgres, doesn't touch `docker-compose.yml`. **Read the in-file comment before using it** — a fresh `postgres:16-alpine` container has no `usuarios`/`audit_log`/`chat_*` tables; only `password_reset_tokens` gets bootstrapped by this app's own startup check. Point it at an already-migrated Postgres, or run the legacy Streamlit app against the same container once first. |
+| `docker-compose.prod.yml` | Added a `fastapi` service, additive only, gated behind `profiles: [fastapi]` so a bare `docker compose -f docker-compose.prod.yml up` still behaves exactly as it does on `main` (Streamlit `app` + `etl`, nothing else starts). Runs on a different external port (`8112`, vs. Streamlit's `8110`) so both can run side by side during the migration window. |
+
+### What was and wasn't verified
+
+Verified over real `uvicorn app.main:app` runs in this sandbox: app still starts cleanly with
+the new lifespan hook; the schema check degrades gracefully (logs a `WARNING` and continues)
+when Postgres is unreachable rather than crashing startup; both new log lines are now actually
+visible after the `logging.basicConfig` fix; `docker-compose.migration.yml` and the updated
+`docker-compose.prod.yml` both parse as valid YAML.
+
+**Not verified** — no docker daemon is reachable in this sandbox (`docker info` fails with
+"cannot connect to the Docker daemon"), so none of the following ran here: `docker build -f
+Dockerfile.fastapi .`, `docker compose -f docker-compose.migration.yml up`, or an actual
+login against a real Postgres. The `Dockerfile.fastapi` base-image fix is reasoned from
+direct evidence (the ETL `Dockerfile`'s own base image choice, PyPI's package listing for
+`gdal==3.8.4`) rather than guessed, but the build itself still needs to be run somewhere with
+Docker to be certain. Do that before relying on this in production.
 
 ## Corrections to the prompt's schema/env-var sketch (verified against real code + live sqlite dev DB)
 

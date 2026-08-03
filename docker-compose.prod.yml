@@ -61,6 +61,25 @@ services:
       # Execute manualmente com: docker compose --profile etl up etl
       - etl
 
+  # FastAPI migration target (branch-migration). Coexists with `app` (Streamlit) above —
+  # different image, different external port, opt-in via profile so a plain
+  # `docker compose -f docker-compose.prod.yml up` still only starts Streamlit + etl,
+  # unchanged from main. Start explicitly with:
+  #   docker compose -f docker-compose.prod.yml --profile fastapi up fastapi
+  fastapi:
+    image: ${FASTAPI_IMAGE:-ghcr.io/des-sist-corp-ufpb/projeto-eq10-fastapi:latest}
+    ports:
+      - "127.0.0.1:8112:8080"   # different external port so it coexists with Streamlit on 8110
+    networks:
+      - eq10-net
+    environment:
+      - ENVIRONMENT=production
+    env_file:
+      - .env.prod
+    restart: always
+    profiles:
+      - fastapi
+
 networks:
   eq10-net:
     external: true
