@@ -336,7 +336,13 @@ def test_admin_users_deactivate(super_admin_client):
     assert resp.status_code == 303
 
 
-# ── /healthcheck, /health ─────────────────────────────────────────────────────────
+# ── /ping, /healthcheck, /health ──────────────────────────────────────────────────
+
+
+def test_ping_returns_200_ok(client):
+    resp = client.get("/ping")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
 
 
 def test_healthcheck_always_200(client):

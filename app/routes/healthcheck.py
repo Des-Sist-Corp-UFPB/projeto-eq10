@@ -21,6 +21,14 @@ from app.database.connection import get_auth_connection
 router = APIRouter()
 
 
+@router.get("/ping")
+def get_ping() -> JSONResponse:
+    """Liveness probe — always HTTP 200. No DB, no templates.
+    Matches the legacy /ping endpoint the professor's portal checks.
+    """
+    return JSONResponse({"status": "ok"}, status_code=200)
+
+
 @router.get("/healthcheck")
 def get_healthcheck() -> JSONResponse:
     try:

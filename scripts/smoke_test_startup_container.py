@@ -202,6 +202,10 @@ def main() -> int:
         _run("docker", "exec", CONTAINER_NAME, "sh", "-n", "/app/start_fastapi.sh")
         _run("docker", "exec", CONTAINER_NAME, "nginx", "-t")
 
+        ping_body = _wait_for("/ping", 200)
+        if json.loads(ping_body).get("status") != "ok":
+            raise RuntimeError(f"ping_unexpected_body:{ping_body!r}")
+
         health_body = _wait_for("/healthcheck", 200)
         try:
             health_data = json.loads(health_body)
