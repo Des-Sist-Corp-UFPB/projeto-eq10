@@ -54,8 +54,8 @@ RUN sed -i 's/\r$//' start_fastapi.sh && chmod +x start_fastapi.sh
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
     CMD /app/.venv/bin/python -c \
-        "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthcheck', timeout=10).read()"
+        "import socket; s=socket.create_connection(('127.0.0.1',8080),timeout=3); s.close()"
 
 CMD ["./start_fastapi.sh"]
