@@ -18,7 +18,8 @@ complete and cut over. The ETL pipeline (`main.py`, `Dockerfile`, `src/extract.p
 | F | User Management `/admin/users` | Done. |
 | G | Healthcheck `/healthcheck` | Done. |
 | H | Runtime fix (login 500) + Docker deployment layer | Done — see below. |
-| I | CI/CD cutover prep (deploy.yml → Dockerfile.fastapi, rewritten smoke test) | **Prepped, NOT merged to main.** Everything validated locally; the actual cutover (merge branch-migration → main, push) is deliberately not done — see below. |
+| I | CI/CD cutover prep (deploy.yml → Dockerfile.fastapi, rewritten smoke test) | Done — cutover completed and verified live at https://eq10.dsc.rodrigor.com/. |
+| J | Observability, `/health`, Umami, test coverage ≥85%, README evaluation sections | Done — see below. |
 
 ## Stack
 
@@ -497,6 +498,133 @@ couldn't be hit end-to-end over HTTP. What was actually verified:
   timezone handling). Run the queries in `app/database/auth_db.py` against a real `AUTH_DB_*`
   before trusting this in production.
 
-No test suite exists yet for `app/` — the `tests/` directory at the repo root is entirely
-legacy-Streamlit-focused (`_FakeStreamlit` stub etc.) and out of scope to extend until a task
-explicitly calls for FastAPI test coverage.
+**Superseded by Task J below**: a full `tests/test_app_*.py` suite now exists (214 tests,
+93.64% coverage of `app/`), and this entire migration has since been cut over to production
+and verified against the real professor's Postgres.
+
+## Task J — Observability, /health, Umami, test coverage ≥85%, README evaluation sections
+
+Triggered by the professor's evaluation requirements
+(`docs/ORIENTACOES-AVALIACAO-2026-06-29.md`): OTel wiring, Umami in Jinja2, a real `/health`
+readiness endpoint, ≥85% test coverage with a committed HTML report, and two README sections
+cross-referenced against actual code by an automated evaluator
+(`docs/AVALIACAO-2026-07-01.md` shows exactly how — it counts file-path evidence per claim).
+
+### What the task's own snippets got wrong (verified against the real code before writing anything)
+
+| # | Claim in the task | Reality |
+|---|---|---|
+| 1 | `configure_telemetry(service_name=..., enabled=...)` | **Takes zero arguments.** Reads `OTEL_ENABLED`/`OTEL_SERVICE_NAME`/`OTEL_EXPORTER_OTLP_*` directly from the environment itself (`src/observability/telemetry.py`). Called as `configure_telemetry()`. |
+| 2 | Span attributes `auth.method`, `audit.filter`, `audit.limit` | **Not in `SAFE_ATTRIBUTE_KEYS`.** `safe_attributes()` silently drops any key not on that allow-list — using them wouldn't error, just silently do nothing, which is worse than not writing them (misleads whoever reads the code later into thinking they show up in traces). Used only accepted keys: `auth.provider`, `auth.result_status`, `audit.operation`, `audit.result_status`. |
+| 3 | Manually emit `app.startup` span in `_lifespan()` | **`configure_telemetry()` already auto-emits one internally** via `_emit_startup_span_once()` when successfully configured — but that internal one hardcodes `app.framework="streamlit"` (legacy code, not touched). Added the manual span anyway (correctly labeled `fastapi`) since the task explicitly wants it and the attributes are legitimate — documented that this means two `app.startup` spans per process start, one mislabeled, rather than silently "fixing" it by omitting the manual one. |
+| 4 | Point `Dockerfile.fastapi`'s `HEALTHCHECK` at `/health` | **Contradicts `docs/READINESS.md`**, which the task itself said to read first: *"O HEALTHCHECK do Docker permanece em /ping [the liveness endpoint]... A readiness do banco principal deve ser monitorada externamente por /health."* Switching would make Docker flap/restart the container on transient DB blips even though the process is fine — exactly what that design avoids. Left `HEALTHCHECK` on `/healthcheck` (always 200); added `/health` as a separate endpoint for external readiness monitoring only. |
+| 5 | Healthcheck `CMD` snippet: `r = urlopen(...); assert r.status in (200, 503)` | `urlopen()` **raises `HTTPError` on a 503**, so `r.status` is never reached for the "acceptable" 503 case — the snippet would treat a deliberate, well-formed 503 as a crash. Moot given #4 (not using this endpoint for `HEALTHCHECK` at all), but worth flagging since it'd resurface if anyone tries this later. |
+
+### J.1 — OpenTelemetry
+
+- `app/main.py`'s `_lifespan()` now calls `configure_telemetry()` (no args), then
+  `run_startup_checks()` (Task H), then emits the manual `app.startup` span (see #3 above).
+  Verified over a real `uvicorn` run: the exact documented log line appears —
+  `OpenTelemetry status | enabled=false | service_name=dsc-eq10 | ... | initialization=disabled`
+  (disabled because `OTEL_ENABLED` isn't set in this sandbox; the code path that produces
+  `initialization=configured` is the same either way, untouched legacy logic).
+- `app/routes/auth.py:post_login()` wraps `auth_service.authenticate()` in
+  `span("auth.login", {"auth.provider": "password"})`, sets `auth.result_status` on
+  success/failure, and calls `add_metric()` with the **real** registered instrument names
+  (`eq10_auth_login_total`, `eq10_auth_login_failures_total` — confirmed against
+  `_create_instruments()`), not the task's invented `"auth.login.success"`/`"auth.login.failure"`.
+- `app/routes/audit.py:get_auditoria()` wraps the fetch/filter block in
+  `span("audit.list", {"audit.operation": "list"})` — deliberately does NOT put
+  `user_search` (a free-text email search) into a span attribute even though the task's
+  draft attribute name (`audit.filter`) wasn't accepted anyway; avoids leaking user input
+  into traces on two independent grounds.
+- `app/config/settings.py` was **not** given a new `otel_service_name` field — the task's own
+  final caveat ("don't add otel_* fields for values configure_telemetry() already reads
+  directly from env") applies, since it does read `OTEL_SERVICE_NAME` itself (see #1).
+- **Found and fixed an unrelated, previously-invisible bug while testing this**: none, this
+  time — Task H already fixed the silently-dropped-INFO-logs issue that would otherwise have
+  hidden the OTel status line too.
+
+### J.2 — Umami in Jinja2
+
+- `app/config/settings.py` gained `umami_enabled`/`umami_script_url`/`umami_website_id`/
+  `umami_host_url`/`umami_allowed_domain`, validated by **importing the pure validator
+  functions directly from `src/analytics/umami.py`** (`_safe_https_url`, `_safe_website_id`,
+  `_safe_domain`) rather than re-deriving the same HTTPS-only/valid-UUID/bare-domain rules.
+  This is a legitimate "read-only import" from `src/` — those three functions have zero
+  Streamlit dependency (only `configure_umami()`/`track_event()`/etc. in that file touch
+  `st.session_state`); only the framework-coupled parts are actually off-limits per the
+  "don't touch src/" rule.
+- `app/main.py` exposes the five as Jinja2 template globals exactly as specified.
+- `app/templates/sidebar.html` injects the tracker `<script>` + manual page-tracking script
+  in `<head>`, gated by `{% if umami_enabled %}`, `data-auto-track="false"`, using the exact
+  `PAGE_SLUGS` mapping given (verified it matches `src/analytics/umami.py:ALLOWED_PAGES`'s
+  keys one-to-one).
+
+### J.3 — `GET /health`
+
+- Added to `app/routes/healthcheck.py` alongside the existing `/healthcheck`, matching
+  `docs/READINESS.md`'s contract exactly: `SELECT 1` via `get_auth_connection()`, HTTP 200
+  `{"status":"healthy","database":"connected"}` or HTTP 503
+  `{"status":"unhealthy","database":"unavailable"}`, `Cache-Control: no-store`, never leaks
+  exception text (verified with a test asserting a secret-laden exception message never
+  appears in the response body).
+- `nginx.fastapi.conf` proxies `/health` to uvicorn with short timeouts (5s connect, 6s
+  read), matching the legacy `/health` nginx block's timeouts exactly.
+- `Dockerfile.fastapi`'s `HEALTHCHECK` **intentionally left unchanged** — see #4 above.
+- Verified over a real `uvicorn` run: 503 with the exact contract body when the (sandbox's
+  unreachable) auth DB can't connect; `/healthcheck` unaffected.
+
+### J.4 — Test suite, ≥85% coverage
+
+`tests/conftest.py` + ten `tests/test_app_*.py` files, 214 tests, all passing, mocking at the
+`app/database`/service boundary (patched at the *importing* module's namespace, not the
+defining one — e.g. `app.service.auth_service.get_auth_connection`, not
+`app.database.connection.get_auth_connection`, since `from x import y` binds a new name into
+the importer's namespace; this tripped up three tests on the first run, same class of mistake
+made and fixed during Tasks C/F earlier in this migration). No live Postgres involved anywhere
+in the suite.
+
+```
+uv run pytest tests/test_app_*.py --cov=app --cov-report=html --cov-report=term -q
+```
+
+**Result: 93.64% line coverage of `app/`** (1542 statements, 98 missed), comfortably over the
+85% requirement. Per-file breakdown: every `app/database/*.py` file and `app/routes/healthcheck.py`
+hit 100%; `app/auth/roles.py` and `app/auth/session.py` 100%; `app/middleware/guards.py` 100%;
+the five service files 90–97%; routes 88–94%; `app/main.py` 90% (the uncovered lines are
+`create_app()`'s router-registration boilerplate, not meaningfully testable in isolation).
+
+Report copied to `cobertura/backend/` (raw `htmlcov/` added to `.gitignore` — it wasn't there
+before, so a stray `htmlcov/` could have been committed by accident on a future run).
+`cobertura/coverage-report.txt` (the pre-existing Streamlit-era report, 85.5%) is untouched —
+now two separate, independently-passing coverage reports for the two stacks in this repo,
+matching `docs/ORIENTACOES-AVALIACAO-2026-06-29.md`'s explicit guidance for projects with more
+than one module (`cobertura/backend/` + the existing legacy report).
+
+### J.5 — README sections
+
+**Did not add the two sections as new content** — both already existed
+(`## Log de Auditoria`, `## Integracoes Externas`) and had already passed evaluation per
+`docs/AVALIACAO-2026-07-01.md` (file-path-evidence-based automated check). Adding a second,
+differently-named copy of each would have fragmented the evidence trail for that same
+automated evaluator rather than helping it. Instead, updated both **in place** to describe the
+FastAPI implementation as the current one (with its own file paths) while keeping the legacy
+`src/` references as explicitly-labeled prior-implementation context — plus added
+OpenTelemetry and Umami as two new subsections under "Integracoes Externas" (they're bona fide
+external services per the task's framing, distinct from the narrative treatment they already
+had under "Observabilidade"/"Analytics de uso"). Also updated "Observabilidade", "Liveness e
+readiness", and "Analytics de uso" to reference the FastAPI files, and added a FastAPI
+subsection to "Cobertura de Testes" alongside the pre-existing Streamlit one.
+
+### Verified
+
+Over a real `uvicorn app.main:app` run in this sandbox: OTel startup log line (both the
+`https_only` line from Task H and the new OTel status line — confirms the Task H logging fix
+still works), `/health` 503-with-exact-body when DB unreachable, `/healthcheck` unaffected,
+full test suite green with coverage computed for real (not estimated). **Not verified**: OTel
+span export against a real collector, Umami script actually loading in a browser against the
+real institutional endpoint, and — same standing caveat as every prior task — this sandbox has
+no route to the professor's real Postgres, so `/health` returning 200 there specifically is
+unverified from here (though `/healthcheck` already proved `auth_db_ok: true` against it after
+the Task I cutover, which exercises the same connection path).

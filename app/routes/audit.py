@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from app.auth.roles import is_super_admin
 from app.middleware.guards import require_audit_access
 from app.service import audit_service
+from src.observability.telemetry import set_span_attributes, span
 
 router = APIRouter()
 
@@ -43,23 +44,30 @@ def get_auditoria(
 
     templates: Jinja2Templates = request.app.state.templates
 
-    entries = audit_service.get_recent_logs(audit_service.AUDIT_MAX_FETCH_LIMIT)
-    summary = audit_service.build_summary(entries)
+    # "audit.list" is one of the span names the professor confirmed in production Tempo
+    # (docs/OBSERVABILITY_OPENTELEMETRY_GRAFANA.md). Only "audit.operation" and
+    # "audit.result_status" are accepted attribute keys here per
+    # src/observability/telemetry.py:SAFE_ATTRIBUTE_KEYS — event_type/limit/user_search
+    # never go into a span attribute (also avoids leaking a user's search-by-email input).
+    with span("audit.list", {"audit.operation": "list"}) as current:
+        entries = audit_service.get_recent_logs(audit_service.AUDIT_MAX_FETCH_LIMIT)
+        summary = audit_service.build_summary(entries)
 
-    safe_limit = limit if limit in audit_service.AUDIT_LIMIT_OPTIONS else audit_service.DEFAULT_AUDIT_LIMIT
-    parsed_start = _parse_date(start_date)
-    parsed_end = _parse_date(end_date)
+        safe_limit = limit if limit in audit_service.AUDIT_LIMIT_OPTIONS else audit_service.DEFAULT_AUDIT_LIMIT
+        parsed_start = _parse_date(start_date)
+        parsed_end = _parse_date(end_date)
 
-    filtered = audit_service.filter_entries(
-        entries,
-        event_type=event_type,
-        user_search=user_search,
-        status=status,
-        start_date=parsed_start,
-        end_date=parsed_end,
-    )
-    visible = filtered[:safe_limit]
-    rows = [audit_service.format_entry_for_display(entry) for entry in visible]
+        filtered = audit_service.filter_entries(
+            entries,
+            event_type=event_type,
+            user_search=user_search,
+            status=status,
+            start_date=parsed_start,
+            end_date=parsed_end,
+        )
+        visible = filtered[:safe_limit]
+        rows = [audit_service.format_entry_for_display(entry) for entry in visible]
+        set_span_attributes(current, {"audit.result_status": "success"})
 
     return templates.TemplateResponse(
         request,

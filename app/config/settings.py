@@ -6,6 +6,13 @@ import os
 from dataclasses import dataclass, field
 from urllib.parse import urlparse, urlunparse
 
+# Read-only reuse of src/analytics/umami.py's pure validators (no Streamlit dependency —
+# only configure_umami()/track_event()/etc. in that module touch st.session_state). Keeps
+# the same HTTPS-only / valid-UUID / bare-domain rules instead of re-deriving them.
+from src.analytics.umami import _safe_domain as _umami_safe_domain
+from src.analytics.umami import _safe_https_url as _umami_safe_https_url
+from src.analytics.umami import _safe_website_id as _umami_safe_website_id
+
 LOGO_URL_ENV_VARS = (
     "APP_LOGO_URL",
     "APP_LOGO_PUBLIC_URL",
@@ -33,6 +40,11 @@ class Settings:
     email_verification_required: bool
     otel_enabled: bool
     logo_url: str = field(default="")
+    umami_enabled: bool = False
+    umami_script_url: str = ""
+    umami_website_id: str = ""
+    umami_host_url: str = ""
+    umami_allowed_domain: str = ""
 
 
 def _bool_env(name: str, default: bool = False) -> bool:
@@ -107,10 +119,23 @@ def get_settings() -> Settings:
     if not session_secret_key:
         session_secret_key = DEV_SESSION_SECRET_KEY
 
+    umami_script_url = _umami_safe_https_url(os.environ.get("UMAMI_SCRIPT_URL"))
+    umami_website_id = _umami_safe_website_id(os.environ.get("UMAMI_WEBSITE_ID"))
+    umami_host_url = _umami_safe_https_url(os.environ.get("UMAMI_HOST_URL"))
+    umami_allowed_domain = _umami_safe_domain(os.environ.get("UMAMI_ALLOWED_DOMAIN"))
+    umami_requested = _bool_env("UMAMI_ENABLED", False)
+
     return Settings(
         environment=environment,
         session_secret_key=session_secret_key,
         email_verification_required=_bool_env("EMAIL_VERIFICATION_REQUIRED", False),
         otel_enabled=_bool_env("OTEL_ENABLED", False),
         logo_url=get_configured_logo_url(),
+        # enabled = requested AND both required values passed validation — mirrors
+        # src/analytics/umami.py's _configuration()["enabled"] logic exactly.
+        umami_enabled=bool(umami_requested and umami_script_url and umami_website_id),
+        umami_script_url=umami_script_url,
+        umami_website_id=umami_website_id,
+        umami_host_url=umami_host_url,
+        umami_allowed_domain=umami_allowed_domain,
     )

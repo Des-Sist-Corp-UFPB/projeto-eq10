@@ -6,6 +6,11 @@ dist/
 wheels/
 *.egg-info
 
+# Raw coverage output — the committed copy for evaluation lives in cobertura/backend/
+# (see docs/ORIENTACOES-AVALIACAO-2026-06-29.md: htmlcov/ itself is never committed).
+htmlcov/
+.coverage
+
 # Virtual environments
 .venv
 .venv/

@@ -6,6 +6,44 @@
     <title>{% block title %}Secretaria de Saúde{% endblock %} — Mamanguape</title>
     <link rel="stylesheet" href="{{ request.url_for('static', path='css/base.css') }}">
     {% block extra_css %}{% endblock %}
+    {% if umami_enabled %}
+    <script
+      defer
+      src="{{ umami_script_url }}"
+      data-website-id="{{ umami_website_id }}"
+      data-host-url="{{ umami_host_url }}"
+      data-domains="{{ umami_allowed_domain }}"
+      data-auto-track="false"
+    ></script>
+    <script>
+      // Manual page tracking — mirrors src/analytics/umami.py's ALLOWED_PAGES slug mapping.
+      // data-auto-track="false" above is required: page views are only ever sent explicitly
+      // from here, never automatically. No email/name/user-id/prompt/response is ever sent.
+      (function() {
+        var PAGE_SLUGS = {
+          '/estatisticas':   '/estatisticas',
+          '/auth/login':     '/login',
+          '/auth/register':  '/cadastro',
+          '/auth/forgot-password': '/recuperar-senha',
+          '/chat':           '/chat-ia',
+          '/auditoria':      '/auditoria',
+          '/admin/users':    '/administracao',
+        };
+        function trackPage() {
+          if (typeof umami === 'undefined') { return; }
+          var path = window.location.pathname;
+          var slug = PAGE_SLUGS[path] || path;
+          try { umami.track(function(p) { return Object.assign({}, p, {url: slug}); }); }
+          catch(e) {}
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', trackPage);
+        } else {
+          trackPage();
+        }
+      })();
+    </script>
+    {% endif %}
 </head>
 <body>
     {% set user = get_authenticated_user(request) %}

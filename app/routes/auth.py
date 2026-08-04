@@ -13,6 +13,7 @@ from app.auth.session import get_authenticated_user, login_session, logout_sessi
 from app.middleware.guards import require_authenticated
 from app.service import auth_service
 from app.service.auth_service import AuthValidationError
+from src.observability.telemetry import add_metric, set_span_attributes, span
 
 router = APIRouter(prefix="/auth")
 
@@ -38,15 +39,28 @@ def post_login(
     senha: str = Form(...),
     next: str = Form("/estatisticas"),
 ) -> HTMLResponse:
-    try:
-        user = auth_service.authenticate(email, senha)
-    except AuthValidationError as exc:
-        return _templates(request).TemplateResponse(
-            request,
-            "login.html",
-            {"active_page": None, "next": next, "error": exc.public_message, "email": email},
-            status_code=400,
-        )
+    # "auth.login" is one of the span names the professor confirmed in production Tempo
+    # (docs/OBSERVABILITY_OPENTELEMETRY_GRAFANA.md). "auth.provider" and
+    # "auth.result_status" are the only accepted keys here per
+    # src/observability/telemetry.py:SAFE_ATTRIBUTE_KEYS — no email/user id/password ever
+    # goes into a span attribute. Metric names (eq10_auth_login_total,
+    # eq10_auth_login_failures_total) match the instruments configure_telemetry() actually
+    # registers, not invented names.
+    with span("auth.login", {"auth.provider": "password"}) as current:
+        try:
+            user = auth_service.authenticate(email, senha)
+        except AuthValidationError as exc:
+            set_span_attributes(current, {"auth.result_status": "failure"})
+            add_metric("eq10_auth_login_failures_total", attributes={"error.category": "operation_failed"})
+            return _templates(request).TemplateResponse(
+                request,
+                "login.html",
+                {"active_page": None, "next": next, "error": exc.public_message, "email": email},
+                status_code=400,
+            )
+
+        set_span_attributes(current, {"auth.result_status": "success"})
+        add_metric("eq10_auth_login_total", attributes={"auth.result_status": "success"})
 
     login_session(request, user)
     return RedirectResponse(url=next or "/estatisticas", status_code=303)

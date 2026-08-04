@@ -17,6 +17,8 @@ from app.auth.session import get_authenticated_user
 from app.config.settings import get_settings
 from app.database.schema_check import run_startup_checks
 from app.routes import audit, auth, chat, estatisticas, healthcheck, users
+from src.observability.telemetry import configure_telemetry
+from src.observability.telemetry import span as otel_span
 
 # uvicorn only attaches handlers to its own loggers ("uvicorn", "uvicorn.error",
 # "uvicorn.access") — without this, every logger.info()/warning() call anywhere under
@@ -35,7 +37,27 @@ BASE_DIR = Path(__file__).resolve().parent
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
+    # configure_telemetry() takes no arguments — it reads OTEL_ENABLED, OTEL_SERVICE_NAME,
+    # OTEL_EXPORTER_OTLP_* directly from the environment itself (see
+    # src/observability/telemetry.py). It's idempotent/lock-guarded, logs the
+    # "OpenTelemetry status | ..." line exactly once per process either way, and — when
+    # successfully configured — auto-emits its own "app.startup" span internally via
+    # _emit_startup_span_once(). That internal span hardcodes app.framework="streamlit"
+    # (legacy code we don't touch), so the explicit span below duplicates it with the
+    # correct framework label. Both are harmless/safe-attributes-only; documented in
+    # docs/claude-migration.md rather than silently worked around.
+    configure_telemetry()
     run_startup_checks()
+    settings = get_settings()
+    with otel_span(
+        "app.startup",
+        {
+            "app.framework": "fastapi",
+            "deployment.environment": settings.environment,
+            "telemetry.verification": "startup",
+        },
+    ):
+        pass
     yield
 
 
@@ -74,6 +96,16 @@ def create_app() -> FastAPI:
     templates = _build_templates()
     templates.env.globals["logo_url"] = settings.logo_url
     templates.env.globals["email_verification_required"] = settings.email_verification_required
+    # settings.umami_enabled already folds in "script_url and website_id both validated"
+    # (see app/config/settings.py:get_settings()); this extra bool() is redundant but kept
+    # for parity with the requested template-global contract.
+    templates.env.globals["umami_enabled"] = (
+        settings.umami_enabled and bool(settings.umami_script_url) and bool(settings.umami_website_id)
+    )
+    templates.env.globals["umami_script_url"] = settings.umami_script_url
+    templates.env.globals["umami_website_id"] = settings.umami_website_id
+    templates.env.globals["umami_host_url"] = settings.umami_host_url
+    templates.env.globals["umami_allowed_domain"] = settings.umami_allowed_domain
     app.state.templates = templates
     app.state.settings = settings
 
