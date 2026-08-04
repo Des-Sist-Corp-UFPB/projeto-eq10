@@ -1,10 +1,15 @@
 # 📜 Registro de Evolução e Histórico Completo do Projeto EQ10
 
-Este documento é um registro histórico detalhado de **todos os commits** realizados no repositório desde a sua fundação. A evolução do projeto está dividida em fases temáticas (tópicos e subtópicos) que documentam as transformações arquiteturais, adições de funcionalidades, correções de bugs e migrações estruturais do sistema.
+Este documento constitui o registro oficial do histórico de **todos os commits** e mudanças realizadas na base de código desde a sua fundação. O desenvolvimento do projeto divide-se estruturalmente em duas grandes etapas: a criação inicial durante o estágio supervisionado e a posterior expansão, segurança, observabilidade e migração arquitetural durante a disciplina de Desenvolvimento de Sistemas Corporativos.
 
 ---
 
-## 🏛️ Fase 1: Fundação do Projeto, ETL e Primeiras Transformações (Abril de 2026)
+## 🏢 1. Código gerado durante o estágio
+
+> [!NOTE]
+> **Histórico de Autoria e Espelheamento (Mirror):**
+> Nesta primeira fase, o repositório conta com commits exclusivos dos autores **Riansito** e **Gabriel Nunes**. Os commits de Riansito aparecem neste registro histórico porque o repositório utilizado na disciplina **é um Mirror (espelho) exato do código construído no estágio supervisionado** até aquele momento. Por essa razão, todo o histórico Git de commits original do Riansito veio junto e foi devidamente preservado na base da disciplina.
+
 
 ### 📌 1.1 Estruturação Inicial e Setup Básico
 
@@ -66,9 +71,7 @@ Este documento é um registro histórico detalhado de **todos os commits** reali
 | **`8bce8c8`** | 2026-04-24 | Riansito | chore: adicionando logs no extract e na main para finalizar todo o acompanhamento do pipeline |
 | **`b565f31`** | 2026-04-24 | Gabriel Nunes | feat(etl): implementa idempotência (rodar o script várias vezes sem duplicar dados) e fail fast (parar a execução no primeiro milissegundo caso o dado já exista) na extração do SIA |
 
-## 🏛️ Fase 2: Visualização de Dados (Power BI) e Introdução da IA (Maio de 2026)
-
-### 📌 2.1 Painéis Power BI, Demografia e Filtros Regionais
+### 📌 1.4 Painéis Power BI, Demografia e Filtros Regionais
 
 | Commit | Data | Autor | Resumo da Alteração |
 | :---: | :---: | :--- | :--- |
@@ -86,7 +89,16 @@ Este documento é um registro histórico detalhado de **todos os commits** reali
 | **`53040ba`** | 2026-05-11 | Riansito | feat: adicionando mais uma coluna para ser enviada com os dados, a coluna "PA_SEXO" |
 | **`a8b22f6`** | 2026-05-11 | Riansito | refactor: retirando o simbolo monetário dos cards de frequencia de valor apresentado |
 
-### 📌 2.2 Camada Segura de Inteligência Artificial, Chatbot e OpenRouter
+---
+
+## 🎓 2. Código gerado durante a disciplina
+
+> [!IMPORTANT]
+> **Autoria na Disciplina:**
+> A partir desta fase (meados de Maio de 2026 em diante), inicia-se o desenvolvimento voltado exclusivamente às exigências da disciplina de **Desenvolvimento de Sistemas Corporativos**, sob mentoria e avaliação do professor. Os commits do projeto, implementações arquiteturais e refatorações são de autoria exclusiva da dupla de alunos **Gabriel Nunes** e **Heloísa Duarte** (acompanhados pontualmente por commits de documentação, templates de avaliação e configuração de runners de autoria do **Prof. Rodrigo Rebouças**).
+
+
+### 📌 2.1 Camada Segura de Inteligência Artificial, Chatbot e OpenRouter
 
 | Commit | Data | Autor | Resumo da Alteração |
 | :---: | :---: | :--- | :--- |
@@ -98,7 +110,7 @@ Este documento é um registro histórico detalhado de **todos os commits** reali
 | **`b1bb4b2`** | 2026-05-26 | Heloísa Duarte | fix: improve safe AI diagnostics |
 | **`581553c`** | 2026-05-26 | Heloísa Duarte | feat:  integração OpenRouter AI chat ;( |
 
-### 📌 2.3 Pipeline CI/CD, Nginx e Docker Compose de Produção
+### 📌 2.2 Pipeline CI/CD, Nginx e Docker Compose de Produção
 
 | Commit | Data | Autor | Resumo da Alteração |
 | :---: | :---: | :--- | :--- |
@@ -132,9 +144,7 @@ Este documento é um registro histórico detalhado de **todos os commits** reali
 | **`fbccded`** | 2026-06-03 | Gabriel Nunes | fix(docker): resolver crlf no start.sh para servidor linux |
 | **`5653de2`** | 2026-06-03 | Gabriel Nunes | fix(ci): apontar build para Dockerfile.chat |
 
-## 🏛️ Fase 3: Maturidade do Sistema Streamlit, Segurança, Auditoria e Testes (Junho a Julho de 2026)
-
-### 📌 3.1 Autenticação, Gestão de Usuários, Verificação de E-mail e Soft Delete
+### 📌 2.3 Autenticação, Gestão de Usuários, Verificação de E-mail e Soft Delete
 
 | Commit | Data | Autor | Resumo da Alteração |
 | :---: | :---: | :--- | :--- |
@@ -167,7 +177,7 @@ Este documento é um registro histórico detalhado de **todos os commits** reali
 | **`41d24d5`** | 2026-06-28 | Heloísa Duarte | Merge branch 'main' into feature/autenticacao-google |
 | **`0edb44b`** | 2026-06-28 | Heloísa Duarte | Merge pull request #3 from Des-Sist-Corp-UFPB/feature/autenticacao-google |
 
-### 📌 3.2 Logs de Auditoria, Estilização da UI e Cobertura de Testes de Carga (K6)
+### 📌 2.4 Logs de Auditoria, Estilização da UI e Cobertura de Testes de Carga (K6)
 
 | Commit | Data | Autor | Resumo da Alteração |
 | :---: | :---: | :--- | :--- |
@@ -193,7 +203,7 @@ Este documento é um registro histórico detalhado de **todos os commits** reali
 | **`06d7e22`** | 2026-07-01 | Heloísa Duarte | test: adiciona testes de carga para interfaces e serviços |
 | **`7bcab81`** | 2026-07-01 | Heloísa Duarte | Merge branch 'main' of https://github.com/Des-Sist-Corp-UFPB/projeto-eq10 |
 
-### 📌 3.3 Integração de Servidor MCP (Model Context Protocol) e Runners do GitHub Actions
+### 📌 2.5 Integração com Servidor MCP (Model Context Protocol) e Runners do GitHub Actions
 
 | Commit | Data | Autor | Resumo da Alteração |
 | :---: | :---: | :--- | :--- |
@@ -214,7 +224,7 @@ Este documento é um registro histórico detalhado de **todos os commits** reali
 | **`9bcdb62`** | 2026-07-15 | Gabriel Nunes | fix: set host=postgres in .env and limit pool_size=5 in load.py (hikari.maximum-pool-size=5) |
 | **`b6e7d7a`** | 2026-07-15 | Gabriel Nunes | chore: add .env.prod to gitignore |
 
-### 📌 3.4 Observabilidade com OpenTelemetry, Umami Analytics e Endpoints de Readiness Probes
+### 📌 2.6 Observabilidade com OpenTelemetry, Umami Analytics e Readiness Probes
 
 | Commit | Data | Autor | Resumo da Alteração |
 | :---: | :---: | :--- | :--- |
@@ -240,9 +250,7 @@ Este documento é um registro histórico detalhado de **todos os commits** reali
 | **`f70a4ff`** | 2026-07-31 | Heloísa Duarte | fix: make readiness startup resilient |
 | **`cc21089`** | 2026-07-31 | Heloísa Duarte | fix: use PID files in container startup smoke test |
 
-## 🏛️ Fase 4: Grande Migração para Arquitetura Backend/Frontend (FastAPI + Jinja2) (Agosto de 2026)
-
-### 📌 4.1 Substituição Completa do Streamlit por FastAPI, Templates Jinja2 e Nginx
+### 📌 2.7 Grande Migração para Arquitetura Backend/Frontend (FastAPI + Jinja2)
 
 | Commit | Data | Autor | Resumo da Alteração |
 | :---: | :---: | :--- | :--- |
@@ -253,7 +261,7 @@ Este documento é um registro histórico detalhado de **todos os commits** reali
 | **`7e1181a`** | 2026-08-03 | Gabriel Nunes | feat: prep CI/CD cutover to FastAPI (not merged to main yet) |
 | **`e729ce6`** | 2026-08-03 | Gabriel Nunes | feat: replace Streamlit with FastAPI at eq10.dsc.rodrigor.com |
 
-### 📌 4.2 Task J, Cobertura de Testes (93.64%), Telemetria e Estabilidade de Liveness Probes (/ping e /healthcheck)
+### 📌 2.8 Entrega Final da Task J, Cobertura de Testes (93.64%) e Estabilidade de Liveness Probes (/ping)
 
 | Commit | Data | Autor | Resumo da Alteração |
 | :---: | :---: | :--- | :--- |
@@ -263,46 +271,42 @@ Este documento é um registro histórico detalhado de **todos os commits** reali
 | **`e4a34cf`** | 2026-08-04 | Gabriel Nunes | fix: HEALTHCHECK volta para /healthcheck (sempre HTTP 200) com start-period=90s |
 | **`513d2d9`** | 2026-08-04 | Gabriel Nunes | fix: HEALTHCHECK usa socket TCP na porta 8080 — sem HTTP, sem banco, sem timeout de aplicacao |
 | **`4ca19b9`** | 2026-08-04 | Gabriel Nunes | feat: adiciona rota /ping e configuracao nginx para monitoramento de liveness do portal do professor |
+| **`13726ce`** | 2026-08-04 | Gabriel Nunes | docs: adiciona registro.md contendo historico completo de commits, topicos de evolucao e linha do tempo |
 
 ---
 
-## 📊 Resumo das Contribuições
+## 📊 Resumo e Estratificação das Contribuições
 
-Visão geral da participação dos contribuidores na construção do projeto e mentoria de avaliação:
+Visão geral sintética da autoria e do papel dos contribuidores nas duas etapas constitutivas do projeto:
 
-| Autor / Contribuidor | Papel Principal no Projeto | Total de Commits |
-| :--- | :--- | :---: |
-| **Heloísa Duarte** | Engenharia de Software, IA Segura, Observabilidade (OTel/Umami) e Migração FastAPI | 68 |
-| **Gabriel Nunes** | Engenharia de Dados (ETL), CI/CD, Migração FastAPI, Segurança e Liveness Probes | 72 |
-| **Riansito** | Pipeline ETL inicial, Transformações DATASUS e Dashboards Power BI | 37 |
-| **Prof. Rodrigo Rebouças** | Orientação, Guias MCP, Telemetria e Relatórios de Avaliação (Docs/Templates) | 15 |
+| Autor / Contribuidor | Período de Atuação | Papel e Responsabilidades Técnicas | Commits (Estágio) | Commits (Disciplina) | Total Geral |
+| :--- | :--- | :--- | :---: | :---: | :---: |
+| **Gabriel Nunes** | Estágio + Disciplina | Engenharia de Dados (ETL/Estágio), DevOps CI/CD, Migração FastAPI, Liveness Probes e Segurança | 21 | 52 | **73** |
+| **Heloísa Duarte** | Disciplina | Engenharia de Software (Disciplina), IA Segura, Observabilidade (OTel/Umami) e Migração FastAPI | 0 | 68 | **68** |
+| **Riansito** | Estágio (via Mirror) | Pipeline ETL original, Tratamento DATASUS e Dashboards Power BI no Estágio (via Mirror) | 37 | 0 | **37** |
+| **Prof. Rodrigo Rebouças** | Disciplina (Mentoria/Docs) | Professor da Disciplina — Templates de avaliação K6, guias MCP, telemetria e infra self-hosted | 0 | 15 | **15** |
 
-> **Total Geral:** 192 commits catalogados e analisados no histórico oficial.
+> **Totais Catalogados:** **58** commits durante o Estágio + **135** commits durante a Disciplina = **193** commits no histórico geral do repositório.
 
 ---
 
-## ⏳ Linha do Tempo Cronológica do Projeto (Timings & Milestones)
+## ⏳ Linha do Tempo Cronológica (Estágio ➔ Disciplina)
 
-Abaixo está a linha do tempo sintetizando os grandes marcos tecnológicos que definiram a maturidade da nossa aplicação:
+O gráfico abaixo sintetiza os marcos evolutivos ao longo do tempo, divididos na transição entre o estágio e a disciplina:
 
 ```mermaid
 timeline
-    title Evolução Arquitetural do Sistema EQ10 (SIA DATASUS)
-    section Abr / 2026
-        10 Abr : Fundação do Repositório : Estruturação inicial do Pipeline ETL
-        13 a 21 Abr : Refatoração de Transformações : Mapeamento de Municípios (Mamanguape, Bananeiras, Queimadas) e Carga PostgreSQL
-        24 Abr : Engenharia Robustecida : Idempotência e Fail Fast na extração do SIA
-    section Mai / 2026
-        06 a 11 Mai : BI & Demografia : Telas de Análise Demográfica e Frequência Etária
-        14 a 26 Mai : Introdução de Inteligência Artificial : Camada Segura de IA, OpenRouter e Chatbot Streamlit
-        27 Mai : DevOps & Automação : Configuração de Deploy em Produção (GitHub Actions + Nginx + Docker Compose)
-    section Jun / 2026
-        19 a 22 Jun : Segurança & Controles de Acesso : Autenticação, Verificação de E-mail, Soft Delete e Recuperação de Senha
-        24 a 29 Jun : Auditoria & Testes de Carga : Logs de auditoria no sistema, suíte K6 de testes de performance e estilos UI
-    section Jul / 2026
-        01 a 15 Jul : Protocolos & Resiliência CI : Ideação e tutorial MCP (Model Context Protocol), Adaptação para Runner Self-hosted
-        22 a 31 Jul : Observabilidade & Privacidade : OpenTelemetry (Traces/Logs OTLP), Umami Analytics (Sem cookies) e Readiness Probes
-    section Ago / 2026
-        01 a 03 Ago : Arquitetura Modernizada (Cutover) : Substituição Completa do Streamlit por Backend FastAPI + Frontend HTML/CSS/Jinja2
-        04 Ago : Entrega Task J & Estabilidade Liveness : Cobertura de Testes Recorde (93.64%), Endpoint /ping restaurado para o Portal do Professor e 100% dos serviços funcionais
+    title Linha do Tempo: Do Código do Estágio ao Sistema Corporativo na Disciplina
+    section Código do Estágio<br>(Abril e Maio/2026)
+        10 Abr : Fundação & Setup : Riansito e Gabriel estruturam a base do Pipeline ETL
+        13 a 24 Abr : Evolução do ETL : Mapeamentos, Carga no PostgreSQL, Idempotência e Fail Fast
+        06 a 11 Mai : Power BI & Demografia : Conclusão dos relatórios demográficos e encerramento da fase Estágio (Mirror)
+    section Código da Disciplina<br>(Maio a Julho/2026)
+        14 a 26 Mai : IA Segura & OpenRouter : Heloísa e Gabriel implementam chat com Inteligência Artificial
+        27 Mai a 15 Jun : Pipeline CI/CD : Configuração de deploy em produção com Docker Compose e Nginx
+        19 a 29 Jun : Segurança & Auditoria : Login, Verificação, Soft Delete, Logs de Auditoria e Testes de Carga (K6)
+        01 a 31 Jul : Observabilidade & MCP : Integração do servidor MCP, OpenTelemetry (Loki/Grafana), Umami e Readiness
+    section Maturidade Final<br>(Agosto/2026)
+        01 a 03 Ago : Cutover para FastAPI : Substituição Definitiva do Streamlit por Backend FastAPI e Frontend Jinja2/CSS
+        04 Ago : Entrega da Task J : Cobertura Recorde de Testes (93.64%), Endpoint /ping e normalização do monitoramento no Portal do Professor
 ```
