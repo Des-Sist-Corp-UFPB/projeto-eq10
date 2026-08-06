@@ -46,6 +46,7 @@ COPY app ./app
 COPY src ./src
 COPY images ./images
 COPY docs ./docs
+COPY scripts/container_liveness.py ./scripts/container_liveness.py
 
 COPY nginx.fastapi.conf /etc/nginx/nginx.conf
 
@@ -55,7 +56,6 @@ RUN sed -i 's/\r$//' start_fastapi.sh && chmod +x start_fastapi.sh
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
-    CMD /app/.venv/bin/python -c \
-        "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ping', timeout=3).read()"
+    CMD ["/app/.venv/bin/python", "/app/scripts/container_liveness.py"]
 
 CMD ["./start_fastapi.sh"]

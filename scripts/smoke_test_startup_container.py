@@ -138,6 +138,30 @@ def _container_running() -> bool:
     return result.returncode == 0 and result.stdout.strip() == "true"
 
 
+def _container_health_status() -> str:
+    result = _run(
+        "docker",
+        "inspect",
+        "--format",
+        "{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}",
+        CONTAINER_NAME,
+        check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "not_found"
+
+
+def _wait_for_container_health(timeout: float = 30) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        status = _container_health_status()
+        if status == "healthy":
+            return
+        if status in {"unhealthy", "missing", "not_found"}:
+            raise RuntimeError(f"container_health_failed:{status}")
+        time.sleep(1)
+    raise RuntimeError(f"container_health_timeout:{_container_health_status()}")
+
+
 def _safe_failure_diagnostics() -> None:
     inspect = _run(
         "docker",
@@ -179,6 +203,10 @@ def main() -> int:
             CONTAINER_NAME,
             "--publish",
             f"127.0.0.1:{HOST_PORT}:8080",
+            "--health-start-period=0s",
+            "--health-interval=1s",
+            "--health-timeout=5s",
+            "--health-retries=10",
             "--env",
             "ENVIRONMENT=test",
             "--env",
@@ -205,6 +233,7 @@ def main() -> int:
         ping_body = _wait_for("/ping", 200)
         if json.loads(ping_body).get("status") != "ok":
             raise RuntimeError(f"ping_unexpected_body:{ping_body!r}")
+        _wait_for_container_health()
 
         health_body = _wait_for("/healthcheck", 200)
         try:

@@ -340,9 +340,11 @@ def test_admin_users_deactivate(super_admin_client):
 
 
 def test_ping_returns_200_ok(client):
-    resp = client.get("/ping")
+    with mock.patch("app.routes.healthcheck.get_auth_connection") as get_connection:
+        resp = client.get("/ping")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
+    get_connection.assert_not_called()
 
 
 def test_healthcheck_always_200(client):

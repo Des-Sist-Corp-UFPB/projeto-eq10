@@ -50,20 +50,20 @@ Prometheus e Grafana com dashboard provisionado. Consulte
 
 ## Liveness e readiness
 
-`GET /healthcheck` (`app/routes/healthcheck.py`) sempre responde HTTP 200 e é
-usado pelo Uptime Kuma e pelo `HEALTHCHECK` do `Dockerfile.fastapi` — verifica
-os dois bancos (aplicação e analítico) mas nunca derruba o container por uma
-falha transitória de um deles.
+`GET /ping` (`app/routes/healthcheck.py`) é a liveness sem banco usada pelo
+`HEALTHCHECK` do `Dockerfile.fastapi` e, por padrão, pelo GitHub Actions.
+
+`GET /healthcheck` sempre responde HTTP 200 e apresenta o diagnóstico seguro
+dos bancos de aplicação e analítico sem derrubar o container por falha de um
+componente.
 
 `GET /health` (mesmo arquivo) é a checagem de prontidão do banco principal:
 executa `SELECT 1` via `app/database/connection.py` e retorna HTTP 200 com
 `{"status":"healthy","database":"connected"}` ou HTTP 503 com
 `{"status":"unhealthy","database":"unavailable"}`. O banco analítico, OpenTelemetry
-e Umami não participam desse resultado — mesma separação liveness/readiness
-documentada para o Streamlit, agora nos dois endpoints do FastAPI.
+e Umami não participam desse resultado.
 
-Arquitetura, timeouts e comandos de validação (documento original, escrito
-para o Streamlit — o contrato de `/health` é idêntico no FastAPI):
+Arquitetura, timeouts e comandos de validação da implantação FastAPI:
 [docs/READINESS.md](docs/READINESS.md).
 
 ## Analytics de uso

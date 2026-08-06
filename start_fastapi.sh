@@ -72,6 +72,7 @@ UVICORN_PID=$!
 write_pid_file "$UVICORN_PID_FILE" "$UVICORN_PID"
 
 attempt=0
+UVICORN_READY=false
 while [ "$attempt" -lt 30 ]; do
   if ! kill -0 "$UVICORN_PID" 2>/dev/null; then
     report_exit "uvicorn" "$UVICORN_PID"
@@ -81,11 +82,17 @@ while [ "$attempt" -lt 30 ]; do
   if "$PYTHON" -c \
     "import socket; s=socket.create_connection(('127.0.0.1', ${UVICORN_PORT}), timeout=1); s.close()" \
     2>/dev/null; then
+    UVICORN_READY=true
     break
   fi
   attempt=$((attempt + 1))
   sleep 1
 done
+
+if [ "$UVICORN_READY" != "true" ]; then
+  echo "Startup error | component=uvicorn | code=listen_timeout"
+  exit 1
+fi
 
 echo "STARTUP | component=uvicorn | status=listening | port=${UVICORN_PORT}"
 
@@ -95,6 +102,7 @@ NGINX_PID=$!
 write_pid_file "$NGINX_PID_FILE" "$NGINX_PID"
 
 attempt=0
+NGINX_READY=false
 while [ "$attempt" -lt 10 ]; do
   if ! kill -0 "$NGINX_PID" 2>/dev/null; then
     report_exit "nginx" "$NGINX_PID"
@@ -104,11 +112,16 @@ while [ "$attempt" -lt 10 ]; do
   if "$PYTHON" -c \
     "import socket; s=socket.create_connection(('127.0.0.1', ${NGINX_PORT}), timeout=1); s.close()" \
     2>/dev/null; then
+    NGINX_READY=true
     break
   fi
   attempt=$((attempt + 1))
   sleep 1
 done
+if [ "$NGINX_READY" != "true" ]; then
+  echo "Startup error | component=nginx | code=listen_timeout"
+  exit 1
+fi
 echo "STARTUP | component=nginx | status=listening | port=${NGINX_PORT}"
 
 # O loop portavel supervisiona os dois processos; o trap encerra o outro assim

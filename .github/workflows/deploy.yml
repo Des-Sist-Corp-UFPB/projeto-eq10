@@ -77,7 +77,7 @@ jobs:
 
       - name: Verifica saude publica da aplicacao
         env:
-          APP_HEALTH_URL: ${{ vars.APP_HEALTH_URL }}
+          APP_HEALTH_URL: https://eq10.dsc.rodrigor.com/ping
           DEPLOY_HEALTH_TIMEOUT_SECONDS: "120"
           DEPLOY_HEALTH_INTERVAL_SECONDS: "5"
           DEPLOY_HEALTH_REQUEST_TIMEOUT_SECONDS: "5"

@@ -6,6 +6,9 @@ import unittest
 WORKFLOW_PATH = Path(".github/workflows/deploy.yml")
 PROD_COMPOSE_PATH = Path("docker-compose.prod.yml")
 HEALTH_SCRIPT_PATH = Path("scripts/verify_deploy_health.py")
+FASTAPI_DOCKERFILE_PATH = Path("Dockerfile.fastapi")
+FASTAPI_START_PATH = Path("start_fastapi.sh")
+FASTAPI_NGINX_PATH = Path("nginx.fastapi.conf")
 
 
 class TestDeployWorkflow(unittest.TestCase):
@@ -29,14 +32,14 @@ class TestDeployWorkflow(unittest.TestCase):
         }
         self.assertTrue(any(runner in source for runner in allowed_runners), source)
 
-    def test_build_publica_imagem_do_dockerfile_chat(self):
+    def test_build_publica_imagem_do_dockerfile_fastapi(self):
         source = self.read_workflow()
 
         self.assertIn("IMAGE=ghcr.io/", source)
         self.assertIn("${{ github.repository }}", source)
         self.assertIn("uses: docker/build-push-action@v5", source)
         self.assertIn("context: .", source)
-        self.assertIn("file: Dockerfile.chat", source)
+        self.assertIn("file: Dockerfile.fastapi", source)
         self.assertIn("push: true", source)
         self.assertIn("tags: ${{ env.IMAGE }}", source)
 
@@ -55,10 +58,21 @@ class TestDeployWorkflow(unittest.TestCase):
         source = self.read_workflow()
 
         self.assertIn("Verifica saude publica da aplicacao", source)
-        self.assertIn("APP_HEALTH_URL: ${{ vars.APP_HEALTH_URL }}", source)
+        self.assertIn(
+            "APP_HEALTH_URL: https://eq10.dsc.rodrigor.com/ping",
+            source,
+        )
         self.assertIn('DEPLOY_HEALTH_TIMEOUT_SECONDS: "120"', source)
         self.assertIn('DEPLOY_HEALTH_INTERVAL_SECONDS: "5"', source)
         self.assertIn("python scripts/verify_deploy_health.py", source)
+
+    def test_deploy_health_default_is_ping(self):
+        health_source = HEALTH_SCRIPT_PATH.read_text(encoding="utf-8")
+
+        self.assertIn(
+            'DEFAULT_HEALTH_URL = "https://eq10.dsc.rodrigor.com/ping"',
+            health_source,
+        )
 
     def test_workflow_solicita_diagnosticos_seguros_apos_falha(self):
         source = self.read_workflow()
@@ -87,6 +101,14 @@ class TestDeployWorkflow(unittest.TestCase):
         self.assertNotIn("command:", app_block)
         self.assertNotIn("entrypoint:", app_block)
         self.assertNotIn("main.py", app_block)
+
+    def test_prod_compose_tem_um_unico_servico_web_fastapi(self):
+        source = self.read_prod_compose()
+
+        self.assertIn("  app:", source)
+        self.assertNotIn("  fastapi:", source)
+        self.assertNotIn("FASTAPI_IMAGE", source)
+        self.assertNotIn("8112:8080", source)
 
     def test_prod_compose_nao_declara_credenciais_reais_no_yaml(self):
         source = self.read_prod_compose()
@@ -117,6 +139,34 @@ class TestDeployWorkflow(unittest.TestCase):
         self.assertNotIn("OTEL_EXPORTER_OTLP_ENDPOINT", source)
         self.assertNotIn("OTEL_EXPORTER_OTLP_HEADERS", source)
         self.assertNotIn("secrets.OTEL_", source)
+
+    def test_fastapi_healthcheck_is_exec_form_ping_probe(self):
+        source = FASTAPI_DOCKERFILE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("COPY scripts/container_liveness.py", source)
+        self.assertIn(
+            'CMD ["/app/.venv/bin/python", "/app/scripts/container_liveness.py"]',
+            source,
+        )
+        self.assertNotIn("urllib.request.urlopen", source)
+        self.assertNotIn("/healthcheck', timeout", source)
+        self.assertNotIn("/health', timeout", source)
+
+    def test_nginx_proxies_all_health_contracts_to_uvicorn(self):
+        source = FASTAPI_NGINX_PATH.read_text(encoding="utf-8")
+
+        for path in ("/ping", "/healthcheck", "/health"):
+            self.assertIn(f"location = {path}", source)
+        self.assertGreaterEqual(source.count("proxy_pass http://127.0.0.1:8811"), 3)
+
+    def test_startup_requires_both_ports_before_reporting_listening(self):
+        source = FASTAPI_START_PATH.read_text(encoding="utf-8")
+
+        self.assertIn('UVICORN_READY=false', source)
+        self.assertIn('NGINX_READY=false', source)
+        self.assertIn('code=listen_timeout', source)
+        self.assertIn('kill -0 "$UVICORN_PID"', source)
+        self.assertIn('kill -0 "$NGINX_PID"', source)
 
 
 if __name__ == "__main__":

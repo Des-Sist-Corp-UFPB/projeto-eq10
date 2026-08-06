@@ -1,73 +1,70 @@
-# Liveness e readiness publicos
+# Liveness, diagnóstico e readiness — FastAPI
 
-O container publica dois endpoints distintos pelo Nginx na porta `8080`:
+A aplicação primária em produção é FastAPI/Uvicorn, servida pelo Nginx do
+mesmo container:
 
-- `GET /ping`: liveness leve. O Nginx encaminha para
-  `http://127.0.0.1:8501/_stcore/health` e confirma que o Streamlit responde.
-- `GET /health`: readiness do banco principal. O Nginx encaminha para um
-  servidor HTTP interno em `127.0.0.1:8502`, que executa `SELECT 1` usando o
-  provider autoritativo `get_auth_engine()` e somente `AUTH_DATABASE_URL` ou
-  `AUTH_DB_*`.
+```text
+cliente -> porta pública do host -> container:8080 (Nginx)
+                                      -> 127.0.0.1:8811 (Uvicorn/FastAPI)
+```
 
-O health nativo do Streamlit nao consulta o banco. Por isso `/ping` sozinho nao
-prova que login, auditoria e persistencia da aplicacao estao prontos.
+O serviço oficial do Compose é `app`, publicado apenas em
+`127.0.0.1:8110:8080`. A porta 8811 não é exposta pelo container.
 
-## Respostas
+## Contratos
 
-Banco da aplicacao acessivel:
+| Mecanismo | Semântica | Banco | HTTP |
+|---|---|---:|---:|
+| `GET /ping` | liveness do Nginx e FastAPI | não | 200 |
+| `GET /healthcheck` | heartbeat diagnóstico seguro | aplicação e analítico | sempre 200 |
+| `GET /health` | readiness do banco da aplicação | `AUTH_DB_*` / `AUTH_DATABASE_URL` | 200 ou 503 |
 
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-Cache-Control: no-store
+`/ping` retorna somente `{"status":"ok"}` e é usado pelo `HEALTHCHECK` do
+`Dockerfile.fastapi` e, por padrão, pelo verificador pós-deploy do GitHub
+Actions. O probe interno usa `/app/.venv/bin/python` e uma requisição HTTP
+direta por socket ao Nginx, sem consultar banco e sem respeitar proxies de
+ambiente.
 
+`/healthcheck` permanece HTTP 200 para que seus detalhes seguros possam ser
+lidos mesmo quando um componente está degradado.
+
+`/health` executa `SELECT 1` no banco de autenticação. Retorna:
+
+```json
 {"status":"healthy","database":"connected"}
 ```
 
-Banco da aplicacao indisponivel, configuracao ausente ou timeout:
+ou, com HTTP 503:
 
-```http
-HTTP/1.1 503 Service Unavailable
-Content-Type: application/json
-Cache-Control: no-store
-
+```json
 {"status":"unhealthy","database":"unavailable"}
 ```
 
-`HEAD /health` devolve o mesmo status sem corpo. Caminhos desconhecidos recebem
-404 e metodos nao suportados recebem 405. Nenhuma resposta inclui excecao, SQL,
-host, usuario, banco, URL ou credencial.
+O banco analítico, OpenTelemetry e Umami não alteram a resposta de readiness.
 
-O banco analitico, OpenTelemetry e Umami nao participam desse resultado. Uma
-falha no Neon analitico pode degradar o Chat IA e aparecer no painel
-administrativo sem tornar `/health` indisponivel.
+## Inspeção segura de um container unhealthy
 
-## Timeout, carga e operacao
-
-O processo de readiness reutiliza um engine SQLAlchemy com `pool_pre_ping`.
-Conexao e espera pelo pool sao limitadas a cinco segundos. O Nginx usa timeout
-de conexao de cinco segundos e leitura de seis segundos. O resultado tem cache
-interno de cinco segundos para evitar uma nova conexao a cada probe; falhas nao
-ficam ocultas por mais que esse intervalo.
-
-O processo escuta somente em `127.0.0.1:8502`. A porta não e publicada pelo
-Compose. `start.sh` inicia os tres processos e trata Streamlit e Nginx como
-componentes criticos: a saida de um deles encerra o container. Readiness e
-isolado; se ele falhar, `/ping` e o app continuam acessiveis e o Nginx devolve
-o JSON seguro de indisponibilidade com HTTP 503 em `/health`.
-
-O `HEALTHCHECK` do Docker permanece em `/ping`. Ele representa liveness e evita
-reinicios por indisponibilidade de componentes nao essenciais. A readiness do
-banco principal deve ser monitorada externamente por `/health`.
-
-## Validacao
+Não é necessário conhecer previamente o nome do container:
 
 ```bash
-curl -i https://eq10.dsc.rodrigor.com/ping
-curl -i https://eq10.dsc.rodrigor.com/health
-curl -I https://eq10.dsc.rodrigor.com/health
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+docker inspect --format '{{json .State.Health}}' <container>
+docker inspect --format '{{json .Config.Healthcheck}}' <container>
+docker exec <container> /app/.venv/bin/python /app/scripts/container_liveness.py
 ```
 
-O avaliador deve observar HTTP 200 e o JSON minimo acima em `/health`. O span
-seguro `health.application.database` usa somente os atributos
-`health.endpoint=readiness`, `health.result` e `health.category`.
+Probes internos, sem imprimir ambiente:
+
+```bash
+docker exec <container> /app/.venv/bin/python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8811/ping', timeout=3).status)"
+docker exec <container> /app/.venv/bin/python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8080/ping', timeout=3).status)"
+```
+
+O workflow fixa `APP_HEALTH_URL` em
+`https://eq10.dsc.rodrigor.com/ping`; esse também é o valor padrão de
+`scripts/verify_deploy_health.py`. Assim, uma variável antiga do repositório
+não consegue trocar liveness por uma rota dependente de banco.
+
+O monitor do portal do professor deve usar `/ping` para disponibilidade. O
+endpoint configurado fora do repositório precisa ser confirmado no ambiente do
+professor; não é inferido pela aplicação.
