@@ -272,6 +272,9 @@ Este documento constitui o registro oficial do histórico de **todos os commits*
 | **`513d2d9`** | 2026-08-04 | Gabriel Nunes | fix: HEALTHCHECK usa socket TCP na porta 8080 — sem HTTP, sem banco, sem timeout de aplicacao |
 | **`4ca19b9`** | 2026-08-04 | Gabriel Nunes | feat: adiciona rota /ping e configuracao nginx para monitoramento de liveness do portal do professor |
 | **`13726ce`** | 2026-08-04 | Gabriel Nunes | docs: adiciona registro.md contendo historico completo de commits, topicos de evolucao e linha do tempo |
+| **`d77b926`** | 2026-08-04 | Gabriel Nunes | docs: atualiza registro.md reestruturando commits por Estagio vs Disciplina e detalhando mirror do Riansito |
+| **`c40296a`** | 2026-08-06 | Heloísa Duarte | fix: align FastAPI container health checks |
+| **`04dbae6`** | 2026-08-07 | Gabriel Nunes | revert: volta deploy para Streamlit legado (Dockerfile.chat) — FastAPI com problema de unhealthy |
 
 ---
 
@@ -281,12 +284,12 @@ Visão geral sintética da autoria e do papel dos contribuidores nas duas etapas
 
 | Autor / Contribuidor | Período de Atuação | Papel e Responsabilidades Técnicas | Commits (Estágio) | Commits (Disciplina) | Total Geral |
 | :--- | :--- | :--- | :---: | :---: | :---: |
-| **Gabriel Nunes** | Estágio + Disciplina | Engenharia de Dados (ETL/Estágio), DevOps CI/CD, Migração FastAPI, Liveness Probes e Segurança | 21 | 52 | **73** |
-| **Heloísa Duarte** | Disciplina | Engenharia de Software (Disciplina), IA Segura, Observabilidade (OTel/Umami) e Migração FastAPI | 0 | 68 | **68** |
+| **Gabriel Nunes** | Estágio + Disciplina | Engenharia de Dados (ETL/Estágio), DevOps CI/CD, Migração FastAPI, Liveness Probes e Segurança | 21 | 54 | **75** |
+| **Heloísa Duarte** | Disciplina | Engenharia de Software (Disciplina), IA Segura, Observabilidade (OTel/Umami) e Migração FastAPI | 0 | 69 | **69** |
 | **Riansito** | Estágio (via Mirror) | Pipeline ETL original, Tratamento DATASUS e Dashboards Power BI no Estágio (via Mirror) | 37 | 0 | **37** |
 | **Prof. Rodrigo Rebouças** | Disciplina (Mentoria/Docs) | Professor da Disciplina — Templates de avaliação K6, guias MCP, telemetria e infra self-hosted | 0 | 15 | **15** |
 
-> **Totais Catalogados:** **58** commits durante o Estágio + **135** commits durante a Disciplina = **193** commits no histórico geral do repositório.
+> **Totais Catalogados:** **58** commits durante o Estágio + **138** commits durante a Disciplina = **196** commits no histórico geral do repositório.
 
 ---
 
@@ -309,4 +312,5 @@ timeline
     section Maturidade Final<br>(Agosto/2026)
         01 a 03 Ago : Cutover para FastAPI : Substituição Definitiva do Streamlit por Backend FastAPI e Frontend Jinja2/CSS
         04 Ago : Entrega da Task J : Cobertura Recorde de Testes (93.64%), Endpoint /ping e normalização do monitoramento no Portal do Professor
+        06 a 07 Ago : Rollback de Segurança : Regressão para a interface Streamlit legado após instabilidade no container FastAPI ("running (unhealthy)"), mesmo estando acessível via URL.
 ```
