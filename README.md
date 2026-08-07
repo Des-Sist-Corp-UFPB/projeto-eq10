@@ -1,7 +1,7 @@
 # SEC-MME - Analise de Dados SIA/DATASUS
 
 Projeto de ETL e visualizacao analitica para dados ambulatoriais do SIA/DATASUS, com carga em PostgreSQL e relatorio Power BI versionado no repositorio.
-
+Link do vídeo: https://youtu.be/nyPO3XUHNe8
 ## O que este projeto faz
 
 - Baixa arquivos `PA` do SIA/DATASUS para a UF `PB`.
